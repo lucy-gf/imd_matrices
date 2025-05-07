@@ -1,0 +1,156 @@
+
+######################################
+## TESTING METHODS OF INFERRING IMD ##
+### FROM PCD1 AND CENSUS VARIABLES ###
+######################################
+
+## Training dataset: England population
+
+## Testing dataset: Connect participants
+
+## Variables of interest:
+# 1. First half of postcode (pcd1)
+# 2. Age group
+# 3. Ethnicity? Likely not
+# 4. Housing tenure
+# 5. Household income (adults only)
+# 6. Highest qualification (adults only)
+# 7. Household size
+
+## LSOA data (England only as ONS IMD not comparable across devolved nations)
+
+# Matching postcodes to LSOAs
+# https://geoportal.statistics.gov.uk/datasets/3770c5e8b0c24f1dbe6d2fc6b46a0b18 
+pcd_to_lsoa <- data.table(read_csv(here::here('data','ons','PCD_OA21_LSOA21_MSOA21_LAD_AUG23_UK_LU.csv'), show_col_types = F) %>% 
+                            select(starts_with('pcd'),'lsoa21cd'))
+pcd_imd <- pcd_to_lsoa %>% 
+  separate_wider_delim(pcds, delim = " ", names = c("pcd1", "pcd2")) 
+
+pcd_imd <- unique(data.table(pcd_imd[,c('pcd1','lsoa21cd')]))
+pcd_imd <- pcd_imd[substr(lsoa21cd, 1, 1) == 'E',]
+
+cat('Unique pcd1s: ', n_distinct(pcd_imd$pcd1), ', Unique LSOAs: ', n_distinct(pcd_imd$lsoa21cd), '\n', sep = '')
+
+# add populations (Mid-2022)
+# (https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/lowersuperoutputareamidyearpopulationestimates)
+
+ew_pop <- data.table(read_xlsx(here::here('data','ons','sapelsoasyoa20192022.xlsx'), sheet = 8, skip = 3))
+ew_pop <- ew_pop[substr(`LSOA 2021 Code`, 1, 1) == 'E', ]
+colnames(ew_pop) <- c('lad21cd','lad21nm','lsoa21cd','lsoa21nm','total', paste0('F',as.character(0:90)), paste0('M',as.character(0:90)))
+
+ew_pop_l <- melt(ew_pop, id.vars = c('lad21cd','lad21nm','lsoa21cd','lsoa21nm','total'))
+ew_pop_l[, gender := substr(variable,1,1)]
+ew_pop_l[, age := as.numeric(gsub("\\D", "", variable))]
+ew_pop_l[, lower := age - (age %% 5)]
+ew_pop_l[lower > 75, lower := 75]
+ew_pop_l[, age_grp := paste0(lower, '-', lower + 4)]
+ew_pop_l[lower == 75, age_grp := '75+']
+
+ew_pop_agg <- ew_pop_l[, c('lsoa21cd','age_grp','value')][, lapply(.SD, sum), by = c('lsoa21cd','age_grp')]
+setnames(ew_pop_agg, 'value', 'population')
+
+pcd_imd <- full_join(pcd_imd, ew_pop_agg, relationship = 'many-to-many')
+cat('Total population (millions):', round(sum(pcd_imd$population)/1e6, 1), ', LSOAs spanning multiple pcd1s:', 
+    nrow(data.table(table(pcd_imd$lsoa21cd))[N > 1]), '/', n_distinct(pcd_imd$lsoa21cd), '\n')
+# Population will be greater than Eng pop where one LSOA spans 2 pcd1s
+
+# IMD by LSOA
+# (https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019)
+
+lsoa_imd <- data.table(read_xlsx(here::here('data','ons','File_2_-_IoD2019_Domains_of_Deprivation.xlsx'), sheet = 2) %>% 
+                         select(starts_with('LSOA'),starts_with('Overall'),starts_with('Index')))
+colnames(lsoa_imd) <- c('lsoa21cd','lsoa21nm','imd_rank','imd_decile')
+lsoa_imd[, imd_quintile := ceiling(imd_decile/2)]
+
+pcd_imd <- pcd_imd[lsoa_imd[lsoa21cd %in% unique(pcd_imd$lsoa21cd)][, c('lsoa21cd','imd_quintile')], on = 'lsoa21cd']
+cat('Unique LSOAs:', n_distinct(pcd_imd$lsoa21cd), ', IMD distribution:', round(prop.table(table(pcd_imd$imd_quintile)), 3), '\n')
+# TODO - some missing, fix?
+
+## Urban/rural
+# https://geoportal.statistics.gov.uk/search?q=PRD_RUC_LSOA%202021&sort=Date%20Created%7Ccreated%7Cdesc
+lsoa_ur <- data.table(read_csv(here::here('data','ons','Rural_Urban_Classification_(2021)_of_LSOAs_in_EW.csv'), show_col_types = F))[, c(1, 6)]
+colnames(lsoa_ur) <- c('lsoa21cd','urban_rural')
+
+pcd_imd <- pcd_imd[lsoa_ur[lsoa21cd %in% unique(pcd_imd$lsoa21cd)], on = 'lsoa21cd']
+
+## Regions of England
+# https://geoportal.statistics.gov.uk/datasets/ons::lsoa-2021-to-bua-to-lad-to-region-december-2022-best-fit-lookup-in-ew-v2/about
+lsoa_to_reg <- data.table(read_csv(here::here('data','ons','lsoa_to_region.csv'), show_col_types = F))[, c(1,11)]
+colnames(lsoa_to_reg) <- c('lsoa21cd','eng_reg')
+
+pcd_imd <- pcd_imd[lsoa_to_reg[lsoa21cd %in% unique(pcd_imd$lsoa21cd)], on = 'lsoa21cd']
+
+
+
+#####################
+#### CENSUS DATA ####
+#####################
+
+## Census datasource:
+## https://www.ons.gov.uk/datasets/create
+
+## DATASET 1 ##
+
+# Population: All usual residents 
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Age, Highest level of qualification
+
+hiqual <- data.table(read_csv(here::here('data','census','hiqual.csv'), show_col_types = F))
+colnames(hiqual) <- c('lsoa21cd','lsoa21nm','hiqual_cd','hiqual_nm','age_cd','age_nm','n_obs')
+
+hiqual <- hiqual[unique(pcd_imd[, c('lsoa21cd','imd_quintile')]), on = 'lsoa21cd']
+
+# hiqual %>% 
+#   group_by(imd_quintile, age_nm, hiqual_cd) %>% 
+#   summarise(n = sum(n_obs)) %>% 
+#   filter(n > 0) %>% 
+#   group_by(age_nm, imd_quintile) %>% 
+#   mutate(n_imd = sum(n)) %>% 
+#   ggplot() +
+#   geom_line(aes(x = as.factor(hiqual_cd), y = n/n_imd, col = imd_quintile, group = imd_quintile)) +
+#   theme_bw() + scale_fill_viridis() +
+#   facet_wrap(age_nm ~ .)
+
+## DATASET 2 ##
+
+# Population: All usual residents 
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Age (18 categories), Ethnic group (6 categories)
+
+# 32,643 out of 35,672 areas available
+# Protecting personal data will prevent 3,029 areas from being published.
+
+age_ethn <- data.table(read_csv(here::here('data','census','age_ethn.csv'), show_col_types = F))
+colnames(age_ethn) <- c('lsoa21cd','lsoa21nm','age_cd','age_nm','ethn_cd','ethn_nm','population')
+
+age_ethn <- age_ethn[unique(pcd_imd[, c('lsoa21cd','imd_quintile','urban_rural','eng_reg')]), on = 'lsoa21cd']
+
+## DATASET 3 ##
+
+# Population: All households
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Household size, Tenure of household
+# Choose 7 categories for household size
+
+# 31,502 out of 35,672 areas available
+# Protecting personal data will prevent 4,170 areas from being published.
+
+hh_st <- data.table(read_csv(here::here('data','census','household_size_tenure.csv'), show_col_types = F))
+colnames(hh_st) <- c('lsoa21cd','lsoa21nm','hh_size_cd','hh_size_nm','hh_tenure_cd','hh_tenure_nm','n_obs')
+hh_st <- hh_st[lsoa21cd %in% unique(pcd_imd$lsoa21cd),]
+
+
+
+
+
+
+
+
+
+
