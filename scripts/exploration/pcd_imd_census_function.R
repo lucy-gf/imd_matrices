@@ -36,6 +36,8 @@ infer_imd <- function(
                          probability = 0)) %>% 
     arrange(imd_quintile)
   
+  # print(nrow(data))
+  
   if(modal == F){
     
     ## assign IMD according to probabilities
@@ -117,6 +119,16 @@ sample_imd <- function(
   
 }
 
+
+## FUNCTION TO SIMPLIFY VARIABLE LABELS ##
+
+simp_labels <- function(string){
+  string <- gsub('_cd','',string)
+  string <- gsub('_nm','',string)
+  string <- gsub('_grp','',string)
+}
+
+
 ## FUNCTION TO PRODUCE VALIDATION OUTPUTS ##
 
 validate_imd <- function(
@@ -124,10 +136,13 @@ validate_imd <- function(
     variables,
     lsoa_data,
     interval_width = 0.5,
+    output_area = 'lsoa21cd',
     modal = F # T = deterministic, F = probabilistic
 ){
   
   method <- if(modal){'deterministic'}else{'probabilistic'}
+  
+  simp_variables <- unname(sapply(variables, simp_labels))
   
   lsoa_data <- data.table(lsoa_data)
   
@@ -135,16 +150,20 @@ validate_imd <- function(
   
   # format sampled data
   if(modal == F){
-    lsoa_samples <- samples[, c('lsoa21cd','imd_samples')]
+    select_vec <- unique(c(output_area,'lsoa21cd','imd_samples'))
+    sum_vec <- unique(c(output_area,'lsoa21cd','sampled_imd_quintile'))
+    lsoa_samples <- samples[, ..select_vec]
     lsoa_samples_l <- data.table(unnest(lsoa_samples, 'imd_samples'))
     lsoa_samples_l[, sampled_imd_quintile := rep(1:5, nrow(lsoa_samples_l)/5)]
-    lsoa_samples_l <- lsoa_samples_l[, lapply(.SD, sum), by = c('lsoa21cd', 'sampled_imd_quintile')]
+    lsoa_samples_l <- lsoa_samples_l[, lapply(.SD, sum), by = sum_vec]
   }else{
-    lsoa_samples_l <- samples[, c('lsoa21cd','n','which_max')]
-    colnames(lsoa_samples_l) <- c('lsoa21cd','imd_samples','sampled_imd_quintile')
-    lsoa_samples_l <- lsoa_samples_l[, lapply(.SD, sum), by = c('lsoa21cd', 'sampled_imd_quintile')]
+    select_vec <- unique(c(output_area,'lsoa21cd','n','which_max'))
+    sum_vec <- unique(c(output_area,'lsoa21cd','sampled_imd_quintile'))
+    lsoa_samples_l <- samples[, ..select_vec]
+    colnames(lsoa_samples_l) <- c(output_area,'imd_samples','sampled_imd_quintile')
+    lsoa_samples_l <- lsoa_samples_l[, lapply(.SD, sum), by = sum_vec]
     lsoa_samples_l <- lsoa_samples_l %>%
-      complete(lsoa21cd,
+      complete(!!sym(output_area),
                sampled_imd_quintile = 1:5,
                fill = list(imd_samples = 0)) 
     lsoa_samples_l <- data.table(lsoa_samples_l)
@@ -155,40 +174,77 @@ validate_imd <- function(
   vars_of_int <- c('lsoa21cd','imd_quintile','urban_rural','eng_reg')
   lsoa_check <- unique(lsoa_data[, ..vars_of_int])
   
-  lsoa_combined <- lsoa_samples_l[lsoa_check, on = 'lsoa21cd']
+  lsoa_combined <- lsoa_samples_l[lsoa_check[lsoa21cd %in% unique(lsoa_samples_l[,lsoa21cd])], on = 'lsoa21cd']
   
-  lsoa_combined_out <- lsoa_combined %>% 
-    group_by(!!!syms(vars_of_int)) %>% 
-    mutate(n_lsoa = sum(imd_samples)) %>% 
-    filter(sampled_imd_quintile == imd_quintile) %>% 
-    mutate(prop_correct = imd_samples/n_lsoa,
-           prop_incorrect = (n_lsoa - imd_samples)/n_lsoa) %>% 
-    select(! sampled_imd_quintile)
+  vars_of_int <- c(output_area,'n_lsoa')
+  if(output_area == 'lsoa21cd'){vars_of_int <- c(vars_of_int, 'imd_quintile','urban_rural','eng_reg')}
   
-  cat('Using vars: ', paste(variables, collapse = ', '), ' (', method,' method)\n',
+  if(output_area == 'pcd1'){
+    lsoa_combined_out <- lsoa_combined %>% 
+      group_by(!!sym(output_area)) %>% 
+      mutate(n_lsoa = sum(imd_samples)) %>% 
+      filter(sampled_imd_quintile == imd_quintile) %>% 
+      group_by(!!!syms(vars_of_int)) %>%
+      summarise(imd_samples = sum(imd_samples),
+                urban_rural = names(which(table(urban_rural) == max(table(urban_rural)))[1]),
+                eng_reg = names(which(table(eng_reg) == max(table(eng_reg)))[1])) %>% 
+      mutate(prop_correct = imd_samples/n_lsoa,
+             prop_incorrect = (n_lsoa - imd_samples)/n_lsoa)
+    
+    lsoa_closest <- lsoa_combined %>% 
+      group_by(!!sym(output_area)) %>% 
+      mutate(n_lsoa = sum(imd_samples)) %>% 
+      mutate(correct_imd = (sampled_imd_quintile == imd_quintile),
+             one_away_imd = abs(sampled_imd_quintile - imd_quintile) == 1) %>% 
+      filter(correct_imd | one_away_imd) %>% 
+      group_by(!!!syms(vars_of_int)) %>% 
+      mutate(urban_rural = names(which(table(urban_rural) == max(table(urban_rural)))[1]),
+             eng_reg = names(which(table(eng_reg) == max(table(eng_reg)))[1])) %>% 
+      group_by(!!!syms(vars_of_int), urban_rural, eng_reg, correct_imd, one_away_imd) %>% 
+      summarise(imd_samples = sum(imd_samples)) %>% 
+      ungroup() %>% 
+      mutate(distance = case_when(correct_imd ~ 'correct_imd',
+                                  T ~ 'one_away_imd')) %>% 
+      select(! c(correct_imd, one_away_imd)) %>% 
+      pivot_wider(id_cols = c(all_of(vars_of_int),'urban_rural','eng_reg','n_lsoa'),
+                  names_from = distance, values_from = imd_samples) %>% 
+      mutate(prop_correct = correct_imd/n_lsoa,
+             prop_one_away = one_away_imd/n_lsoa)
+  }else{
+    lsoa_combined_out <- lsoa_combined %>% 
+      group_by(!!sym(output_area)) %>% 
+      mutate(n_lsoa = sum(imd_samples)) %>% 
+      filter(sampled_imd_quintile == imd_quintile) %>% 
+      group_by(!!!syms(vars_of_int)) %>%
+      summarise(imd_samples = sum(imd_samples)) %>% 
+      mutate(prop_correct = imd_samples/n_lsoa,
+             prop_incorrect = (n_lsoa - imd_samples)/n_lsoa)
+    
+    lsoa_closest <- lsoa_combined %>% 
+      group_by(!!sym(output_area)) %>% 
+      mutate(n_lsoa = sum(imd_samples)) %>% 
+      mutate(correct_imd = (sampled_imd_quintile == imd_quintile),
+             one_away_imd = abs(sampled_imd_quintile - imd_quintile) == 1) %>% 
+      filter(correct_imd | one_away_imd) %>% 
+      group_by(!!!syms(vars_of_int), correct_imd, one_away_imd) %>% 
+      summarise(imd_samples = sum(imd_samples)) %>% 
+      ungroup() %>% 
+      mutate(distance = case_when(correct_imd ~ 'correct_imd',
+                                  T ~ 'one_away_imd')) %>% 
+      select(! c(correct_imd, one_away_imd)) %>% 
+      pivot_wider(id_cols = c(all_of(vars_of_int), 'n_lsoa'),
+                  names_from = distance, values_from = imd_samples) %>% 
+      mutate(prop_correct = correct_imd/n_lsoa,
+             prop_one_away = one_away_imd/n_lsoa)
+  }
+  
+  cat('Using vars: ', paste(variables, collapse = ', '), ' (', method,' method) (output area = ',output_area,')\n',
       'Total assigned correctly: ', round(sum(lsoa_combined_out$imd_samples)/1e6, 1), 
       ' mill (', 100*signif(sum(lsoa_combined_out$imd_samples)/sum(lsoa_combined_out$n_lsoa), 2),
       '%, ', 100*interval_width,'% int. ', 100*signif(quantile(lsoa_combined_out$imd_samples/lsoa_combined_out$n_lsoa, (1 - interval_width)/2), 2),
       '% - ', 100*signif(quantile(lsoa_combined_out$imd_samples/lsoa_combined_out$n_lsoa, (1 - (1 - interval_width)/2)), 2),
       '%)\n\n', 
       sep = '')
-  
-  lsoa_closest <- lsoa_combined %>% 
-    group_by(!!!syms(vars_of_int)) %>% 
-    mutate(n_lsoa = sum(imd_samples)) %>% 
-    mutate(correct_imd = (sampled_imd_quintile == imd_quintile),
-           one_away_imd = abs(sampled_imd_quintile - imd_quintile) == 1) %>% 
-    filter(correct_imd | one_away_imd) %>% 
-    group_by(!!!syms(vars_of_int), n_lsoa, correct_imd, one_away_imd) %>% 
-    summarise(imd_samples = sum(imd_samples)) %>% 
-    ungroup() %>% 
-    mutate(distance = case_when(correct_imd ~ 'correct_imd',
-                                T ~ 'one_away_imd')) %>% 
-    select(! c(correct_imd, one_away_imd)) %>% 
-    pivot_wider(id_cols = c(all_of(vars_of_int), 'n_lsoa'),
-                names_from = distance, values_from = imd_samples) %>% 
-    mutate(prop_correct = correct_imd/n_lsoa,
-           prop_one_away = one_away_imd/n_lsoa)
   
   measure_in <- if(modal){'mean'}else('median')
     
@@ -204,18 +260,35 @@ validate_imd <- function(
   plot3 <- plot_density(lsoa_combined_out, 'eng_reg')
   tab3 <- plot_median_table(lsoa_combined_out, 'eng_reg', measure = measure_in)
   
-  # IMD quintiles
-  plot4 <- plot_density(lsoa_combined_out, 'imd_quintile')
-  tab4 <- plot_median_table(lsoa_combined_out, 'imd_quintile', measure = measure_in)
-  
-  plot1 + tab1 + plot3 + tab3 + plot2 + tab2 + plot4 + tab4 + 
-    plot_layout(nrow = 2, guides = 'collect', axis_titles = 'collect',
-                widths = c(6,1,6,1)) +
-    plot_annotation(title = paste0('Proportion of LSOA population assigned correct IMD, using: ', paste0(variables, collapse = ', ')),
-                    theme = theme(plot.title = element_text(size = 16))) 
-  
-  ggsave(here::here('output','figures','exploratory',method,paste0('imd_fit_',paste0(variables, collapse = '_'),'.png')),
-         width = 12, height = 10)
+  if(output_area == 'lsoa21cd'){
+    # IMD quintiles
+    plot4 <- plot_density(lsoa_combined_out, 'imd_quintile')
+    tab4 <- plot_median_table(lsoa_combined_out, 'imd_quintile', measure = measure_in)
+    
+    plot1 + tab1 + plot3 + tab3 + plot2 + tab2 + plot4 + tab4 + 
+      plot_layout(nrow = 2, guides = 'collect', axis_titles = 'collect',
+                  widths = c(6,1,6,1)) +
+      plot_annotation(title = paste0('Proportion of ', format_legend(output_area),' population assigned correct IMD, using: ', paste0(variables, collapse = ', ')),
+                      theme = theme(plot.title = element_text(size = 16))) 
+    
+    ggsave(here::here('output','figures','exploratory',method,'lsoa_props',paste0('imd_fit_',output_area,'_',paste0(simp_variables, collapse = '_'),'.png')),
+           width = 12, height = 10)
+  }else{
+    layout <- '
+    AAAAAABCCCCCCD
+    AAAAAABCCCCCCD
+    EEEEEEFCCCCCCD
+    EEEEEEFCCCCCCD
+    '
+    plot1 + tab1 + plot3 + tab3 + plot2 + tab2 + 
+      plot_layout(nrow = 2, guides = 'collect', axis_titles = 'collect',
+                  design = layout) +
+      plot_annotation(title = paste0('Proportion of ', format_legend(output_area),' population assigned correct IMD, using: ', paste0(variables, collapse = ', ')),
+                      theme = theme(plot.title = element_text(size = 16))) 
+    
+    ggsave(here::here('output','figures','exploratory',method,'pcd1_props',paste0('imd_fit_',output_area,'_',paste0(simp_variables, collapse = '_'),'.png')),
+           width = 12, height = 7)
+  }
   
   # how many within 1 quintile?
   
@@ -231,18 +304,38 @@ validate_imd <- function(
   plot3 <- plot_density(lsoa_closest, 'eng_reg', within_one = T)
   tab3 <- plot_median_table(lsoa_closest, 'eng_reg', measure = measure_in, within_one = T)
   
-  # IMD quintiles
-  plot4 <- plot_density(lsoa_closest, 'imd_quintile', within_one = T)
-  tab4 <- plot_median_table(lsoa_closest, 'imd_quintile', measure = measure_in, within_one = T)
-  
-  plot1 + tab1 + plot3 + tab3 + plot2 + tab2 + plot4 + tab4 + 
-    plot_layout(nrow = 2, guides = 'collect', axis_titles = 'collect',
-                widths = c(6,1,6,1)) +
-    plot_annotation(title = paste0('Proportion of LSOA population assigned correct IMD within 1 quintile, using: ', paste0(variables, collapse = ', ')),
-                    theme = theme(plot.title = element_text(size = 16))) 
-  
-  ggsave(here::here('output','figures','exploratory',method,paste0('imd_fit_within_one_',paste0(variables, collapse = '_'),'.png')),
-         width = 12, height = 10)
+  if(output_area == 'lsoa21cd'){
+    # IMD quintiles
+    plot4 <- plot_density(lsoa_closest, 'imd_quintile', within_one = T)
+    tab4 <- plot_median_table(lsoa_closest, 'imd_quintile', measure = measure_in, within_one = T)
+    
+    plot1 + tab1 + plot3 + tab3 + plot2 + tab2 + plot4 + tab4 + 
+      plot_layout(nrow = 2, guides = 'collect', axis_titles = 'collect',
+                  widths = c(6,1,6,1)) +
+      plot_annotation(title = paste0('Proportion of ', format_legend(output_area),' population assigned correct IMD within 1 quintile, using: ', paste0(variables, collapse = ', ')),
+                      theme = theme(plot.title = element_text(size = 16))) 
+    
+    ggsave(here::here('output','figures','exploratory',method,'lsoa_props_within_one',paste0('imd_fit_within_one_',output_area,'_',paste0(simp_variables, collapse = '_'),'.png')),
+           width = 12, height = 10)
+    
+  }else{
+    layout <- '
+    AAAAAABBCCCCCCDD
+    AAAAAABBCCCCCCDD
+    EEEEEEFFCCCCCCDD
+    EEEEEEFFCCCCCCDD
+    '
+
+    plot1 + tab1 + plot3 + tab3 + plot2 + tab2 + 
+      plot_layout(nrow = 2, guides = 'collect', axis_titles = 'collect',
+                  design = layout) +
+      plot_annotation(title = paste0('Proportion of ', format_legend(output_area),' population assigned correct IMD within 1 quintile, using: ', paste0(variables, collapse = ', ')),
+                      theme = theme(plot.title = element_text(size = 16))) 
+    
+    ggsave(here::here('output','figures','exploratory',method,'pcd1_props_within_one',paste0('imd_fit_within_one_',output_area,'_',paste0(simp_variables, collapse = '_'),'.png')),
+           width = 12, height = 7)
+    
+  }
   
   if(length(variables[which(!variables == 'pcd1')]) > 0 &
      modal == F){
@@ -278,7 +371,7 @@ validate_imd <- function(
                      alpha = 0.6, lwd = 0.8) + labs(fill = plot_var, color = plot_var) +
         theme_bw() + labs(x = 'Proportion correct', y = 'Density')
       
-      ggsave(here::here('output','figures','exploratory',method,paste0('imd_fit_',length(non_pcd_vars),'_',plot_var,'_by_var.png')),
+      ggsave(here::here('output','figures','exploratory',method,'var_distribution',paste0('imd_fit_',length(non_pcd_vars),'_',simp_labels(plot_var),'_by_var.png')),
              width = 7, height = 6)
       
     }
@@ -289,14 +382,33 @@ validate_imd <- function(
                 lower = quantile(prop_correct, (1 - interval_width)/2),
                 upper = quantile(prop_correct, (1 - (1 - interval_width)/2)))
     
-    write_csv(out_dt2, here::here('output','data','exploratory',method,paste0('prop_correct_', paste(non_pcd_vars, collapse = '_'),'.rds')))
+    write_csv(out_dt2, here::here('output','data','exploratory',method,paste0('prop_correct_', paste(unname(sapply(non_pcd_vars, simp_labels)), collapse = '_'),'.rds')))
     
+    if(length(non_pcd_vars) == 2){
+      out_dt2 %>% 
+        ggplot() + 
+        geom_tile(aes(x = get(non_pcd_vars[1]), y = get(non_pcd_vars[2]),
+                      fill = med)) + 
+        geom_text(aes(x = get(non_pcd_vars[1]), y = get(non_pcd_vars[2]),
+                      label = signif(med, 3)), col = 'white') + 
+        theme_bw() + 
+        labs(x = simp_labels(non_pcd_vars[1]),
+             y = simp_labels(non_pcd_vars[2]),
+             fill = 'Median')
+       ggsave(here::here('output','figures','exploratory',method,'var_distribution',
+                         paste0('median_fit_',paste(non_pcd_vars, collapse = '_'),'.png')),
+             width = 14, height = 10)
+    }
+      
   }
   
   ## save dt
   
+  save_vars <- c('urban_rural','eng_reg')
+  if(output_area == 'lsoa21cd'){save_vars <- c(save_vars, 'imd_quintile')}
+  
   out_dt <- data.frame()
-  for(var in c('imd_quintile','urban_rural','eng_reg')){
+  for(var in save_vars){
     if(modal){
       out_dt <- rbind(out_dt,
                       lsoa_combined_out %>% mutate(variable = var) %>% group_by(variable, !!sym(var)) %>% 
@@ -336,7 +448,7 @@ plot_density <- function(data,
     ggplot(data_plot) + 
       geom_density(aes(x = prop_correct, weight = n_lsoa), fill = 'grey', lwd = 0.8) +
       theme_bw() + labs(x = paste0('Proportion ', ifelse(within_one, 'within one IMD quintile', 'correct')),
-                        y = 'Density') 
+                        y = 'Density') + xlim(c(0,1))
     
   }else{
     
@@ -362,7 +474,7 @@ plot_density <- function(data,
       theme_bw() + labs(x = paste0('Proportion ', ifelse(within_one, 'within one IMD quintile', 'correct')),
                         y = 'Density',
                         fill = legend_name,
-                        color = legend_name) 
+                        color = legend_name) + xlim(c(0,1))
     
   }
   
@@ -392,7 +504,7 @@ plot_median_table <- function(data,
     ggplot(data_agg) + 
       geom_tile(aes(x = x, y = y), fill = 'grey') +
       geom_text(aes(x = x, y = y,
-                    label = round(m, 2))) +
+                    label = signif(m, 2))) +
       theme_void() +
       labs(x = '', y = '') +
       theme(legend.position = 'none',
@@ -454,6 +566,8 @@ format_legend <- function(string){
   if(string == 'imd_quintile'){return('IMD quintile')}
   if(string == 'eng_reg'){return('Region')}
   if(string == 'urban_rural'){return('Urban/rural')}
+  if(string == 'lsoa21cd'){return('LSOA')}
+  if(string == 'pcd1'){return('PCD1')}
   
 }
 

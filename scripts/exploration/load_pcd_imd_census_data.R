@@ -95,23 +95,47 @@ pcd_imd <- pcd_imd[lsoa_to_reg[lsoa21cd %in% unique(pcd_imd$lsoa21cd)], on = 'ls
 # Area type: Lower layer Super Output Area
 # Coverage: England and Wales
 
-# Variables: Age, Highest level of qualification
+# Variables: Age (17 categories), Highest level of qualification
+
+# 35,277 out of 35,672 areas available
+# Protecting personal data will prevent 395 areas from being published.
 
 hiqual <- data.table(read_csv(here::here('data','census','hiqual.csv'), show_col_types = F))
-colnames(hiqual) <- c('lsoa21cd','lsoa21nm','hiqual_cd','hiqual_nm','age_cd','age_nm','n_obs')
+colnames(hiqual) <- c('lsoa21cd','lsoa21nm','age_cd','age_nm','hiqual_cd','hiqual_nm','population')
+hiqual[hiqual_cd == 0, hiqual_nm_short := 'No qualifications']
+hiqual[hiqual_cd == 1, hiqual_nm_short := '1-4 GCSEs']
+hiqual[hiqual_cd == 2, hiqual_nm_short := '5+ GCSEs']
+hiqual[hiqual_cd == 3, hiqual_nm_short := '2+ A levels']
+hiqual[hiqual_cd == 4, hiqual_nm_short := 'Degree']
+hiqual[hiqual_cd == 5, hiqual_nm_short := 'Apprentice/vocational']
 
-hiqual <- hiqual[unique(pcd_imd[, c('lsoa21cd','imd_quintile')]), on = 'lsoa21cd']
+# merge with postcodes
+hiqual_pcd1 <- full_join(hiqual, unique(pcd_imd[, c('pcd1','lsoa21cd','imd_quintile','urban_rural','eng_reg')]), by = 'lsoa21cd', relationship = 'many-to-many')
+hiqual_pcd1 <- data.table(hiqual_pcd1 %>% filter(!is.na(population), !is.na(pcd1)))
 
-# hiqual %>% 
-#   group_by(imd_quintile, age_nm, hiqual_cd) %>% 
-#   summarise(n = sum(n_obs)) %>% 
-#   filter(n > 0) %>% 
-#   group_by(age_nm, imd_quintile) %>% 
-#   mutate(n_imd = sum(n)) %>% 
-#   ggplot() +
-#   geom_line(aes(x = as.factor(hiqual_cd), y = n/n_imd, col = imd_quintile, group = imd_quintile)) +
-#   theme_bw() + scale_fill_viridis() +
-#   facet_wrap(age_nm ~ .)
+# only using hiqual for 18+:
+hiqual_pcd1 <- hiqual_pcd1[age_cd > 2, ]
+
+# remove hiqual categories with no observations ('Does not apply')
+cd_remove <- (hiqual_pcd1 %>% group_by(hiqual_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$hiqual_cd
+cd_remove <- unname(cd_remove)
+hiqual_pcd1 <- hiqual_pcd1[hiqual_cd != cd_remove, ]
+
+hiqual_pcd1$hiqual_nm_short <- factor(hiqual_pcd1$hiqual_nm_short,
+                                      levels = unique(hiqual_pcd1$hiqual_nm_short))
+
+hiqual_pcd1 %>%
+  group_by(age_nm, imd_quintile, eng_reg) %>%
+  mutate(n = sum(population)) %>% 
+  group_by(age_nm, hiqual_nm_short, imd_quintile, eng_reg, n) %>%
+  summarise(s = sum(population)) %>%
+  ggplot() + 
+  geom_line(aes(x = age_nm, y = s/n, color = imd_quintile,
+                group = imd_quintile)) + 
+  theme_bw() + facet_grid(hiqual_nm_short ~ eng_reg, scales = 'free') +
+  labs(y = 'Proportion') + ylim(c(0,NA)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
 
 ## DATASET 2 ##
 
@@ -126,8 +150,29 @@ hiqual <- hiqual[unique(pcd_imd[, c('lsoa21cd','imd_quintile')]), on = 'lsoa21cd
 
 age_ethn <- data.table(read_csv(here::here('data','census','age_ethn.csv'), show_col_types = F))
 colnames(age_ethn) <- c('lsoa21cd','lsoa21nm','age_cd','age_nm','ethn_cd','ethn_nm','population')
+age_ethn <- age_ethn[substr(lsoa21cd,1,1) == 'E']
 
-age_ethn <- age_ethn[unique(pcd_imd[, c('lsoa21cd','imd_quintile','urban_rural','eng_reg')]), on = 'lsoa21cd']
+# merge with postcodes
+age_ethn_pcd1 <- full_join(age_ethn, unique(pcd_imd[, c('pcd1','lsoa21cd','imd_quintile','urban_rural','eng_reg')]), by = 'lsoa21cd', relationship = 'many-to-many')
+age_ethn_pcd1 <- data.table(age_ethn_pcd1 %>% filter(!is.na(population), !is.na(pcd1)))
+
+# remove hiqual categories with no observations ('Does not apply')
+cd_remove <- (age_ethn_pcd1 %>% group_by(ethn_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$ethn_cd
+cd_remove <- unname(cd_remove)
+age_ethn_pcd1 <- age_ethn_pcd1[ethn_cd != cd_remove, ]
+
+age_ethn_pcd1 %>%
+  group_by(age_nm, imd_quintile, eng_reg) %>%
+  mutate(n = sum(population)) %>% 
+  group_by(age_nm, ethn_nm, imd_quintile, eng_reg, n) %>%
+  summarise(s = sum(population)) %>%
+  ggplot() + 
+  geom_line(aes(x = age_nm, y = s/n, color = imd_quintile,
+                group = imd_quintile)) + 
+  theme_bw() + facet_grid(ethn_nm ~ eng_reg, scales = 'free') + 
+  labs(y = 'Proportion') + ylim(c(0,NA)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
 
 ## DATASET 3 ##
 
@@ -146,7 +191,82 @@ colnames(hh_st) <- c('lsoa21cd','lsoa21nm','hh_size_cd','hh_size_nm','hh_tenure_
 hh_st <- hh_st[lsoa21cd %in% unique(pcd_imd$lsoa21cd),]
 
 
+## DATASET 4 ##
 
+# Population: All usual residents 
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Age (8 categories), National Statistics Socio-economic Classification (NS-SeC)
+
+# 35,647 out of 35,672 areas available
+# Protecting personal data will prevent 25 areas from being published.
+
+nssec <- data.table(read_csv(here::here('data','census','nssec.csv'), show_col_types = F))
+colnames(nssec) <- c('lsoa21cd','lsoa21nm','nssec_cd','nssec_nm','age_cd','age_nm','population')
+
+# merge with postcodes
+nssec_pcd1 <- full_join(nssec, unique(pcd_imd[, c('pcd1','lsoa21cd','imd_quintile','urban_rural','eng_reg')]), by = 'lsoa21cd', relationship = 'many-to-many')
+nssec_pcd1 <- data.table(nssec_pcd1 %>% filter(!is.na(population), !is.na(pcd1)))
+
+# only using nssec for 16+:
+nssec_pcd1 <- nssec_pcd1[age_cd > 1, ]
+
+# remove nssec categories with no observations ('Does not apply')
+cd_remove <- (nssec_pcd1 %>% group_by(nssec_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$nssec_cd
+cd_remove <- unname(cd_remove)
+nssec_pcd1 <- nssec_pcd1[nssec_cd != cd_remove, ]
+
+nssec_pcd1$nssec_nm <- factor(nssec_pcd1$nssec_nm, 
+                              levels = unique(nssec_pcd1$nssec_nm))
+
+nssec_pcd1 %>%
+  group_by(age_nm, imd_quintile, eng_reg) %>%
+  mutate(n = sum(population)) %>% 
+  group_by(age_nm, nssec_nm, imd_quintile, eng_reg, n) %>%
+  summarise(s = sum(population)) %>%
+  ggplot() + 
+  geom_line(aes(x = age_nm, y = s/n, color = imd_quintile,
+                group = imd_quintile)) + 
+  theme_bw() + facet_grid(nssec_nm ~ eng_reg, scales = 'free') +
+  labs(y = 'Proportion') + ylim(c(0,NA)) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+## DATASET 5 ##
+
+# Population: All usual residents 
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Age (8 categories), National Statistics Socio-economic Classification (NS-SeC),
+# Highest level of qualification
+
+# 28,545 out of 35,672 areas available
+# Protecting personal data will prevent 7,127 areas from being published.
+
+ns_hq <- data.table(read_csv(here::here('data','census','ns_hq.csv'), show_col_types = F))
+colnames(ns_hq) <- c('lsoa21cd','lsoa21nm','nssec_cd','nssec_nm','age_cd','age_nm','hiqual_cd','hiqual_nm','population')
+ns_hq[hiqual_cd == 0, hiqual_nm_short := 'No qualifications']
+ns_hq[hiqual_cd == 1, hiqual_nm_short := '1-4 GCSEs']
+ns_hq[hiqual_cd == 2, hiqual_nm_short := '5+ GCSEs']
+ns_hq[hiqual_cd == 3, hiqual_nm_short := '2+ A levels']
+ns_hq[hiqual_cd == 4, hiqual_nm_short := 'Degree']
+ns_hq[hiqual_cd == 5, hiqual_nm_short := 'Apprentice/vocational']
+
+# merge with postcodes
+ns_hq_pcd1 <- full_join(ns_hq, unique(pcd_imd[, c('pcd1','lsoa21cd','imd_quintile','urban_rural','eng_reg')]), by = 'lsoa21cd', relationship = 'many-to-many')
+ns_hq_pcd1 <- data.table(ns_hq_pcd1 %>% filter(!is.na(population), !is.na(pcd1)))
+
+# only using for 16+:
+ns_hq_pcd1 <- ns_hq_pcd1[age_cd > 1, ]
+
+# remove categories with no observations ('Does not apply')
+cd_remove <- (ns_hq_pcd1 %>% group_by(nssec_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$nssec_cd
+cd_remove <- unname(cd_remove)
+ns_hq_pcd1 <- ns_hq_pcd1[nssec_cd != cd_remove, ]
+cd_remove <- (ns_hq_pcd1 %>% group_by(hiqual_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$hiqual_cd
+cd_remove <- unname(cd_remove)
+ns_hq_pcd1 <- ns_hq_pcd1[hiqual_cd != cd_remove, ]
 
 
 
