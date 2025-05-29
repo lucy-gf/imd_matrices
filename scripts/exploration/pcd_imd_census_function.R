@@ -55,7 +55,7 @@ infer_imd <- function(
       
       data[i_row, probs := list(dt$probability)]
       
-      if(data[i_row, n] != 0){
+      if(data[i_row, n] != 0 & sum(unlist(data[i_row, probs])) > 0){
         data[i_row, imd_samples := list(sample_imd(data[i_row, n],
                                                    data[i_row, probs]))]
       }else{

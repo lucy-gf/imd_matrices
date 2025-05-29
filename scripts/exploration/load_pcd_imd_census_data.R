@@ -269,6 +269,41 @@ cd_remove <- unname(cd_remove)
 ns_hq_pcd1 <- ns_hq_pcd1[hiqual_cd != cd_remove, ]
 
 
+## DATASET 6 ##
+
+hh_stc <- data.table(read_csv(here::here('data','census','household_size_tenure_composition.csv'), show_col_types = F))
+colnames(hh_stc) <- c('lsoa21cd','lsoa21nm','hh_comp_cd','hh_comp_nm','hh_tenure_cd','hh_tenure_nm','hh_size_cd','hh_size_nm','n_obs')
+hh_stc <- hh_stc[lsoa21cd %in% unique(pcd_imd$lsoa21cd),]
+
+hh_stc <- hh_stc %>%
+  left_join(unique(pcd_imd %>% select(pcd1, lsoa21cd, imd_quintile, urban_rural, eng_reg)),
+            by = 'lsoa21cd', relationship = 'many-to-many') %>%
+  mutate(population = hh_size_cd*n_obs) %>% # scale up by household size for population sizes
+  filter(hh_tenure_cd != -8,
+         hh_size_cd != -8,
+         hh_comp_cd != -8)
+
+
+## DATASET 7 ##
+
+hh_tc <- data.table(read_csv(here::here('data','census','household_tenure_composition.csv'), show_col_types = F))
+colnames(hh_tc) <- c('lsoa21cd','lsoa21nm','hh_comp_cd','hh_comp_nm','hh_tenure_cd','hh_tenure_nm','n_obs')
+hh_tc <- hh_tc[lsoa21cd %in% unique(pcd_imd$lsoa21cd),]
+
+hh_tc <- hh_tc %>%
+  left_join(unique(pcd_imd %>% select(pcd1, lsoa21cd, imd_quintile, urban_rural, eng_reg)),
+            by = 'lsoa21cd', relationship = 'many-to-many') %>%
+  filter(hh_tenure_cd != -8,
+         hh_comp_cd != -8)
+
+
+
+
+
+
+
+
+
 
 
 

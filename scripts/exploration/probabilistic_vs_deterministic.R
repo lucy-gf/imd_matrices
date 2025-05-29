@@ -1,7 +1,4 @@
 
-library(data.table)
-library(ggplot2)
-
 # data table of possible x1,...,x5
 
 dt <- CJ(x1 = seq(0,1,0.01),
@@ -88,8 +85,7 @@ n1 <- nssec_pcd1 %>% filter(population != 0) %>%
   group_by(pcd1, age_nm, nssec_cd) %>% 
   mutate(tot_pop = sum(population)) %>% 
   mutate(prop = population/tot_pop) %>% 
-  mutate(max_imd = which.max(prop), 
-         max_prop = max(prop))
+  mutate(max_prop = max(prop))
 ggplot(n1) + 
   geom_histogram(aes(x = max_prop), bins = 100) + 
   theme_bw()
@@ -102,8 +98,7 @@ pcd1 <- nssec_pcd1 %>% filter(population != 0) %>%
   group_by(pcd1) %>% 
   mutate(tot_pop = sum(population)) %>% 
   mutate(prop = population/tot_pop) %>% 
-  mutate(max_imd = which.max(prop), 
-         max_prop = max(prop))
+  mutate(max_prop = max(prop))
 ggplot(pcd1) + 
   geom_histogram(aes(x = max_prop), bins = 100) + 
   theme_bw()
@@ -120,8 +115,7 @@ hh1 <- hh_st %>%
   group_by(pcd1, hh_size_nm, hh_tenure_nm) %>% 
   mutate(tot_pop = sum(population)) %>% 
   mutate(prop = population/tot_pop) %>% 
-  mutate(max_imd = which.max(prop), 
-         max_prop = max(prop))
+  mutate(max_prop = max(prop))
 ggplot(hh1) + 
   geom_histogram(aes(x = max_prop), bins = 100) + 
   theme_bw()
@@ -166,6 +160,125 @@ mean_correct_nssec <- n1 %>%
 
 sum(mean_correct_nssec$n_corr_p)/sum(mean_correct_nssec$tot_pop)
 sum(mean_correct_nssec$n_corr_d)/sum(mean_correct_nssec$tot_pop)
+
+
+hh_stc1 <- hh_stc %>% 
+  filter(population != 0) %>% 
+  group_by(pcd1, hh_size_nm, hh_tenure_nm, hh_comp_nm, imd_quintile) %>% 
+  summarise(population = sum(population)) %>% 
+  group_by(pcd1, hh_size_nm, hh_tenure_nm, hh_comp_nm) %>% 
+  mutate(tot_pop = sum(population)) %>% 
+  mutate(prop = population/tot_pop) %>% 
+  mutate(max_prop = max(prop))
+
+mean_correct_hh_stc <- hh_stc1 %>% 
+  pivot_wider(id_cols = c(pcd1, hh_size_nm, hh_tenure_nm, hh_comp_nm, tot_pop, max_prop),
+              names_from = imd_quintile, values_from = prop) %>% 
+  mutate(`1` = case_when(is.na(`1`) ~ 0, T ~ `1`),
+         `2` = case_when(is.na(`2`) ~ 0, T ~ `2`),
+         `3` = case_when(is.na(`3`) ~ 0, T ~ `3`),
+         `4` = case_when(is.na(`4`) ~ 0, T ~ `4`),
+         `5` = case_when(is.na(`5`) ~ 0, T ~ `5`)) %>% 
+  mutate(probabilistic = `1`^2 + `2`^2 + `3`^2 + `4`^2 + `5`^2) %>% 
+  mutate(n_corr_p = probabilistic*tot_pop,
+         n_corr_d = max_prop*tot_pop)
+
+sum(mean_correct_hh_stc$n_corr_p)/sum(mean_correct_hh_stc$tot_pop)
+sum(mean_correct_hh_stc$n_corr_d)/sum(mean_correct_hh_stc$tot_pop)
+
+
+hh_st1 <- hh_stc %>% 
+  filter(population != 0) %>% 
+  group_by(pcd1, hh_size_nm, hh_tenure_nm, imd_quintile) %>% 
+  summarise(population = sum(population)) %>% 
+  group_by(pcd1, hh_size_nm, hh_tenure_nm) %>% 
+  mutate(tot_pop = sum(population)) %>% 
+  mutate(prop = population/tot_pop) %>% 
+  mutate(max_prop = max(prop))
+
+mean_correct_hh_st <- hh_st1 %>% 
+  pivot_wider(id_cols = c(pcd1, hh_size_nm, hh_tenure_nm, tot_pop, max_prop),
+              names_from = imd_quintile, values_from = prop) %>% 
+  mutate(`1` = case_when(is.na(`1`) ~ 0, T ~ `1`),
+         `2` = case_when(is.na(`2`) ~ 0, T ~ `2`),
+         `3` = case_when(is.na(`3`) ~ 0, T ~ `3`),
+         `4` = case_when(is.na(`4`) ~ 0, T ~ `4`),
+         `5` = case_when(is.na(`5`) ~ 0, T ~ `5`)) %>% 
+  mutate(probabilistic = `1`^2 + `2`^2 + `3`^2 + `4`^2 + `5`^2) %>% 
+  mutate(n_corr_p = probabilistic*tot_pop,
+         n_corr_d = max_prop*tot_pop)
+
+sum(mean_correct_hh_st$n_corr_p)/sum(mean_correct_hh_st$tot_pop)
+sum(mean_correct_hh_st$n_corr_d)/sum(mean_correct_hh_st$tot_pop)
+
+
+hh_tc1 <- hh_tc %>% 
+  filter(!n_obs == 0) %>% 
+  group_by(pcd1, hh_tenure_nm, hh_comp_nm, imd_quintile) %>% 
+  summarise(population = sum(n_obs)) %>% 
+  group_by(pcd1, hh_comp_nm, hh_tenure_nm) %>% 
+  mutate(tot_pop = sum(population)) %>% 
+  mutate(prop = population/tot_pop) %>% 
+  mutate(max_prop = max(prop))
+
+mean_correct_hh_tc <- hh_tc1 %>% 
+  pivot_wider(id_cols = c(pcd1, hh_comp_nm, hh_tenure_nm, tot_pop, max_prop),
+              names_from = imd_quintile, values_from = prop) %>% 
+  mutate(`1` = case_when(is.na(`1`) ~ 0, T ~ `1`),
+         `2` = case_when(is.na(`2`) ~ 0, T ~ `2`),
+         `3` = case_when(is.na(`3`) ~ 0, T ~ `3`),
+         `4` = case_when(is.na(`4`) ~ 0, T ~ `4`),
+         `5` = case_when(is.na(`5`) ~ 0, T ~ `5`)) %>% 
+  mutate(probabilistic = `1`^2 + `2`^2 + `3`^2 + `4`^2 + `5`^2) %>% 
+  mutate(n_corr_p = probabilistic*tot_pop,
+         n_corr_d = max_prop*tot_pop)
+
+sum(mean_correct_hh_tc$n_corr_p)/sum(mean_correct_hh_tc$tot_pop)
+sum(mean_correct_hh_tc$n_corr_d)/sum(mean_correct_hh_tc$tot_pop)
+
+
+
+
+# how good are various variables at 'predicting' IMD?
+
+ns <- left_join(nssec[substr(lsoa21cd,1,1)=='E',], unique(pcd_imd[, c('lsoa21cd','imd_quintile','urban_rural','eng_reg')]), by = 'lsoa21cd') %>% filter(!is.na(imd_quintile))
+
+ns_max <- ns %>% 
+  group_by(eng_reg, age_nm, nssec_nm, imd_quintile) %>% 
+  summarise(population = sum(population)) %>% 
+  group_by(eng_reg, age_nm, nssec_nm) %>% 
+  mutate(tot_pop = sum(population)) %>% 
+  filter(tot_pop > 0) %>% 
+  mutate(prop = population/tot_pop) %>% 
+  mutate(max_prop = max(prop)) 
+
+ns_max %>% 
+  filter(!grepl('15', age_nm)) %>% 
+  ggplot() + 
+  geom_line(aes(x = age_nm, y = max_prop, col = nssec_nm, group = nssec_nm)) +
+  facet_wrap(eng_reg ~ .) + 
+  ylim(c(0,NA)) + 
+  theme_bw()
+
+
+hi <- left_join(hiqual[substr(lsoa21cd,1,1)=='E',], unique(pcd_imd[, c('lsoa21cd','imd_quintile','urban_rural','eng_reg')]), by = 'lsoa21cd') %>% filter(!is.na(imd_quintile))
+
+hi_max <- hi %>% 
+  group_by(eng_reg, age_nm, hiqual_nm_short, imd_quintile) %>% 
+  summarise(population = sum(population)) %>% 
+  group_by(eng_reg, age_nm, hiqual_nm_short) %>% 
+  mutate(tot_pop = sum(population)) %>% 
+  filter(tot_pop > 0) %>% 
+  mutate(prop = population/tot_pop) %>% 
+  mutate(max_prop = max(prop)) 
+
+hi_max %>% 
+  filter(!grepl('15', age_nm)) %>%
+  ggplot() + 
+  geom_line(aes(x = age_nm, y = max_prop, col = hiqual_nm_short, group = hiqual_nm_short)) +
+  facet_wrap(eng_reg ~ .) + 
+  ylim(c(0,NA)) + 
+  theme_bw()
 
 
 
