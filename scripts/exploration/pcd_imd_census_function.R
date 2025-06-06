@@ -123,9 +123,14 @@ sample_imd <- function(
 ## FUNCTION TO SIMPLIFY VARIABLE LABELS ##
 
 simp_labels <- function(string){
+  if(string == 'p_sec_input'){return('nssec')}
+  string <- gsub('_grp','',string)
+  string <- gsub('p_','',string)
+  string <- gsub('c_','',string)
   string <- gsub('_cd','',string)
   string <- gsub('_nm','',string)
-  string <- gsub('_grp','',string)
+  string <- gsub('_input','',string)
+  return(string)
 }
 
 
@@ -564,14 +569,33 @@ plot_median_table <- function(data,
 format_legend <- function(string){
   
   if(string == 'imd_quintile'){return('IMD quintile')}
-  if(string == 'eng_reg'){return('Region')}
+  if(string %in% c('eng_reg','p_engreg','engreg')){return('Region')}
   if(string == 'urban_rural'){return('Urban/rural')}
   if(string == 'lsoa21cd'){return('LSOA')}
   if(string == 'pcd1'){return('PCD1')}
+  if(string == 'p_income'){return('Household income')}
+  if(string == 'p_hiqual'){return('Highest qualification')}
+  if(string == 'p_age_group'){return('Age group')}
+  if(string == 'p_ethnicity'){return('Ethnicity')}
+  if(string == 'p_emp_1'){return('Employment status')}
+  if(string == 'p_sec_input'){return('NS-SEC')}
+  if(string == 'sec_input'){return('NS-SEC')}
+  
+  # else just try something
+  out_str <- gsub('_grp','',string)
+  out_str <- gsub('p_','',out_str)
+  out_str <- gsub('hh', 'Household', out_str)
+  out_str <- gsub('_cd', '', out_str)
+  out_str <- gsub('_nm', '', out_str)
+  out_str <- gsub('_', ' ', out_str)
+  firstup(out_str)
   
 }
 
-
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
 
 
 

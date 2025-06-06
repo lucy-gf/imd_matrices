@@ -50,8 +50,8 @@ ew_pop_agg <- ew_pop_l[, c('lsoa21cd','age_grp','value')][, lapply(.SD, sum), by
 setnames(ew_pop_agg, 'value', 'population')
 
 pcd_imd <- full_join(pcd_imd, ew_pop_agg, relationship = 'many-to-many')
-cat('Total population (millions):', round(sum(pcd_imd$population)/1e6, 1), ', LSOAs spanning multiple pcd1s:', 
-    nrow(data.table(table(pcd_imd$lsoa21cd))[N > 1]), '/', n_distinct(pcd_imd$lsoa21cd), '\n')
+cat('Total population (millions): ', round(sum(pcd_imd$population)/1e6, 1), ', LSOAs spanning multiple pcd1s: ', 
+    nrow(data.table(table(pcd_imd$lsoa21cd))[N > 1]), '/', n_distinct(pcd_imd$lsoa21cd), '\n', sep = '')
 # Population will be greater than Eng pop where one LSOA spans 2 pcd1s
 
 # IMD by LSOA
@@ -63,7 +63,7 @@ colnames(lsoa_imd) <- c('lsoa21cd','lsoa21nm','imd_rank','imd_decile')
 lsoa_imd[, imd_quintile := ceiling(imd_decile/2)]
 
 pcd_imd <- pcd_imd[lsoa_imd[lsoa21cd %in% unique(pcd_imd$lsoa21cd)][, c('lsoa21cd','imd_quintile')], on = 'lsoa21cd']
-cat('Unique LSOAs:', n_distinct(pcd_imd$lsoa21cd), ', IMD distribution:', round(prop.table(table(pcd_imd$imd_quintile)), 3), '\n')
+cat('Unique LSOAs: ', n_distinct(pcd_imd$lsoa21cd), ', IMD distribution: ', paste(round(prop.table(table(pcd_imd$imd_quintile)), 3), collapse = ', '), '\n', sep = '')
 # TODO - some missing, fix?
 
 ## Urban/rural

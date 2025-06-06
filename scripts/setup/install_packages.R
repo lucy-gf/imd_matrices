@@ -24,6 +24,7 @@ library(socialmixr)
 library(parallel)
 library(haven)
 library(ggarchery)
+library(scoringutils)
 
 select <- dplyr::select
 wday <- lubridate::wday
