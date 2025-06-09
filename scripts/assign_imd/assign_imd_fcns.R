@@ -950,7 +950,8 @@ fcn_wis <- function(
     
     unique_scores <- unique(errors %>% ungroup() %>% select(imd_quintile, !!sym(var))) %>% 
       mutate(stat = NA,
-             variable = var)
+             variable = var,
+             above_below = '')
     
     for(i_row in 1:nrow(unique_scores)){
       
@@ -968,6 +969,12 @@ fcn_wis <- function(
           quantile_level = quantile_levels)
       
       unique_scores$stat[i_row] <- wis_score
+      
+      if(median(wis_1$survey_ratio) >= unique(wis_1$census_ratio)){
+        unique_scores$above_below[i_row] <- 'above'
+      }else{
+        unique_scores$above_below[i_row] <- 'below'
+      }
       
     }
     

@@ -35,7 +35,8 @@ error_scores %>%
   theme_bw() + scale_color_brewer(palette = 'Set2') +
   labs(col = 'Predictors',
        y = toupper(summary_stat), 
-       x = '')
+       x = '') +
+  ylim(c(0,NA))
 
 ## save
 ggsave(here::here('output','figures','exploratory','assignment',paste0(toupper(summary_stat), '_scatter.png')),
@@ -84,6 +85,14 @@ heatmap_error_scores <- function(var){
   error_scores_filt <- error_scores_map %>% 
     filter(variable == var) 
   
+  max_stat <- max(error_scores_filt$stat)
+  
+  if(pos_neg){
+    error_scores_filt <- error_scores_filt %>% 
+        mutate(stat = case_when(above_below == 'below' ~ -stat,
+                                T ~ stat))
+  }
+  
   # widths of plots (number of categories)
   widths <<- c(widths, n_distinct(error_scores_filt$category))
   
@@ -103,22 +112,41 @@ heatmap_error_scores <- function(var){
   # k <- if(var == 'age_group'){4}else{if(var == 'urban_rural'){1}else{2}}
   k <- 2
   
-  error_scores_filt %>% 
+  colorscale <- c('#045a8d', '#bdc9e1','#f1eef6','white','#fef0d9','#fdcc8a','#b30000')
+  breaks <- sort(c(0, quantile(error_scores_filt$stat, c(0.85, 0.9, 0.99)), 
+                   -quantile(error_scores_filt$stat, c(0.85, 0.9, 0.99))))
+  
+  plot <- error_scores_filt %>% 
     ggplot() + 
     geom_tile(aes(x = category, y = imd_quintile, fill = stat)) + 
-    theme_bw() + scale_fill_distiller(palette = "Greens", direction = 1, limits = c(0, ifelse(merge_color, max(mses_map$square_err), NA))) + #c(0,NA)) + 
+    theme_bw() +
     facet_grid(predictors~., scales = 'free') + 
     theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1)) + 
-    geom_label(data = error_scores_filt %>% group_by(predictors) %>% summarise(mse = round(mean(stat),3)),
+    geom_label(data = error_scores_filt %>% group_by(predictors) %>% summarise(mse = round(mean(abs(stat)),3)),
               aes(label = mse),
               x = error_scores_filt$category[k], y = 5, alpha = 0.6) +
     labs(y = 'IMD quintile',
          fill = '', 
          x = '') + ggtitle(format_legend(var)) 
+  
+  if(pos_neg){
+    plot <- plot + 
+      scale_fill_gradientn(colors = colorscale, values = scales::rescale(breaks), 
+                           breaks = breaks,
+                           na.value = "#e5e5e5", limits = c(- max_stat, max_stat),
+                           labels = round(abs(breaks), 2), trans = 'pseudo_log')
+  }else{
+    plot <- plot + 
+      scale_fill_distiller(palette = "Greens", direction = 1,
+                            limits = c(0, ifelse(merge_color, max(mses_map$square_err), NA))) 
+  }
+  
+  plot
 }
 
 widths <- c()
 merge_color <- F
+pos_neg <- T
 h_maps <- map(
   .x = unique(mses_map$var),
   .f = heatmap_error_scores
