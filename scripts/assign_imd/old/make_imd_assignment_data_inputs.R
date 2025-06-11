@@ -8,7 +8,13 @@ hh_input <- hh_st %>%
   filter(hh_tenure_cd != -8,
          population != 0)
 
+write_csv(hh_input, here::here('data','census','pcd1household.csv'))
+
 age_input <- copy(pcd_imd)
+
+write_csv(age_input, here::here('data','census','pcd1age.csv'))
+write_csv(age_input, here::here('data','census','pcd1.csv'))
+write_csv(age_input, here::here('data','census','engreg.csv'))
 
 ns_hq_input <- ns_hq_pcd1 %>% 
   rename(age_grp_8 = age_nm) %>% 
@@ -25,6 +31,8 @@ ns_hq_input <- ns_hq_pcd1 %>%
     T ~ NA
   )) 
 
+write_csv(ns_hq_input, here::here('data','census','pcd1agehiqualnssec.csv'))
+
 ethn_input <- age_ethn_pcd1 %>%
   rename(age_grp_6 = age_nm) %>% 
   mutate(p_ethnicity = case_when(
@@ -34,6 +42,8 @@ ethn_input <- age_ethn_pcd1 %>%
     ethn_nm %like% 'Other' ~ 'Other',
     ethn_nm %like% 'White' ~ 'White',
   )) 
+
+write_csv(ethn_input, here::here('data','census','pcd1ageethn.csv'))
 
 connect_input <- connect_part %>% 
   mutate(hh_tenure_nm = case_when(
@@ -84,3 +94,7 @@ connect_input <- connect_part %>%
     p_hiqual %like% 'Apprent' ~ 'Apprentice/vocational',
     T ~ p_hiqual
   ))
+
+write_rds(connect_input, here::here('data','connect','connect_part.rds'))
+
+

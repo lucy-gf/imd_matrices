@@ -1,25 +1,28 @@
 
+options(dplyr.summarise.inform = FALSE)
+
 ## FUNCTION TO ASSIGN IMD TO CONNECT PARTICIPANTS ##
 
 fcn_assign_imd <- function(
     data_input,
     census_data,
     variables,
-    n_bootstraps,
+    n_bootstraps = NULL,
     modal = F # T = deterministic, F = probabilistic
 ){
   
   n_row_original <- nrow(data_input)
   
   data <- data.table(data_input)
+  census_data <- data.table(census_data)
     
   # remove participants who can't be assigned
   for(var in variables){
     
     data <- data[get(var) %in% unname(unlist(unique(census_data[,..var]))), ]
     
-    cat(round(100*(1 - nrow(data)/n_row_original), 1), 
-        '% of Connect participants removed after variable: ', var, '\n', sep = '')
+    # cat(round(100*(1 - nrow(data)/n_row_original), 1), 
+    #     '% of Connect participants removed after variable: ', var, '\n', sep = '')
   }
   
   vars_of_int_census <- c(variables, 'imd_quintile')
@@ -109,12 +112,12 @@ fcn_assign_imd <- function(
     
   }
   
-  write_rds(out, here::here('output','data','exploratory','assignment',
-                            paste0('connect_output_', 
-                                   paste(unname(unlist(lapply(variables, FUN = simp_labels))), 
-                                         collapse = '_'), 
-                                   ifelse(modal,'_det','_probab'), 
-                                   ifelse(modal, '', paste0('_', n_bootstraps)), '.rds')))
+  # write_rds(out, here::here('output','data','exploratory','assignment',
+  #                           paste0('connect_output_', 
+  #                                  paste(unname(unlist(lapply(variables, FUN = simp_labels))), 
+  #                                        collapse = '_'), 
+  #                                  ifelse(modal,'_det','_probab'), 
+  #                                  ifelse(modal, '', paste0('_', n_bootstraps)), '.rds')))
   
   out
   
@@ -364,6 +367,8 @@ fcn_rev_errorbarplot_imd <- function(
     true_distr = F
 ){
   
+  n_bootstraps <- n_distinct(data_output$bootstrap)
+  
   n_col <- ceiling(sqrt(length(vars_list)))
   n_row <- ceiling(length(vars_list)/n_col)
   
@@ -381,6 +386,10 @@ fcn_rev_errorbarplot_imd <- function(
     }
     if(var == 'p_sec_input'){
       data_output <- data_output %>% 
+        filter(p_sec_input %in% as.character(1:7))
+      
+      true_vals <- true_vals %>%
+        mutate(p_sec_input = as.character(p_sec_input)) %>% 
         filter(p_sec_input %in% as.character(1:7))
     }
     if(var == 'p_hiqual'){
@@ -642,18 +651,18 @@ fcn_rev_errorbarplot_imd <- function(
   
   patched
   
-  if(is.null(true_vals)){
-    ggsave(here::here(directory_plots,
-                      'imd_vs_vars_errorbarplot.png'),
-           width = 8*n_col, height = 8*n_row, dpi = 800)
-  }else{
-    ggsave(here::here(directory_plots,
-                      paste0('imd_vs_', paste(unname(unlist(lapply(vars_list, FUN = simp_labels))), 
-                                              collapse = '_') ,'_errorbarplot',
-                             ifelse(true_distr, '_true_distr',''),'.png')),
-           width = 2*max(c(n_distinct(true_vals %>% select(!!sym(vars_list[1]))), 6)), 
-           height = 8, dpi = 800)
-  }
+  # if(is.null(true_vals)){
+  #   ggsave(here::here(directory_plots,
+  #                     'imd_vs_vars_errorbarplot.png'),
+  #          width = 8*n_col, height = 8*n_row, dpi = 800)
+  # }else{
+  #   ggsave(here::here(directory_plots,
+  #                     paste0('imd_vs_', paste(unname(unlist(lapply(vars_list, FUN = simp_labels))), 
+  #                                             collapse = '_') ,'_errorbarplot',
+  #                            ifelse(true_distr, '_true_distr',''),'.png')),
+  #          width = 2*max(c(n_distinct(true_vals %>% select(!!sym(vars_list[1]))), 6)), 
+  #          height = 8, dpi = 800)
+  # }
   
   patched
   
@@ -666,7 +675,8 @@ fcn_evaluate_imd <- function(
     census_data_list,
     predictors,
     modal,
-    summary_stat = 'wis' # c('wis','mse')
+    summary_stat = 'wis', # c('wis','mse')
+    scores 
 ){
   
   data <- copy(data_input)
@@ -728,20 +738,7 @@ fcn_evaluate_imd <- function(
     scale_color_manual(values = imd_quintile_colors) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
           legend.position = 'none'); age_spec_contacts
-  
-  summ_stats <- get(paste0('fcn_',summary_stat))(
-    survey_data = data,
-    census_data_l = census_data_list
-  )
-  
-  # save errors
-  
-  write_csv(summ_stats, here::here('output','data','exploratory','assignment',summary_stat,
-                              paste0(ifelse(modal,'det','probab'), '_evaluation_', 
-                                     paste(unname(unlist(lapply(predictors, FUN = simp_labels))), 
-                                           collapse = '_'), 
-                                     ifelse(modal, '', paste0('_', n_bootstraps)), '.csv')))
-  
+                         
   # plot 
   plot_summary <- function(
     i){
@@ -749,7 +746,7 @@ fcn_evaluate_imd <- function(
     census <- census_data_list[[i]]
     var_name <- colnames(census)[colnames(census) %notin% c('imd_quintile','n','n_tot','prop')]
     
-    summ_filt <- summ_stats %>%
+    summ_filt <- scores %>%
       filter(variable == var_name) %>% 
       mutate(stat = mean(stat))
     
@@ -764,7 +761,7 @@ fcn_evaluate_imd <- function(
     )
     
     p + ggtitle(paste0(format_legend(var_name), ', ', toupper(summary_stat),' = ', 
-                       round(mean(summ_filt$stat), 3)))
+                       round(mean(scores$stat), 3)))
     
   }
   
@@ -776,7 +773,7 @@ fcn_evaluate_imd <- function(
   n_col <- ceiling(sqrt(length(census_data_list)))
   n_row <- ceiling(length(census_data_list)/n_col)
   
-  patched_summ <- patchwork::wrap_plots(plots, ncol = n_col); patched_sos
+  patched_summ <- patchwork::wrap_plots(plots, ncol = n_col); patched_summ
   
   ### ALL PLOTS ###
   
@@ -789,14 +786,7 @@ fcn_evaluate_imd <- function(
   
   patched_total <- plot1 + bars + age_spec_contacts + patched_summ + plot_layout(design = layout) +
     plot_annotation(title = title_patch,
-                    theme = theme(plot.title = element_text(size = 18)));patched_total
-  
-  ggsave(here::here('output','figures','exploratory','assignment',
-                    paste0(ifelse(modal,'det','probab'), '_evaluation_', 
-                           paste(unname(unlist(lapply(predictors, FUN = simp_labels))), 
-                                 collapse = '_'), 
-                           ifelse(modal, '', paste0('_', n_bootstraps)), '.png')),
-         height = 15, width = 26)
+                    theme = theme(plot.title = element_text(size = 18)))
   
   patched_total
   
@@ -827,6 +817,9 @@ fcn_mse <- function(
     if(var == 'p_sec_input'){
       survey_data <- survey_data %>% 
         filter(p_sec_input %in% as.character(1:7))
+      
+      census <- census %>% 
+        mutate(p_sec_input = as.character(p_sec_input))
     }
     survey_data <- data.table(survey_data)
     survey_data <- survey_data[get(var) %in% unname(unlist(unique(census[,var]))), ]
@@ -864,7 +857,7 @@ fcn_mse <- function(
       select(imd_quintile, !!sym(var), survey_var_imd_prop_med, survey_var_prop) %>% 
       left_join(census_props %>% select(imd_quintile, !!sym(var), census_var_imd_prop, census_var_prop), 
                 by = c('imd_quintile', var)) %>% 
-      mutate(square_err = ((survey_var_imd_prop_med/survey_var_prop) - 
+      mutate(stat = ((survey_var_imd_prop_med/survey_var_prop) - 
                               (census_var_imd_prop/census_var_prop))^2) %>% 
       drop_na()
     
@@ -908,6 +901,9 @@ fcn_wis <- function(
     if(var == 'p_sec_input'){
       survey_data <- survey_data %>% 
         filter(p_sec_input %in% as.character(1:7))
+      
+      census <- census %>% 
+        mutate(p_sec_input = as.character(p_sec_input))
     }
     survey_data <- data.table(survey_data)
     survey_data <- survey_data[get(var) %in% unname(unlist(unique(census[,var]))), ]
@@ -990,8 +986,75 @@ fcn_wis <- function(
 
 
 
+## FUNCTION TO SIMPLIFY VARIABLE LABELS ##
+
+simp_labels <- function(string){
+  if(string == 'p_sec_input'){return('nssec')}
+  string <- gsub('_grp','',string)
+  string <- gsub('p_','',string)
+  string <- gsub('c_','',string)
+  string <- gsub('_cd','',string)
+  string <- gsub('_nm','',string)
+  string <- gsub('_input','',string)
+  return(string)
+}
 
 
+
+# function to turn column names into nice text
+
+format_legend <- function(string){
+  
+  if(string == 'imd_quintile'){return('IMD quintile')}
+  if(string %in% c('eng_reg','p_engreg','engreg')){return('Region')}
+  if(string == 'urban_rural'){return('Urban/rural')}
+  if(string == 'lsoa21cd'){return('LSOA')}
+  if(string == 'pcd1'){return('PCD1')}
+  if(string == 'p_income'){return('Household income')}
+  if(string == 'p_hiqual'){return('Highest qualification')}
+  if(string == 'p_age_group'){return('Age group')}
+  if(string == 'p_ethnicity'){return('Ethnicity')}
+  if(string == 'p_emp_1'){return('Employment status')}
+  if(string == 'p_sec_input'){return('NS-SEC')}
+  if(string == 'sec_input'){return('NS-SEC')}
+  
+  # else just try something
+  out_str <- gsub('_grp','',string)
+  out_str <- gsub('p_','',out_str)
+  out_str <- gsub('hh', 'Household', out_str)
+  out_str <- gsub('_cd', '', out_str)
+  out_str <- gsub('_nm', '', out_str)
+  out_str <- gsub('_', ' ', out_str)
+  firstup(out_str)
+  
+}
+
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
 
   
+variables_from_name <- function(varname){
+  out <- if(varname == 'engreg'){c('eng_reg')}else{
+    if(varname == 'pcd1'){c('pcd1')}else{
+      if(varname == 'pcd1age'){c('pcd1','age_grp')}else{
+        if(varname == 'pcd1ageethn'){c('pcd1','age_grp_6','p_ethnicity')}else{
+          if(varname == 'pcd1household'){c('pcd1','hh_size_nm','hh_tenure_nm')}else{
+            if(varname == 'pcd1agehiqualnssec'){c('pcd1','age_grp_8','p_sec_input','p_hiqual')}}}}}}
   
+  out
+}
+
+name_from_variables <- function(vars){
+  out <- if(vars == c('eng_reg')){'engreg'}else{
+    if(vars == c('pcd1')){'pcd1'}else{
+      if(vars == c('pcd1','age_grp')){'pcd1age'}else{
+        if(vars == c('pcd1','age_grp_6','p_ethnicity')){'pcd1ageethn'}else{
+          if(vars == c('pcd1','hh_size_nm','hh_tenure_nm')){'pcd1household'}else{
+            if(vars == c('pcd1','age_grp_8','p_sec_input','p_hiqual')){'pcd1agehiqualnssec'}}}}}}
+  
+  out
+}
+
+
