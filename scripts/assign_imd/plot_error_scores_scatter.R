@@ -20,10 +20,10 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 .args <- if (interactive()) c(
   file.path("output", "data", "assignment","wis","merged_scores.csv"),
   'wis',
-  file.path("output", "figures", "assignment","wis_scatter.png")
+  file.path("output", "figures", "assignment","eval_scatter_wis.png")
 ) else commandArgs(trailingOnly = TRUE)
 
-## read in data
+## read in data 
 
 error_scores <- read_csv(.args[1], show_col_type = F) %>% 
   filter(imd_quintile != 'imd_quintile') %>%  # filter out the header rows from merging process
@@ -35,24 +35,58 @@ error_scores[, method := case_when(grepl('det_', model) ~ 'det',
                            grepl('prob_', model) ~ 'prob')]
 error_scores[, variable := gsub('p_|_nm', '', variable)]
 
-## plot
+error_scores$predictors <- ''
+for(i in 1:nrow(error_scores)){
+  error_scores$predictors[i] <- gsub('det_','',gsub('prob_','',error_scores[i,]$model))
+}
 
-error_scores %>% 
-  filter(method != 'det') %>%
-  group_by(model, variable) %>% 
+# remove 'det' method if using WSI (not appropriate for point estimates)
+
+if(.args[2] != 'mse'){
+  error_scores <- error_scores %>% 
+    filter(method != 'det')
+}
+
+
+## plot 
+
+nudge <- if(.args[2] == 'mse'){0.003}else{0.005}
+
+plot_df <- error_scores %>% 
+  filter(! predictors == 'engreg') %>%
+  group_by(model, method, predictors, variable) %>% 
   summarise(mean_stat = mean(stat)) %>%
+  group_by(variable) %>% 
+  arrange(mean_stat) %>% 
+  mutate(rank = 1:n()) 
+
+plot_df %>% 
   ggplot() + 
-  geom_point(aes(variable, mean_stat, col = model),
-             position = position_dodge(width = 0.5), size = 3) + 
-  theme_bw() + scale_color_brewer(palette = 'Set2') +
+  geom_point(aes(predictors, mean_stat, col = predictors, shape = method),
+             size = 3) + 
+  geom_text(data = plot_df %>% filter(rank <= 5),
+            aes(predictors, mean_stat, label = rank),
+             size = 3, nudge_y = nudge) + 
+  theme_bw() + 
+  facet_grid(. ~ variable, switch ='x') +
+  scale_color_manual(values = model_colors) +
+  scale_shape_manual(values = method_shapes, labels = c('Deterministic','Probabilistic')) +
   labs(col = 'Predictors',
-       y = toupper(.args[2]), 
+       shape = 'Method',
+       y = paste0('Mean ', toupper(.args[2])), 
        x = '') +
-  ylim(c(0,NA))
+  ylim(c(0,NA)) +
+  theme(
+    axis.title.x=element_blank(),
+    axis.text.x=element_blank(),
+    axis.ticks.x=element_blank(),
+    strip.background = element_blank(),
+    strip.placement = "outside"
+  )
 
 ## save
 ggsave(.args[3],
-       width = 10, height = 6)
+       width = 12, height = 6)
 
 
 

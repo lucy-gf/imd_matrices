@@ -18,9 +18,9 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","wis","merged_scores.csv"),
-  'wis',
-  file.path("output", "figures", "assignment","wis_heatmap.png")
+  file.path("output", "data", "assignment","mse","merged_scores.csv"),
+  'mse',
+  file.path("output", "figures", "assignment","eval_heatmap_mse.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 ## read in data
@@ -35,11 +35,15 @@ error_scores[, method := case_when(grepl('det_', model) ~ 'det',
                                    grepl('prob_', model) ~ 'prob')]
 error_scores[, variable := gsub('p_|_nm', '', variable)]
 
+error_scores$predictors <- ''
+for(i in 1:nrow(error_scores)){
+  error_scores$predictors[i] <- gsub('det_','',gsub('prob_','',error_scores[i,]$model))
+}
+
 ## heatmap ##
 
 error_scores_map <- error_scores %>% 
-  filter(method != 'det',
-         model != 'engreg')
+  filter(method != 'det')
 
 heatmap_error_scores <- function(var){
   
@@ -81,7 +85,7 @@ heatmap_error_scores <- function(var){
     ggplot() + 
     geom_tile(aes(x = category, y = imd_quintile, fill = stat)) + 
     theme_bw() +
-    facet_grid(model~., scales = 'free') + 
+    facet_grid(predictors~., scales = 'free') + 
     theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1)) + 
     geom_label(data = error_scores_filt %>% group_by(model) %>% summarise(mean_stat = round(mean(abs(stat)),3)),
               aes(label = mean_stat),
@@ -122,12 +126,32 @@ if(merge_color){
   p <- p + plot_layout(guides = 'collect')
 }
 
-p
+widths <- c()
+merge_color <- F
+pos_neg <- T
+h_maps_posneg <- map(
+  .x = unique(error_scores_map$var),
+  .f = heatmap_error_scores
+)
+
+h_maps <- c(h_maps, h_maps_posneg)
+
+q <- patchwork::wrap_plots(h_maps, nrow = 2, widths = widths) + 
+  plot_annotation(title = paste0(toupper(.args[2]), 
+                                 ' in each category and IMD quintile, for each predictive model, ',
+                                 '\n with total mean ', toupper(.args[2])),
+                  theme = theme(plot.title = element_text(size = 28)))
+
+if(merge_color){
+  q <- q + plot_layout(guides = 'collect')
+}
+
+q
 
 ## save
 plot_width <- ifelse(merge_color, 26, 32)
 ggsave(.args[3], 
-       width = plot_width, height = 14)
+       width = plot_width, height = 28)
 
 
 

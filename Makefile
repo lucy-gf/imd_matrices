@@ -16,6 +16,7 @@ R = $(strip Rscript $^ $(1) $@)
 # analysis directories + build rules
 CODEDIR ?= scripts
 ASSIGNDIR ?= ${CODEDIR}/assign_imd
+SETUP ?= setup
 INPUTDIR ?= data
 CONNECTDIR ?= ${INPUTDIR}/connect
 CENSUSDIR ?= ${INPUTDIR}/census
@@ -30,7 +31,7 @@ FIGEXT ?= png
 # data extension filetype
 DATAEXT ?= rds
 
-${DATDIR} ${OUTDIR} ${FIGDIR}:
+${OUTDIR} ${DATDIR} ${FIGDIR}:
 	mkdir -p $@
 
 RENV = .Rprofile
@@ -49,8 +50,7 @@ ASSIGNMETHOD ?= prob det
 $(foreach method,${ASSIGNMETHOD},$(foreach var,${ASSIGNVAR},$(call $(eval ALLSCN += ${method}_${var}))))
 
 # methods of scoring fits
-SCOREVAR ?= mse wis
-# TODO include CPRS
+SCOREVAR ?= mse wis crps
 
 # functions to make into assigned .rds
 makeassigndet = $(addprefix ${DATDIR}/assignment/connect_det_,$(patsubst %,%.${DATAEXT},$(1))) 
@@ -118,11 +118,19 @@ ${DATDIR}/assignment/wis/%_scores.csv: ${ASSIGNDIR}/make_WIS_error_scores.R ${DA
 
 allwis: $(patsubst %,${DATDIR}/assignment/wis/%_scores.csv, ${ALLSCN})
 
+# CRPS
+
+${DATDIR}/assignment/crps/%_scores.csv: ${ASSIGNDIR}/make_CRPS_error_scores.R ${DATDIR}/assignment/connect_%.rds
+	$(call R, $*)
+
+allcrps: $(patsubst %,${DATDIR}/assignment/crps/%_scores.csv, ${ALLSCN})
+
 # Merge scores
 
 clean:
 	rm ${DATDIR}/assignment/mse/merged_scores.csv
-	rm ${DATDIR}/assignment/mse/merged_scores.csv
+	rm ${DATDIR}/assignment/wis/merged_scores.csv
+	rm ${DATDIR}/assignment/crps/merged_scores.csv
 
 ${DATDIR}/assignment/mse/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/mse/%_scores.csv,${ALLSCN})
 	cat $^> $@
@@ -133,6 +141,11 @@ ${DATDIR}/assignment/wis/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/wi
 	cat $^> $@
 
 allwismerged: ${DATDIR}/assignment/wis/merged_scores.csv
+
+${DATDIR}/assignment/crps/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/crps/%_scores.csv,${ALLSCN})
+	cat $^> $@
+
+allwismerged: ${DATDIR}/assignment/crps/merged_scores.csv
 
 ##### Main evaluation plots ########## 
 

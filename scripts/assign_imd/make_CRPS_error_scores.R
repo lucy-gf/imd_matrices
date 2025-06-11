@@ -1,7 +1,7 @@
 
 ## Make error scores - MSE ##
 
-summary_stat <- 'mse'
+summary_stat <- 'crps'
   
 # load packages
 library(data.table)
@@ -18,11 +18,11 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 # source true value datasets
 source(file.path("scripts", "assign_imd", "load_true_data.R"))
 
-# set arguments 
+# set arguments
 .args <- if (interactive()) c(
   file.path("output", "data", "assignment","connect_prob_pcd1.rds"),
   'prob_pcd1',
-  file.path("output", "data", "assignment","mse","prob_pcd1_scores.csv")
+  file.path("output", "data", "assignment","crps","prob_pcd1_scores.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 connect_output <- readRDS(.args[1])

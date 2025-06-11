@@ -2,9 +2,13 @@
 ## COLORS FOR IMD ANALYSIS ##
 
 eng_reg_colors <- c("London"="#31688EFF", "North West" = '#CC4678FF',
-                      'Yorkshire and The Humber' = '#65156EFF', "North East" = '#006837', 
-                      "West Midlands" = '#F89441FF', 'East Midlands' = '#e78ac3',
+                    'Yorkshire and The Humber' = '#65156EFF', "North East" = '#006837', 
+                    "West Midlands" = '#F89441FF', 'East Midlands' = '#e78ac3',
                     'South West' = '#253494', 'East of England' = '#bd0026', 'South East' = '#c2e699')
+
+colors_p_engreg <- c('East Midlands' = '#e78ac3', 'East of England' = '#bd0026', 'Greater London' = '#31688EFF',
+                     'North East' = '#006837', 'North West' = '#CC4678FF', 'South East' = '#c2e699', 
+                     'South West' = '#253494', 'West Midlands' = '#F89441FF', 'Yorkshire and the Humber' = '#65156EFF')
 
 urban_rural_colors <- c('Urban' = '#756bb1', 'Rural' = '#e6550d')
 
@@ -41,7 +45,16 @@ colors_p_age_group <- c('0-4' = '#4d004b', '5-9' = '#7a0177',
                         '60-64' = '#990000', '65-69' = '#08589e',
                         '70-74' = '#3690c0', '75+' = '#a6bddb')
 
-colors_p_engreg <- c('East Midlands' = '#a6cee3', 'East of England' = '#1f78b4', 'Greater London' = '#b2df8a',
-                     'North East' = '#33a02c', 'North West' = '#fb9a99', 'South East' = '#e31a1c', 
-                     'South West' = '#fdbf6f', 'West Midlands' = '#ff7f00', 'Yorkshire and the Humber' = '#cab2d6')
+# model_colors <- c('det_engreg' = '#bdd7e7', 'prob_engreg' = '#08519c',
+#                   'det_pcd1' = '#bae4b3', 'prob_pcd1' = '#006d2c',
+#                   'det_pcd1age' = '#fbb4b9', 'prob_pcd1age' = '#dd1c77',
+#                   'det_pcd1ageethn' = '#fecc5c', 'prob_pcd1ageethn' = '#d95f0e',
+#                   'det_pcd1agehiqualnssec' = '#cab2d6', 'prob_pcd1agehiqualnssec' = '#7a0177',
+#                   'det_pcd1household' = '#fcae91', 'prob_pcd1household' = '#a50f15')
+
+model_colors <- c('engreg' = '#006d2c', 'pcd1' = '#7a0177', 
+                  'pcd1age' = '#fd8d3c', 'pcd1ageethn' = '#6baed6', 
+                  'pcd1agehiqualnssec' = '#de2d26', 'pcd1household' = '#f768a1')
+
+method_shapes <- c('det' = 1, 'prob' = 19)  
 

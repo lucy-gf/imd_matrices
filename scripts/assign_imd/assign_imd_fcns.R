@@ -859,7 +859,17 @@ fcn_mse <- function(
                 by = c('imd_quintile', var)) %>% 
       mutate(stat = ((survey_var_imd_prop_med/survey_var_prop) - 
                               (census_var_imd_prop/census_var_prop))^2) %>% 
-      drop_na()
+      drop_na() %>% 
+      mutate(above_below = '')
+    
+    for(k_row in 1:nrow(all_props)){
+      if(all_props$survey_var_imd_prop_med[k_row]/all_props$survey_var_prop[k_row] >= 
+         all_props$census_var_imd_prop[k_row]/all_props$census_var_prop[k_row]){
+        all_props$above_below[k_row] <- 'above'
+      }else{
+        all_props$above_below[k_row] <- 'below'
+      }
+    }
     
     errors_i <- all_props %>% 
       group_by(imd_quintile) %>% 
@@ -984,6 +994,107 @@ fcn_wis <- function(
   
 }
 
+
+# FUNCTION TO CALCULATE CONTINUOUS RANKED PROBABILITY SCORES OF SURVEY PROP IN ##
+## IMD QUINTILE COMPARED TO TRUE CENSUS PROP IN IMD ##
+
+fcn_crps <- function(
+    survey_data,
+    census_data_l
+){
+  
+  crps_out <- data.table()
+  
+  for(i in 1:length(census_data_l)){
+    
+    census <- census_data_l[[i]]
+    var <- colnames(census)[colnames(census) %notin% c('imd_quintile','n','n_tot','prop')]
+    
+    if(length(var) > 1){stop(paste0('More than one usable column name (list entry ', i, ')'))}
+    
+    if(var == 'p_ethnicity'){
+      survey_data <- survey_data %>% 
+        filter(!p_ethnicity %like% 'Prefer')
+    }
+    if(var == 'p_sec_input'){
+      survey_data <- survey_data %>% 
+        filter(p_sec_input %in% as.character(1:7))
+      
+      census <- census %>% 
+        mutate(p_sec_input = as.character(p_sec_input))
+    }
+    survey_data <- data.table(survey_data)
+    survey_data <- survey_data[get(var) %in% unname(unlist(unique(census[,var]))), ]
+    
+    survey_var_props <- survey_data %>% 
+      select(!!sym(var)) %>% drop_na() %>% 
+      group_by(!!sym(var)) %>% 
+      summarise(n = n(), n_tot = nrow(survey_data), survey_var_prop = n/n_tot)
+    
+    survey_props <- survey_data %>% 
+      group_by(bootstrap, imd_quintile) %>% 
+      mutate(n_tot = n()) %>% 
+      group_by(bootstrap, imd_quintile, !!sym(var), n_tot) %>% 
+      summarise(n_imd = n()) %>% 
+      mutate(survey_var_imd_prop_bs = n_imd/n_tot) %>% 
+      drop_na() %>% 
+      left_join(survey_var_props, by = var)
+    
+    census_var_props <- census %>% 
+      ungroup() %>% mutate(n_tot = sum(n)) %>% 
+      group_by(!!sym(var), n_tot) %>% 
+      summarise(n = sum(n)) %>% 
+      mutate(census_var_prop = n/n_tot)
+    
+    census_props <- census %>% ungroup() %>% 
+      group_by(imd_quintile) %>% 
+      mutate(n_tot = sum(n)) %>% 
+      mutate(census_var_imd_prop = n/n_tot) %>% 
+      left_join(census_var_props %>% select(!!sym(var), census_var_prop), by = var) %>% 
+      drop_na()
+    
+    errors <- survey_props %>% 
+      select(bootstrap, imd_quintile, !!sym(var), survey_var_imd_prop_bs, survey_var_prop) %>% 
+      left_join(census_props %>% select(imd_quintile, !!sym(var), census_var_imd_prop, census_var_prop), 
+                by = c('imd_quintile', var)) %>% 
+      mutate(survey_ratio = (survey_var_imd_prop_bs/survey_var_prop),
+             census_ratio = (census_var_imd_prop/census_var_prop))
+    
+    errors <- data.table(errors)
+    
+    unique_scores <- unique(errors %>% ungroup() %>% select(imd_quintile, !!sym(var))) %>% 
+      mutate(stat = NA,
+             variable = var,
+             above_below = '')
+    
+    for(i_row in 1:nrow(unique_scores)){
+      
+      crps_1 <- errors[imd_quintile == unname(unlist(unique_scores[i_row, 'imd_quintile'])) &
+                        get(var) == unname(unlist(unique_scores[i_row, ..var]))]
+      
+      crps_score <- scoringutils::crps_sample(
+        observed = unique(crps_1$census_ratio),
+        predicted = crps_1$survey_ratio)
+      
+      unique_scores$stat[i_row] <- crps_score
+      
+      if(median(crps_1$survey_ratio) >= unique(crps_1$census_ratio)){
+        unique_scores$above_below[i_row] <- 'above'
+      }else{
+        unique_scores$above_below[i_row] <- 'below'
+      }
+      
+    }
+    
+    colnames(unique_scores)[2] <- 'category'
+    
+    crps_out <- rbind(crps_out, unique_scores)
+    
+  }
+  
+  crps_out
+  
+}
 
 
 ## FUNCTION TO SIMPLIFY VARIABLE LABELS ##
