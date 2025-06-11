@@ -45,6 +45,9 @@ docs/
 # translation temp files
 po/*~
 
+# data
+data/
+
 # outputs
 output/
 
