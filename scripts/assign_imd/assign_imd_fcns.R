@@ -1147,25 +1147,68 @@ firstup <- function(x) {
 
   
 variables_from_name <- function(varname){
-  out <- if(varname == 'engreg'){c('eng_reg')}else{
-    if(varname == 'pcd1'){c('pcd1')}else{
-      if(varname == 'pcd1age'){c('pcd1','age_grp')}else{
-        if(varname == 'pcd1ageethn'){c('pcd1','age_grp_6','p_ethnicity')}else{
-          if(varname == 'pcd1household'){c('pcd1','hh_size_nm','hh_tenure_nm')}else{
-            if(varname == 'pcd1agehiqualnssec'){c('pcd1','age_grp_8','p_sec_input','p_hiqual')}}}}}}
+  # out <- if(varname == 'engreg'){c('eng_reg')}else{
+  #   if(varname == 'pcd1'){c('pcd1')}else{
+  #     if(varname == 'pcd1age'){c('pcd1','age_grp')}else{
+  #       if(varname == 'pcd1ageethn'){c('pcd1','age_grp_6','p_ethnicity')}else{
+  #         if(varname == 'pcd1household'){c('pcd1','hh_size_nm','hh_tenure_nm')}else{
+  #           if(varname == 'pcd1agehiqualnssec'){c('pcd1','age_grp_8','p_sec_input','p_hiqual')}}}}}}
+  
+  if(! varname %in% names(variables_and_names)){stop('varname not found')}
+  
+  out <- variables_and_names[[varname]]
   
   out
 }
 
 name_from_variables <- function(vars){
-  out <- if(vars == c('eng_reg')){'engreg'}else{
-    if(vars == c('pcd1')){'pcd1'}else{
-      if(vars == c('pcd1','age_grp')){'pcd1age'}else{
-        if(vars == c('pcd1','age_grp_6','p_ethnicity')){'pcd1ageethn'}else{
-          if(vars == c('pcd1','hh_size_nm','hh_tenure_nm')){'pcd1household'}else{
-            if(vars == c('pcd1','age_grp_8','p_sec_input','p_hiqual')){'pcd1agehiqualnssec'}}}}}}
+  # out <- if(vars == c('eng_reg')){'engreg'}else{
+  #   if(vars == c('pcd1')){'pcd1'}else{
+  #     if(vars == c('pcd1','age_grp')){'pcd1age'}else{
+  #       if(vars == c('pcd1','age_grp_6','p_ethnicity')){'pcd1ageethn'}else{
+  #         if(vars == c('pcd1','hh_size_nm','hh_tenure_nm')){'pcd1household'}else{
+  #           if(vars == c('pcd1','age_grp_8','p_sec_input','p_hiqual')){'pcd1agehiqualnssec'}}}}}}
+  
+  i <- 0; j <- 0
+  
+  for(k in 1:length(variables_and_names)){
+    if(length(variables_and_names[[k]]) == length(vars)){
+      if(sum(variables_and_names[[k]] == vars) == length(vars)){
+        i <- k
+        j <- j + 1
+      }
+    }
+  }
+  
+  if(j > 1){stop('vars match more than one list entry')}
+  if(j == 0){stop("vars don't match any list entries")}
+  
+  out <- names(variables_and_names)[i]
   
   out
 }
+
+variables_and_names <- list(
+  'engreg' = c('eng_reg'),
+  'pcd1' = c('pcd1'),
+  'pcd1age' = c('pcd1','age_grp'),
+  'pcd1ageethn' = c('pcd1','age_grp_6','p_ethnicity'),
+  'pcd1household' = c('pcd1','hh_size_nm','hh_tenure_nm'),
+  'pcd1agehiqualnssec' = c('pcd1','age_grp_8','p_sec_input','p_hiqual'),
+  'pcd1nssectenure' = c('pcd1','p_sec_input','hh_tenure_nm'),
+  'pcd1ethntenure' = c('pcd1','p_ethnicity','hh_tenure_nm')
+)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
