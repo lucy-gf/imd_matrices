@@ -1145,6 +1145,29 @@ firstup <- function(x) {
   x
 }
 
+format_number <- function(num,
+                          after_decimal = 3){
+  
+  out <- num
+  
+  for(i in 1:length(out)){
+    if(out[i] < 10){
+      out[i] <- round(out[i], after_decimal)
+    }else{
+      out[i] <- signif(out[i], 4)
+    }
+  }
+  
+  for(i in 1:length(out)){
+    if(as.numeric(out[i]) < 1000){
+      out[i] <- gsub(' ', '', format(as.numeric(out[i]), nsmall = 3))
+    }else{
+      out[i] <- as.character(out[i])
+    }
+  }
+  
+  out
+}
   
 variables_from_name <- function(varname){
   # out <- if(varname == 'engreg'){c('eng_reg')}else{

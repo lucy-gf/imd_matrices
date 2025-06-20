@@ -70,7 +70,7 @@ plot_df %>%
   theme_bw() + 
   facet_grid(. ~ variable, switch ='x') +
   scale_color_manual(values = model_colors) +
-  scale_shape_manual(values = method_shapes, labels = c('Deterministic','Probabilistic')) +
+  scale_shape_manual(values = method_shapes, labels = method_names) +
   labs(col = 'Predictors',
        shape = 'Method',
        y = paste0('Mean ', toupper(.args[2])), 

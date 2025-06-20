@@ -87,12 +87,12 @@ heatmap_error_scores <- function(var){
     theme_bw() +
     facet_grid(predictors~., scales = 'free') + 
     theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1)) + 
-    geom_label(data = error_scores_filt %>% group_by(model) %>% summarise(mean_stat = round(mean(abs(stat)),3)),
-              aes(label = mean_stat),
+    geom_label(data = error_scores_filt %>% group_by(model, predictors) %>% summarise(mean_stat = mean(abs(stat)),3),
+              aes(label = format_number(mean_stat)),
               x = error_scores_filt$category[k], y = 5, alpha = 0.6) +
     labs(y = 'IMD quintile',
          fill = '', 
-         x = '') + ggtitle(format_legend(var)) 
+         x = '') 
   
   if(pos_neg){
     plot <- plot + 
@@ -103,7 +103,11 @@ heatmap_error_scores <- function(var){
   }else{
     plot <- plot + 
       scale_fill_distiller(palette = "Greens", direction = 1,
-                            limits = c(0, ifelse(merge_color, max(mses_map$square_err), NA))) 
+                            limits = c(0, ifelse(merge_color, max(mses_map$square_err), NA))) +
+      ggtitle(format_legend(var)) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank()) 
   }
   
   plot
@@ -119,8 +123,7 @@ h_maps <- map(
 
 p <- patchwork::wrap_plots(h_maps, nrow = 1, widths = widths) + 
   plot_annotation(title = paste0(toupper(.args[2]), 
-                                 ' in each category and IMD quintile, for each predictive model, ',
-                                 'with total mean ', toupper(.args[2])))
+                                 ' in each category and IMD quintile, for each predictive model, with total mean ', toupper(.args[2])))
 
 if(merge_color){
   p <- p + plot_layout(guides = 'collect')

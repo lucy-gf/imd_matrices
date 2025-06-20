@@ -14,7 +14,7 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
   file.path("data", "connect", "connect_part.rds"),
   file.path("data", "census", "pcd1.csv"),
   'pcd1',
-  file.path("output", "data", "assigned","det","connect_det_pcd1.rds")
+  file.path("output", "data", "assignment","connect_det_pcd1.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 # read in connect data

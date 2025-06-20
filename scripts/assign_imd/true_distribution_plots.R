@@ -24,8 +24,6 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
   file.path("output", "figures", "assignment","prob_pcd1","true_distrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
-# cat('\n', .args, '\n', sep = '\n')
-
 ## make directory for plots
 directory_plots <- here::here(file.path("output", "figures", "assignment",.args[2]))
 
@@ -43,11 +41,9 @@ varname <- gsub('prob_', '', gsub('det_', '', .args[2]))
 
 variables_input <- variables_from_name(varname)
 
-# cat('\n', variables_input, '\n')
-
 modal_in <- grepl('det', .args[2])
 
-## barplot
+## barplot, saves automatically 
 
 fcn_barplot_imd(connect_output, 
                 c('p_income','p_hiqual','p_age_group','p_ethnicity',

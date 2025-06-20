@@ -57,4 +57,5 @@ model_colors <- c('engreg' = '#006d2c', 'pcd1' = '#7a0177',
                   'pcd1agehiqualnssec' = '#de2d26', 'pcd1household' = '#f768a1')
 
 method_shapes <- c('det' = 1, 'prob' = 19)  
-
+method_names <- c('Deterministic','Probabilistic')
+names(method_names) <- c('det','prob')
