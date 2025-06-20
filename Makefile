@@ -70,6 +70,11 @@ makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.$
 
 # TODO - currently need to source setup/packages.R, assign_imd/load_pcd_imd_census_data.R, make_imd_assignment_data_inputs.R
 
+##### Polymod-weighted large group contacts ########## 
+
+${CONNECTDIR}/connect_contacts_formatted.rds: ${ASSIGNDIR}/polymod_weights.R ${CONNECTDIR}/connect_part.rds ${CONNECTDIR}/connect_contacts.rds ${ONSDIR}/ons_2022_age_structure.xlsx
+	$(call R)
+
 ##### Assign IMD for each scenario ########## 
 
 ##### Deterministic ########## 
@@ -95,12 +100,19 @@ ${FIGDIR}/assignment/%/true_distrs.png: ${ASSIGNDIR}/true_distribution_plots.R $
 
 alltruedistplots: $(patsubst %,${FIGDIR}/assignment/%/true_distrs.png, ${ALLSCN})
 
-##### Age-specific mean contact plots ########## 
+##### Age-specific mean contact and proportion u18 plots ########## 
 
-${FIGDIR}/assignment/%/mean_age_contacts.png: ${ASSIGNDIR}/age_contact_plots.R ${DATDIR}/assignment/connect_%.rds
+${FIGDIR}/assignment/%/mean_age_contacts.png: ${ASSIGNDIR}/age_contact_plots.R ${DATDIR}/assignment/connect_%.rds ${CONNECTDIR}/connect_contacts.rds
 	$(call R, $*)
 
 allageplots: $(patsubst %,${FIGDIR}/assignment/%/mean_age_contacts.png, ${ALLSCN})
+
+##### Crude contact matrices ########## 
+
+${FIGDIR}/assignment/%/part_imd_contact_matrs.png: ${ASSIGNDIR}/part_imd_contact_matrs_plots.R ${DATDIR}/assignment/connect_%.rds ${CONNECTDIR}/connect_contacts_formatted.rds
+	$(call R, $*)
+
+allCMplots: $(patsubst %,${FIGDIR}/assignment/%/part_imd_contact_matrs.png, ${ALLSCN})
 
 ##### Make error scores ########## 
 
@@ -178,5 +190,5 @@ allerrorplots: allscatterplots allheatplots
 
 ##### Needed outputs: ##########################################################
 
-allplots: alltruedistplots allageplots allevalplots allerrorplots
+allplots: alltruedistplots allageplots allCMplots allevalplots allerrorplots
 

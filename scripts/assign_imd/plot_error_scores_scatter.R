@@ -40,7 +40,7 @@ for(i in 1:nrow(error_scores)){
   error_scores$predictors[i] <- gsub('det_','',gsub('prob_','',error_scores[i,]$model))
 }
 
-# remove 'det' method if using WSI (not appropriate for point estimates)
+# remove 'det' method if using WSI/CPRS (not appropriate for point estimates)
 
 if(.args[2] != 'mse'){
   error_scores <- error_scores %>% 
