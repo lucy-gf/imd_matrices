@@ -1,8 +1,8 @@
 
-######################################
-## TESTING METHODS OF INFERRING IMD ##
-### FROM PCD1 AND CENSUS VARIABLES ###
-######################################
+############################################
+#### FORMATTING CENSUS AND ONS DATA FOR ####
+### INFERRING IMD OF SURVEY PARTICIPANTS ###
+############################################
 
 ## Training dataset: England population
 

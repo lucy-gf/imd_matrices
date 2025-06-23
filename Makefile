@@ -66,9 +66,7 @@ makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.$
 
 ##### INPUTS ###################################################################
 
-##### Turn Census data into inputs ########## 
-
-# TODO - currently need to source setup/packages.R, assign_imd/load_pcd_imd_census_data.R, make_imd_assignment_data_inputs.R
+## Script to turn raw census data into inputs is: scripts/assign_imd/make_census_inputs.R
 
 ##### Polymod-weighted large group contacts ########## 
 
