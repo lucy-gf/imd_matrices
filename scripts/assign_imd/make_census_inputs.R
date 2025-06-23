@@ -11,9 +11,12 @@ library(readr)
 library(data.table)
 library(tibble)
 library(tidyr)
+library(dplyr)
 library(here)
 
 here::here()
+
+select <- dplyr::select
 
 ## Matching postcodes to LSOAs
 ## from https://geoportal.statistics.gov.uk/datasets/3770c5e8b0c24f1dbe6d2fc6b46a0b18 
@@ -271,6 +274,7 @@ ns_hq_pcd1 <- ns_hq_pcd1 %>%
     nssec_nm %like% 'L12' ~ '6',
     nssec_nm %like% 'L13' ~ '7',
     nssec_nm %like% 'student' ~ 'Student',
+    nssec_nm %like% 'unemployed' ~ 'Unemployed', # this is an assumption
     T ~ 'Not applic.'
   )) 
 
@@ -307,18 +311,23 @@ colnames(age_dt) <- c('lsoa21cd','lsoa21nm','age_cd','age_nm','population')
 
 # merge with postcodes
 age_pcd1 <- full_join(age_dt, pcd_imd, by = 'lsoa21cd', relationship = 'many-to-many')
-age_pcd1 <- data.table(age_pcd1 %>% filter(!is.na(population), !is.na(pcd1)))
+age_pcd1 <- age_pcd1 %>% filter(!is.na(population), !is.na(pcd1)) %>% 
+  rename(age_grp = age_nm) %>% 
+  mutate(age_grp = case_when(
+    age_grp %like% '75|80|85' ~ 'Aged 75+',
+    T ~ age_grp
+  ))
 
-age_pcd1$age_nm <- factor(age_pcd1$age_nm,
-                          levels = unique(age_pcd1$age_nm))
+age_pcd1$age_grp <- factor(age_pcd1$age_grp,
+                          levels = unique(age_pcd1$age_grp))
   
 age_pcd1 %>%
   group_by(imd_quintile, eng_reg) %>%
   mutate(n = sum(population)) %>% 
-  group_by(age_nm, imd_quintile, eng_reg, n) %>%
+  group_by(age_grp, imd_quintile, eng_reg, n) %>%
   summarise(s = sum(population)) %>%
   ggplot() + 
-  geom_line(aes(x = age_nm, y = s/n, color = imd_quintile, 
+  geom_line(aes(x = age_grp, y = s/n, color = imd_quintile, 
                 group = imd_quintile)) + 
   theme_bw() + facet_wrap(eng_reg~., scales = 'free') + 
   labs(y = 'Proportion', 
@@ -328,6 +337,64 @@ age_pcd1 %>%
 
 ggsave(here::here('output','figures','census','age_region.png'),
        width = 15, height = 12)
+
+## DATASET 7 ##
+
+# FROM UK DATA SERVICE BULK DOWNLOAD
+
+# Population: All usual residents 
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Tenure and Ethnicity of Household Reference Persons
+
+# All areas available 
+
+ethn_tenure <- data.table(read_csv(here::here('data','census','raw','ukds_tenure_ethnicity.csv'), show_col_types = F))
+colnames(ethn_tenure) <- c('lsoa21cd','lsoa21nm','tenure_cd','tenure_nm','ethn_cd','ethn_nm','population')
+
+# merge with postcodes
+ethn_tenure_pcd1 <- full_join(ethn_tenure, pcd_imd, by = 'lsoa21cd', relationship = 'many-to-many')
+ethn_tenure_pcd1 <- ethn_tenure_pcd1 %>% filter(!is.na(population), !is.na(pcd1)) 
+
+# remove categories with no observations ('Does not apply')
+cd_remove <- (ethn_tenure_pcd1 %>% group_by(tenure_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$tenure_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  ethn_tenure_pcd1 <- ethn_tenure_pcd1[tenure_cd != cd_remove, ]
+}
+cd_remove <- (ethn_tenure_pcd1 %>% group_by(ethn_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$ethn_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  ethn_tenure_pcd1 <- ethn_tenure_pcd1[ethn_cd != cd_remove, ]
+}
+
+ethn_tenure_pcd1 <- ethn_tenure_pcd1 %>% 
+  mutate(p_ethnicity = case_when(
+    ethn_nm %like% 'White' ~ 'White',
+    ethn_nm %like% 'Black' ~ 'Black',
+    ethn_nm %like% 'Asian' ~ 'Asian',
+    ethn_nm %like% 'Mixed' ~ 'Mixed',
+    ethn_nm %like% 'Other ethnic' ~ 'Other'
+  )) %>% 
+  rename(p_tenure_short = tenure_nm)
+
+ethn_tenure_pcd1 %>%
+  group_by(p_ethnicity, imd_quintile, eng_reg) %>%
+  mutate(n = sum(population)) %>% 
+  group_by(p_ethnicity, p_tenure_short, imd_quintile, eng_reg, n) %>%
+  summarise(s = sum(population)) %>%
+  ggplot() + 
+  geom_bar(aes(x = p_ethnicity, y = s, fill = imd_quintile),
+           position = 'fill', stat = 'identity') + 
+  theme_bw() + facet_grid(p_tenure_short~eng_reg, scales = 'free') + 
+  labs(y = 'Proportion', 
+       x = '',
+       fill = 'IMD quintile') + ylim(c(0,NA)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+ggsave(here::here('output','figures','census','tenure_ethn_region.png'),
+       width = 2*n_distinct(ethn_tenure_pcd1$p_ethnicity), height = 2*n_distinct(ethn_tenure_pcd1$p_tenure_short))
 
 ###############################
 ###############################
@@ -345,6 +412,7 @@ write_csv(ns_hq_pcd1, here::here('data','census','pcd1agehiqualnssec.csv'))
 
 write_csv(age_ethn_pcd1, here::here('data','census','pcd1ageethn.csv'))
 
+write_csv(ethn_tenure_pcd1, here::here('data','census','pcd1ethntenure.csv'))
 
 ####################################
 ####################################
@@ -353,6 +421,17 @@ write_csv(age_ethn_pcd1, here::here('data','census','pcd1ageethn.csv'))
 ####################################
 
 connect_part <- readRDS(here::here('data','connect','connect_part.rds'))
+
+if('age_lower' %notin% colnames(connect_part)){
+  connect_part <- connect_part %>% 
+    mutate(p_age_group_2 = case_when(
+      p_age_group %like% '75+' ~ '75+-',
+      T ~ p_age_group
+    )) %>% 
+    separate_wider_delim(p_age_group_2, delim = '-', 
+                         names = c('age_lower','age_upper'))
+}
+
 
 connect_input <- connect_part %>% 
   mutate(hh_tenure_nm = case_when(
@@ -367,6 +446,13 @@ connect_input <- connect_part %>%
                     'Rented from a relative or friend of household member',
                     'Other private rented') ~ "Private rented: Other private rented or lives rent free",
   )) %>% 
+  mutate(p_tenure_short = case_when(
+    hh_tenure_nm == "Owned: Owns outright" ~ hh_tenure_nm,
+    hh_tenure_nm %in% c("Social rented: Rents from council or Local Authority","Social rented: Other social rented") ~ 'Rented: Social rented',
+    hh_tenure_nm == "Owned: Owns with a mortgage or loan or shared ownership" ~ hh_tenure_nm,
+    hh_tenure_nm %in% c("Private rented: Other private rented or lives rent free",
+                        "Private rented: Private landlord or letting agency") ~ 'Private rented or lives rent free'
+  )) %>% 
   mutate(hh_size_nm = case_when(
     household_members == '0' ~ "1 person in household",
     household_members %in% as.character(1:4) ~ paste0(as.numeric(household_members) + 1, ' people in household'),
@@ -377,35 +463,47 @@ connect_input <- connect_part %>%
     p_engreg %like% 'Yorkshire' ~ 'Yorkshire and The Humber',
     T ~ p_engreg
   )) %>% 
-  mutate(age_grp = p_age_group,
-         age_grp_8 = case_when(
-           p_age %in% 16:24 ~ "Aged 16 to 24 years",
-           p_age %in% 25:34 ~ "Aged 25 to 34 years",
-           p_age %in% 35:44 ~ "Aged 35 to 44 years",
-           p_age %in% 45:54 ~ "Aged 45 to 54 years",
-           p_age %in% 55:64 ~ "Aged 55 to 64 years",
-           p_age %in% 65:74 ~ "Aged 65 to 74 years",  
-           p_age >= 75 ~ "Aged 75 years and over"
-         ),
-         age_grp_6 = case_when(
-           p_age < 16 ~ "Aged 15 years and under",
-           p_age %in% 16:24 ~ "Aged 16 to 24 years",
-           p_age %in% 25:34 ~ "Aged 25 to 34 years",
-           p_age %in% 35:49 ~ "Aged 35 to 49 years",
-           p_age %in% 50:64 ~ "Aged 50 to 64 years",
-           p_age >= 65 ~ "Aged 65 years and over"
-         )) %>% 
+  mutate(age_grp = case_when(
+    p_age_group == '0-4' ~ 'Aged 4 years and under',
+    p_age_group == '75+' ~ 'Aged 75+',
+    T ~ paste0('Aged ', age_lower, ' to ', age_upper, ' years')
+    ),
+    age_grp_8 = case_when(
+      p_age < 16 ~ "Aged 15 years and under",
+      p_age %in% 16:24 ~ "Aged 16 to 24 years",
+      p_age %in% 25:34 ~ "Aged 25 to 34 years",
+      p_age %in% 35:44 ~ "Aged 35 to 44 years",
+      p_age %in% 45:54 ~ "Aged 45 to 54 years",
+      p_age %in% 55:64 ~ "Aged 55 to 64 years",
+      p_age %in% 65:74 ~ "Aged 65 to 74 years",  
+      p_age >= 75 ~ "Aged 75 years and over"
+    ),
+    age_grp_6 = case_when(
+      p_age < 16 ~ "Aged 15 years and under",
+      p_age %in% 16:24 ~ "Aged 16 to 24 years",
+      p_age %in% 25:34 ~ "Aged 25 to 34 years",
+      p_age %in% 35:49 ~ "Aged 35 to 49 years",
+      p_age %in% 50:64 ~ "Aged 50 to 64 years",
+      p_age >= 65 ~ "Aged 65 years and over"
+    )) %>% 
   mutate(p_hiqual = case_when(
     p_hiqual %like% 'Level 1' ~ '1-4 GCSEs',
     p_hiqual %like% 'Level 2' ~ '5+ GCSEs',
     p_hiqual %like% 'Level 3' ~ '2+ A levels',
     p_hiqual %like% 'Level 4' ~ 'Degree',
     p_hiqual %like% 'Apprent' ~ 'Apprentice/vocational',
+    p_hiqual %like% 'Child' ~ 'Not applic.',
+    p_hiqual == 'Does not apply' ~ 'Not applic.',
     T ~ p_hiqual
+  )) %>% 
+  mutate(p_sec_input = case_when(
+    p_sec_input %like% 'Under 17' ~ 'Not applic.',
+    p_sec_input %like% 'Retired' ~ 'Not applic.',
+    p_sec_input %like% 'Unknown' ~ NA,
+    T ~ p_sec_input
   ))
 
 write_rds(connect_input, here::here('data','connect','connect_part.rds'))
-
 
 cat('Time taken: ', 
     floor(difftime(Sys.time(), time, units = 'secs')[[1]]/60), ' mins ',

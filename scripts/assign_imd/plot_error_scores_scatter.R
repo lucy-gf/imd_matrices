@@ -64,7 +64,7 @@ plot_df %>%
   ggplot() + 
   geom_point(aes(predictors, mean_stat, col = predictors, shape = method),
              size = 3) + 
-  geom_text(data = plot_df %>% filter(rank <= 5),
+  geom_text(data = plot_df %>% filter(rank <= 6),
             aes(predictors, mean_stat, label = rank),
              size = 3, nudge_y = nudge) + 
   theme_bw() + 

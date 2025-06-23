@@ -41,7 +41,7 @@ ${RENV}: install.R
 	 Rscript --vanilla $^
 
 # scenarios for IMD assignment
-ASSIGNVAR ?= engreg pcd1 pcd1age pcd1ageethn pcd1agehiqualnssec pcd1household
+ASSIGNVAR ?= engreg pcd1 pcd1age pcd1ageethn pcd1agehiqualnssec pcd1household pcd1ethntenure
 
 # methods for IMD assignment
 ASSIGNMETHOD ?= prob det
@@ -82,12 +82,28 @@ ${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTD
 
 allassignmentdet: $(call makeassigndet, ${ASSIGNVAR})
 
-##### Probabilistic ########## 
+##### Probabilistic - running one by one to avoid reruns ########## 
 
-#${DATDIR}/assigment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/%.csv
-#	$(call R,$(firstword $(subst _, ,$*)))
+#${DATDIR}/assignment/connect_prob_engreg.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/engreg.csv
+#	$(call R, engreg)
+#
+#${DATDIR}/assignment/connect_prob_pcd1.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1.csv
+#	$(call R, pcd1)
+#
+#${DATDIR}/assignment/connect_prob_pcd1age.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1age.csv
+#	$(call R, pcd1age)
+#
+#${DATDIR}/assignment/connect_prob_pcd1ageethn.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ageethn.csv
+#	$(call R, pcd1ageethn)
+#
+#${DATDIR}/assignment/connect_prob_pcd1agehiqualnssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1agehiqualnssec.csv
+#	$(call R, pcd1agehiqualnssec)
+#
+#${DATDIR}/assignment/connect_prob_pcd1household.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1household.csv
+#	$(call R, pcd1household)
 
-#allassigmentprob: $(call makeassignprob, ${ASSIGNVAR})
+${DATDIR}/assignment/connect_prob_pcd1ethntenure.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethntenure.csv
+	$(call R, pcd1ethntenure)
 
 ##### EVALUATIONS ##############################################################
 

@@ -73,6 +73,18 @@ heatmap_error_scores <- function(var){
                                             '70-74','75+'))
   }
   
+  if(var == 'age_grp'){
+    error_scores_filt$category <- factor(error_scores_filt$category,
+                                         levels = c('Aged 4 years and under', 'Aged 5 to 9 years',
+                                                    'Aged 10 to 14 years', 'Aged 15 to 19 years',
+                                                    'Aged 20 to 24 years', 'Aged 25 to 29 years',
+                                                    'Aged 30 to 34 years', 'Aged 35 to 39 years',
+                                                    'Aged 40 to 44 years', 'Aged 45 to 49 years',
+                                                    'Aged 50 to 54 years', 'Aged 55 to 59 years',
+                                                    'Aged 60 to 64 years', 'Aged 65 to 69 years',
+                                                    'Aged 70 to 74 years', 'Aged 75+'))
+  }
+  
   ## where to place MSE label
   # k <- if(var == 'age_group'){4}else{if(var == 'urban_rural'){1}else{2}}
   k <- 2

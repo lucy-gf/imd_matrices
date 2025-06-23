@@ -9,12 +9,12 @@ library(dplyr, warn.conflicts = FALSE)
 # source functions
 source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 
-# set arguments
+# set arguments 
 .args <- if (interactive()) c(
   file.path("data", "connect", "connect_part.rds"),
-  file.path("data", "census", "pcd1.csv"),
-  "pcd1",
-  file.path("output", "data", "assignment","connect_prob_pcd1.rds")
+  file.path("data", "census", "pcd1agehiqualnssec.csv"),
+  "pcd1agehiqualnssec",
+  file.path("output", "data", "assignment","connect_prob_pcd1agehiqualnssec.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 # read in connect data

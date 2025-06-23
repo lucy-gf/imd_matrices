@@ -53,7 +53,7 @@ fcn_evaluate_imd(
                           true_vals_urban),
   predictors = variables_input,
   modal = modal_in,
-  summary_stat = summary_stat_in,
+  summary_stat = summary_stat_in, 
   scores = summ_stats
 )
 

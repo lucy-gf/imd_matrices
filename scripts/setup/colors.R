@@ -45,16 +45,19 @@ colors_p_age_group <- c('0-4' = '#4d004b', '5-9' = '#7a0177',
                         '60-64' = '#990000', '65-69' = '#08589e',
                         '70-74' = '#3690c0', '75+' = '#a6bddb')
 
-# model_colors <- c('det_engreg' = '#bdd7e7', 'prob_engreg' = '#08519c',
-#                   'det_pcd1' = '#bae4b3', 'prob_pcd1' = '#006d2c',
-#                   'det_pcd1age' = '#fbb4b9', 'prob_pcd1age' = '#dd1c77',
-#                   'det_pcd1ageethn' = '#fecc5c', 'prob_pcd1ageethn' = '#d95f0e',
-#                   'det_pcd1agehiqualnssec' = '#cab2d6', 'prob_pcd1agehiqualnssec' = '#7a0177',
-#                   'det_pcd1household' = '#fcae91', 'prob_pcd1household' = '#a50f15')
+colors_age_grp <- c('Aged 4 years and under' = '#4d004b', 'Aged 5 to 9 years' = '#7a0177',
+                        'Aged 10 to 14 years' = '#ae017e', 'Aged 15 to 19 years' = '#dd3497',
+                        'Aged 20 to 24 years' = '#f768a1', 'Aged 25 to 29 years' = '#fa9fb5',
+                        'Aged 30 to 34 years' = '#fcc5c0', 'Aged 35 to 39 years' = '#fec44f',
+                        'Aged 40 to 44 years' = '#fe9929', 'Aged 45 to 49 years' = '#ec7014',
+                        'Aged 50 to 54 years' = '#ef6548', 'Aged 55 to 59 years' = '#d7301f',
+                        'Aged 60 to 64 years' = '#990000', 'Aged 65 to 69 years' = '#08589e',
+                        'Aged 70 to 74 years' = '#3690c0', 'Aged 75+' = '#a6bddb')
 
 model_colors <- c('engreg' = '#006d2c', 'pcd1' = '#7a0177', 
                   'pcd1age' = '#fd8d3c', 'pcd1ageethn' = '#6baed6', 
-                  'pcd1agehiqualnssec' = '#de2d26', 'pcd1household' = '#f768a1')
+                  'pcd1agehiqualnssec' = '#de2d26', 'pcd1household' = '#f768a1',
+                  'pcd1ethntenure' = 'blue4')
 
 method_shapes <- c('det' = 1, 'prob' = 19)  
 method_names <- c('Deterministic','Probabilistic')

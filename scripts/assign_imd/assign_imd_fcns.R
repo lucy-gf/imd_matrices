@@ -21,7 +21,7 @@ fcn_assign_imd <- function(
     
     data <- data[get(var) %in% unname(unlist(unique(census_data[,..var]))), ]
     
-    # cat(round(100*(1 - nrow(data)/n_row_original), 1), 
+    # cat(round(100*(1 - nrow(data)/n_row_original), 1),
     #     '% of Connect participants removed after variable: ', var, '\n', sep = '')
   }
   
@@ -148,6 +148,7 @@ fcn_barplot_imd <- function(
     p <- data_output %>% 
       group_by(imd_quintile, !!sym(var)) %>% 
       count() %>% 
+      drop_na() %>% 
       ggplot() + 
       geom_bar(aes(x = !!sym(var), y = n, fill = as.factor(imd_quintile)),
                position = 'fill', stat = 'identity') + 
@@ -264,6 +265,7 @@ fcn_errorbarplot_imd <- function(
         summarise(med_prop = median(prop_bs),
                   lower_prop = quantile(prop_bs, (1 - ci_width)/2),
                   upper_prop = quantile(prop_bs, (1 - (1 - ci_width)/2))) %>% 
+        drop_na() %>% 
         ggplot() + 
         geom_errorbar(aes(x = !!sym(var), ymin = lower_prop, ymax = upper_prop, 
                           col = as.factor(imd_quintile), group = as.factor(imd_quintile)),
@@ -395,7 +397,7 @@ fcn_rev_errorbarplot_imd <- function(
     if(var == 'p_hiqual'){
       data_output <- data_output %>% 
         filter(p_hiqual != 'Other',
-               !p_hiqual %like% 'Child')
+               !p_hiqual %like% 'Child|apply')
     }
     
     if(is.null(true_vals)){
@@ -463,6 +465,17 @@ fcn_rev_errorbarplot_imd <- function(
                                                       '50-54','55-59',
                                                       '60-64','65-69',
                                                       '70-74','75+'))
+        }
+        if(var == 'age_grp'){
+          plot_input$age_grp <- factor(plot_input$age_grp,
+                                           levels = c('Aged 4 years and under', 'Aged 5 to 9 years',
+                                                       'Aged 10 to 14 years', 'Aged 15 to 19 years',
+                                                       'Aged 20 to 24 years', 'Aged 25 to 29 years',
+                                                       'Aged 30 to 34 years', 'Aged 35 to 39 years',
+                                                       'Aged 40 to 44 years', 'Aged 45 to 49 years',
+                                                       'Aged 50 to 54 years', 'Aged 55 to 59 years',
+                                                       'Aged 60 to 64 years', 'Aged 65 to 69 years',
+                                                       'Aged 70 to 74 years', 'Aged 75+'))
         }
         
         if(facet){
@@ -915,6 +928,12 @@ fcn_wis <- function(
       census <- census %>% 
         mutate(p_sec_input = as.character(p_sec_input))
     }
+    if(var == 'p_hiqual'){
+      survey_data <- survey_data %>% 
+        filter(!p_hiqual %like% 'Not applic.')
+      census <- census %>% 
+        filter(!p_hiqual %like% 'Not applic.')
+    }
     survey_data <- data.table(survey_data)
     survey_data <- survey_data[get(var) %in% unname(unlist(unique(census[,var]))), ]
     
@@ -1107,6 +1126,7 @@ simp_labels <- function(string){
   string <- gsub('_cd','',string)
   string <- gsub('_nm','',string)
   string <- gsub('_input','',string)
+  string <- gsub('_short','',string)
   return(string)
 }
 
@@ -1128,9 +1148,11 @@ format_legend <- function(string){
   if(string == 'p_emp_1'){return('Employment status')}
   if(string == 'p_sec_input'){return('NS-SEC')}
   if(string == 'sec_input'){return('NS-SEC')}
+  if(string == 'p_tenure_short'){return('Housing tenure')}
   
   # else just try something
-  out_str <- gsub('_grp','',string)
+  out_str <- gsub('_short', '', string)
+  out_str <- gsub('_grp','',out_str)
   out_str <- gsub('p_','',out_str)
   out_str <- gsub('hh', 'Household', out_str)
   out_str <- gsub('_cd', '', out_str)
@@ -1170,12 +1192,6 @@ format_number <- function(num,
 }
   
 variables_from_name <- function(varname){
-  # out <- if(varname == 'engreg'){c('eng_reg')}else{
-  #   if(varname == 'pcd1'){c('pcd1')}else{
-  #     if(varname == 'pcd1age'){c('pcd1','age_grp')}else{
-  #       if(varname == 'pcd1ageethn'){c('pcd1','age_grp_6','p_ethnicity')}else{
-  #         if(varname == 'pcd1household'){c('pcd1','hh_size_nm','hh_tenure_nm')}else{
-  #           if(varname == 'pcd1agehiqualnssec'){c('pcd1','age_grp_8','p_sec_input','p_hiqual')}}}}}}
   
   if(! varname %in% names(variables_and_names)){stop('varname not found')}
   
@@ -1185,13 +1201,7 @@ variables_from_name <- function(varname){
 }
 
 name_from_variables <- function(vars){
-  # out <- if(vars == c('eng_reg')){'engreg'}else{
-  #   if(vars == c('pcd1')){'pcd1'}else{
-  #     if(vars == c('pcd1','age_grp')){'pcd1age'}else{
-  #       if(vars == c('pcd1','age_grp_6','p_ethnicity')){'pcd1ageethn'}else{
-  #         if(vars == c('pcd1','hh_size_nm','hh_tenure_nm')){'pcd1household'}else{
-  #           if(vars == c('pcd1','age_grp_8','p_sec_input','p_hiqual')){'pcd1agehiqualnssec'}}}}}}
-  
+
   i <- 0; j <- 0
   
   for(k in 1:length(variables_and_names)){
@@ -1218,8 +1228,7 @@ variables_and_names <- list(
   'pcd1ageethn' = c('pcd1','age_grp_6','p_ethnicity'),
   'pcd1household' = c('pcd1','hh_size_nm','hh_tenure_nm'),
   'pcd1agehiqualnssec' = c('pcd1','age_grp_8','p_sec_input','p_hiqual'),
-  'pcd1nssectenure' = c('pcd1','p_sec_input','hh_tenure_nm'),
-  'pcd1ethntenure' = c('pcd1','p_ethnicity','hh_tenure_nm')
+  'pcd1ethntenure' = c('pcd1','p_ethnicity','p_tenure_short')
 )
 
 

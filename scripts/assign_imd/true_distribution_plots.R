@@ -19,9 +19,9 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","connect_prob_pcd1.rds"),
-  'prob_pcd1',
-  file.path("output", "figures", "assignment","prob_pcd1","true_distrs.png")
+  file.path("output", "data", "assignment","connect_det_pcd1.rds"),
+  'det_pcd1',
+  file.path("output", "figures", "assignment","det_pcd1","true_distrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 ## make directory for plots
@@ -63,7 +63,7 @@ p1 <- fcn_rev_errorbarplot_imd(connect_output,
 ## age distribution
 
 p2 <- fcn_rev_errorbarplot_imd(connect_output, 
-                         'p_age_group',
+                         'age_grp',
                          true_vals = true_vals_age,
                          ci_width = 0.95,
                          true_distr = T
