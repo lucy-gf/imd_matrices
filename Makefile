@@ -41,7 +41,7 @@ ${RENV}: install.R
 	 Rscript --vanilla $^
 
 # scenarios for IMD assignment
-ASSIGNVAR ?= engreg pcd1 pcd1age pcd1ageethn pcd1agehiqualnssec pcd1household pcd1ethntenure
+ASSIGNVAR ?= engreg pcd1 pcd1age pcd1ageethn pcd1agehiqualnssec pcd1household pcd1ethntenure pcd1ethnhiqual pcd1agenssec pcd1ethn pcd1agehiqual pcd1hhsize pcd1hhtenure
 
 # methods for IMD assignment
 ASSIGNMETHOD ?= prob det
@@ -101,9 +101,27 @@ allassignmentdet: $(call makeassigndet, ${ASSIGNVAR})
 #
 #${DATDIR}/assignment/connect_prob_pcd1household.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1household.csv
 #	$(call R, pcd1household)
+#
+#${DATDIR}/assignment/connect_prob_pcd1ethntenure.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethntenure.csv
+#	$(call R, pcd1ethntenure)
+#
+#${DATDIR}/assignment/connect_prob_pcd1ethnhiqual.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethnhiqual.csv
+#	$(call R, pcd1ethnhiqual)
 
-${DATDIR}/assignment/connect_prob_pcd1ethntenure.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethntenure.csv
-	$(call R, pcd1ethntenure)
+${DATDIR}/assignment/connect_prob_pcd1agenssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1agenssec.csv
+	$(call R, pcd1agenssec)
+
+${DATDIR}/assignment/connect_prob_pcd1ethn.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethn.csv
+	$(call R, pcd1ethn)
+
+${DATDIR}/assignment/connect_prob_pcd1agehiqual.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1agehiqual.csv
+	$(call R, pcd1agehiqual)
+
+${DATDIR}/assignment/connect_prob_pcd1hhsize.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1hhsize.csv
+	$(call R, pcd1hhsize)
+
+${DATDIR}/assignment/connect_prob_pcd1hhtenure.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1hhtenure.csv
+	$(call R, pcd1hhtenure)
 
 ##### EVALUATIONS ##############################################################
 
@@ -196,10 +214,14 @@ ${FIGDIR}/assignment/eval_heatmap_%.png: ${ASSIGNDIR}/plot_error_scores_heatmap.
 
 allheatplots: $(patsubst %,${FIGDIR}/assignment/eval_heatmap_%.png, ${SCOREVAR})
 
-allerrorplots: allscatterplots allheatplots
+# Aggregated model costs
 
+${FIGDIR}/assignment/model_scores_%.png: ${ASSIGNDIR}/selection_lm.R ${CONNECTDIR}/connect_part.rds ${CONNECTDIR}/connect_contacts.rds ${DATDIR}/assignment/%/merged_scores.csv 
+	$(call R, $*)
 
+allcostplots: $(patsubst %,${FIGDIR}/assignment/model_scores_%.png, ${SCOREVAR})
 
+allerrorplots: allscatterplots allheatplots allcostplots 
 
 
 ##### Needed outputs: ##########################################################

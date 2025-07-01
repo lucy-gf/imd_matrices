@@ -10,10 +10,10 @@ library(purrr, warn.conflicts = FALSE)
 library(tidyr, warn.conflicts = FALSE)
 library(ggplot2)
 
-# source colors
-source(file.path("scripts", "setup", "colors.R"))
 # source functions
 source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
+# source colors
+source(file.path("scripts", "setup", "colors.R"))
 
 # set arguments
 .args <- if (interactive()) c(

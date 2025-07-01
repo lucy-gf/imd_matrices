@@ -54,11 +54,19 @@ colors_age_grp <- c('Aged 4 years and under' = '#4d004b', 'Aged 5 to 9 years' = 
                         'Aged 60 to 64 years' = '#990000', 'Aged 65 to 69 years' = '#08589e',
                         'Aged 70 to 74 years' = '#3690c0', 'Aged 75+' = '#a6bddb')
 
-model_colors <- c('engreg' = '#006d2c', 'pcd1' = '#7a0177', 
-                  'pcd1age' = '#fd8d3c', 'pcd1ageethn' = '#6baed6', 
-                  'pcd1agehiqualnssec' = '#de2d26', 'pcd1household' = '#f768a1',
-                  'pcd1ethntenure' = 'blue4')
+model_colors <- c('engreg' = '#31a354', 'pcd1' = '#7a0177', 
+                  'pcd1age' = '#fd8d3c', 'pcd1ageethn' = '#bdc9e1', 
+                  'pcd1agehiqualnssec' = '#a50f15', 'pcd1household' = '#bae4b3',
+                  'pcd1agenssec' = '#006d2c', 'pcd1agehiqual' = '#2b8cbe', 
+                  'pcd1ethn' = '#de2d26', 'pcd1hhsize' = '#f768a1', 'pcd1hhtenure' = '#d7b5d8',
+                  'pcd1ethntenure' = 'blue4', 'pcd1ethnhiqual' = '#fec44f')
+
+model_names <- unlist(unname(lapply(sapply(lapply(names(model_colors), variables_from_name),
+                             paste, collapse = '_'),
+                             simp_labels)))
+names(model_names) <- names(model_colors)
 
 method_shapes <- c('det' = 1, 'prob' = 19)  
 method_names <- c('Deterministic','Probabilistic')
 names(method_names) <- c('det','prob')
+

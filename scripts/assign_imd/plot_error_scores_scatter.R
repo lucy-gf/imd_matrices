@@ -11,10 +11,10 @@ library(tidyr, warn.conflicts = FALSE)
 library(ggplot2)
 library(scoringutils)
 
-# source colors
-source(file.path("scripts", "setup", "colors.R"))
 # source functions
 source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
+# source colors
+source(file.path("scripts", "setup", "colors.R"))
 
 # set arguments
 .args <- if (interactive()) c(
@@ -58,18 +58,19 @@ plot_df <- error_scores %>%
   summarise(mean_stat = mean(stat)) %>%
   group_by(variable) %>% 
   arrange(mean_stat) %>% 
-  mutate(rank = 1:n()) 
+  mutate(rank = 1:n())
 
 plot_df %>% 
   ggplot() + 
   geom_point(aes(predictors, mean_stat, col = predictors, shape = method),
              size = 3) + 
-  geom_text(data = plot_df %>% filter(rank <= 6),
+  geom_text(data = plot_df,
             aes(predictors, mean_stat, label = rank),
              size = 3, nudge_y = nudge) + 
   theme_bw() + 
   facet_grid(. ~ variable, switch ='x') +
-  scale_color_manual(values = model_colors) +
+  scale_color_manual(values = model_colors,
+                     labels = model_names) +
   scale_shape_manual(values = method_shapes, labels = method_names) +
   labs(col = 'Predictors',
        shape = 'Method',
@@ -90,5 +91,5 @@ ggsave(.args[3],
 
 
 
-
+ 
 

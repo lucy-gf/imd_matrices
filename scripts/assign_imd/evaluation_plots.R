@@ -13,10 +13,10 @@ library(tidyr, warn.conflicts = FALSE)
 library(ggplot2)
 library(scoringutils)
 
-# source colors
-source(file.path("scripts", "setup", "colors.R"))
 # source functions 
 source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
+# source colors
+source(file.path("scripts", "setup", "colors.R"))
 # source true value datasets
 source(file.path("scripts", "assign_imd", "load_true_data.R"))
 

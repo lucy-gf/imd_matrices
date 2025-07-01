@@ -15,6 +15,33 @@ fcn_assign_imd <- function(
   
   data <- data.table(data_input)
   census_data <- data.table(census_data)
+  
+  vars_of_int_census <- c(variables, 'imd_quintile')
+  
+  # if using age + nssec (+ hiqual), assign all 65+ in connect and census data to nssec 'not applic.' (assumption)
+  if(sum(variables %in% c('age_grp_8','p_sec_input')) == 2){
+    
+    # connect data
+    data[grepl('74|75', age_grp_8), p_sec_input := 'Not applic.']
+    
+    # census data
+    vars_temp <- c('lsoa21nm','lsoa21cd',vars_of_int_census[!grepl('p_sec_input', vars_of_int_census)])
+    
+    census_data_no_nssec <- census_data %>% 
+      filter(grepl('74|75', age_grp_8)) %>% 
+      group_by(!!!syms(vars_temp)) %>% 
+      summarise(pop = sum(population)) 
+      
+    census_data <- census_data %>% 
+      left_join(census_data_no_nssec, by = vars_temp) %>% 
+      mutate(population = case_when(
+        grepl('74|75', age_grp_8) & p_sec_input == 'Not applic.' ~ pop,
+        grepl('74|75', age_grp_8) & p_sec_input != 'Not applic.' ~ 0,
+        T ~ population
+      )) %>% 
+      select(!pop)
+      
+  }
     
   # remove participants who can't be assigned
   for(var in variables){
@@ -24,8 +51,6 @@ fcn_assign_imd <- function(
     # cat(round(100*(1 - nrow(data)/n_row_original), 1),
     #     '% of Connect participants removed after variable: ', var, '\n', sep = '')
   }
-  
-  vars_of_int_census <- c(variables, 'imd_quintile')
   
   ## distribution of IMD quintiles
   probs_out <- census_data %>% group_by(!!!syms(vars_of_int_census)) %>% 
@@ -1121,12 +1146,15 @@ fcn_crps <- function(
 simp_labels <- function(string){
   if(string == 'p_sec_input'){return('nssec')}
   string <- gsub('_grp','',string)
-  string <- gsub('p_','',string)
+  string <- gsub('p_sec_input_','nsseccode_',string)
   string <- gsub('c_','',string)
+  string <- gsub('p_','',string)
   string <- gsub('_cd','',string)
   string <- gsub('_nm','',string)
   string <- gsub('_input','',string)
   string <- gsub('_short','',string)
+  string <- gsub('_6','',string)
+  string <- gsub('_8','',string)
   return(string)
 }
 
@@ -1226,9 +1254,16 @@ variables_and_names <- list(
   'pcd1' = c('pcd1'),
   'pcd1age' = c('pcd1','age_grp'),
   'pcd1ageethn' = c('pcd1','age_grp_6','p_ethnicity'),
+  'pcd1agehiqualnssec' = c('pcd1','age_grp_8','p_hiqual','p_sec_input'),
   'pcd1household' = c('pcd1','hh_size_nm','hh_tenure_nm'),
-  'pcd1agehiqualnssec' = c('pcd1','age_grp_8','p_sec_input','p_hiqual'),
-  'pcd1ethntenure' = c('pcd1','p_ethnicity','p_tenure_short')
+  'pcd1hhsize' = c('pcd1','hh_size_nm'),
+  'pcd1hhtenure' = c('pcd1','hh_tenure_nm'),
+  'pcd1agehiqual' = c('pcd1','age_grp_8','p_hiqual'),
+  'pcd1agenssec' = c('pcd1','age_grp_8','p_sec_input'),
+  'pcd1ethn' = c('pcd1','p_ethnicity'),
+  'pcd1ethntenure' = c('pcd1','p_ethnicity','p_tenure_short'),
+  'pcd1ethnhiqual' = c('pcd1','p_ethnicity','p_hiqual'),
+  'pcd1tenurenssec' = c('pcd1','p_tenure_short','p_sec_input')
 )
 
 

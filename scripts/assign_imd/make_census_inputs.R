@@ -13,6 +13,7 @@ library(tibble)
 library(tidyr)
 library(dplyr)
 library(here)
+library(readxl)
 
 here::here()
 
@@ -342,7 +343,7 @@ ggsave(here::here('output','figures','census','age_region.png'),
 
 # FROM UK DATA SERVICE BULK DOWNLOAD
 
-# Population: All usual residents 
+# Population: All household reference persons
 # Area type: Lower layer Super Output Area
 # Coverage: England and Wales
 
@@ -396,6 +397,138 @@ ethn_tenure_pcd1 %>%
 ggsave(here::here('output','figures','census','tenure_ethn_region.png'),
        width = 2*n_distinct(ethn_tenure_pcd1$p_ethnicity), height = 2*n_distinct(ethn_tenure_pcd1$p_tenure_short))
 
+## DATASET 8 ##
+
+# FROM UK DATA SERVICE BULK DOWNLOAD
+
+# Population: All household reference persons
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Highest qualification and Ethnicity of Household Reference Persons
+# https://statistics.ukdataservice.ac.uk/dataset/england-and-wales-census-2021-rm049-highest-level-of-qualification-by-ethnic-group
+
+# All areas available 
+
+ethn_hiqual <- data.table(read_csv(here::here('data','census','raw','ukds_hiqual_ethnicity.csv'), show_col_types = F))
+colnames(ethn_hiqual) <- c('lsoa21cd','lsoa21nm','hiqual_cd','hiqual_nm','ethn_cd','ethn_nm','population')
+
+# merge with postcodes
+ethn_hiqual_pcd1 <- full_join(ethn_hiqual, pcd_imd, by = 'lsoa21cd', relationship = 'many-to-many')
+ethn_hiqual_pcd1 <- ethn_hiqual_pcd1 %>% filter(!is.na(population), !is.na(pcd1)) 
+
+# remove categories with no observations ('Does not apply')
+cd_remove <- (ethn_hiqual_pcd1 %>% group_by(hiqual_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$hiqual_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  ethn_hiqual_pcd1 <- ethn_hiqual_pcd1[hiqual_cd != cd_remove, ]
+}
+cd_remove <- (ethn_hiqual_pcd1 %>% group_by(ethn_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$ethn_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  ethn_hiqual_pcd1 <- ethn_hiqual_pcd1[ethn_cd != cd_remove, ]
+}
+
+ethn_hiqual_pcd1 <- ethn_hiqual_pcd1 %>% 
+  mutate(p_ethnicity = case_when(
+    ethn_nm %like% 'White' ~ 'White',
+    ethn_nm %like% 'Black' ~ 'Black',
+    ethn_nm %like% 'Asian' ~ 'Asian',
+    ethn_nm %like% 'Mixed' ~ 'Mixed',
+    ethn_nm %like% 'Other ethnic' ~ 'Other'
+  )) %>% 
+  mutate(p_hiqual = case_when(
+    hiqual_nm %like% 'Level 1' ~ '1-4 GCSEs',
+    hiqual_nm %like% 'Level 2' ~ '5+ GCSEs',
+    hiqual_nm %like% 'Level 3' ~ '2+ A levels',
+    hiqual_nm %like% 'Level 4' ~ 'Degree',
+    hiqual_nm %like% 'vocational' ~ 'Other',
+    hiqual_nm %like% 'Apprent' ~ 'Apprentice/vocational',
+    hiqual_nm == 'Does not apply' ~ 'Not applic.',
+    hiqual_nm == 'No qualifications' ~ 'No qualifications'
+  )) 
+
+ethn_hiqual_pcd1 %>%
+  group_by(p_ethnicity, imd_quintile, eng_reg) %>%
+  mutate(n = sum(population)) %>% 
+  group_by(p_ethnicity, p_hiqual, imd_quintile, eng_reg, n) %>%
+  summarise(s = sum(population)) %>%
+  ggplot() + 
+  geom_bar(aes(x = p_ethnicity, y = s, fill = imd_quintile),
+           position = 'fill', stat = 'identity') + 
+  theme_bw() + facet_grid(p_hiqual~eng_reg, scales = 'free') + 
+  labs(y = 'Proportion', 
+       x = '',
+       fill = 'IMD quintile') + ylim(c(0,NA)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+ggsave(here::here('output','figures','census','hiqual_ethn_region.png'),
+       width = 2*n_distinct(ethn_hiqual_pcd1$p_ethnicity), height = 2*n_distinct(ethn_hiqual_pcd1$p_hiqual))
+
+## DATASET 9 ##
+
+# FROM UK DATA SERVICE BULK DOWNLOAD
+
+# Population: All household reference persons
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: Household tenure, NSSEC code
+# https://statistics.ukdataservice.ac.uk/dataset/england-and-wales-census-2021-rm138-tenure-by-ns-sec-household-reference-persons
+
+# All areas available 
+
+tenure_nssec <- data.table(read_csv(here::here('data','census','raw','ukds_tenure_nssec.csv'), show_col_types = F))
+colnames(tenure_nssec) <- c('lsoa21cd','lsoa21nm','tenure_cd','tenure_nm','nssec_cd','nssec_nm','population')
+
+# merge with postcodes
+tenure_nssec_pcd1 <- full_join(tenure_nssec, pcd_imd, by = 'lsoa21cd', relationship = 'many-to-many')
+tenure_nssec_pcd1 <- tenure_nssec_pcd1 %>% filter(!is.na(population), !is.na(pcd1)) 
+
+# remove categories with no observations ('Does not apply')
+cd_remove <- (tenure_nssec_pcd1 %>% group_by(tenure_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$tenure_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  tenure_nssec_pcd1 <- tenure_nssec_pcd1[tenure_cd != cd_remove, ]
+}
+cd_remove <- (tenure_nssec_pcd1 %>% group_by(nssec_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$nssec_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  tenure_nssec_pcd1 <- tenure_nssec_pcd1[nssec_cd != cd_remove, ]
+}
+
+tenure_nssec_pcd1 <- tenure_nssec_pcd1 %>% 
+  mutate(p_sec_input = case_when(
+    nssec_nm %like% 'L3' ~ '1',
+    nssec_nm %like% 'L4' ~ '2',
+    nssec_nm %like% 'L7' ~ '3',
+    nssec_nm %like% 'L8' ~ '4',
+    nssec_nm %like% 'L10' ~ '5',
+    nssec_nm %like% 'L12' ~ '6',
+    nssec_nm %like% 'L13' ~ '7',
+    nssec_nm %like% 'student' ~ 'Student',
+    nssec_nm %like% 'unemployed' ~ 'Unemployed', # this is an assumption
+    T ~ 'Not applic.'
+  )) %>% 
+  rename(p_tenure_short = tenure_nm)
+
+tenure_nssec_pcd1 %>%
+  group_by(p_tenure_short, imd_quintile, eng_reg) %>%
+  mutate(n = sum(population)) %>% 
+  group_by(p_tenure_short, p_sec_input, imd_quintile, eng_reg, n) %>%
+  summarise(s = sum(population)) %>%
+  ggplot() + 
+  geom_bar(aes(x = p_tenure_short, y = s, fill = imd_quintile),
+           position = 'fill', stat = 'identity') + 
+  theme_bw() + facet_grid(p_sec_input~eng_reg, scales = 'free') + 
+  labs(y = 'Proportion', 
+       x = '',
+       fill = 'IMD quintile') + ylim(c(0,NA)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+
+ggsave(here::here('output','figures','census','tenure_nssec_pcd1.png'),
+       width = 2*n_distinct(tenure_nssec_pcd1$p_tenure_short), height = 2*n_distinct(tenure_nssec_pcd1$p_sec_input))
+
 ###############################
 ###############################
 ## SAVE DATA AS MODEL INPUTS ##
@@ -407,12 +540,29 @@ write_csv(age_pcd1, here::here('data','census','pcd1.csv'))
 write_csv(age_pcd1, here::here('data','census','engreg.csv'))
 
 write_csv(hh_st_pcd1, here::here('data','census','pcd1household.csv'))
+write_csv(hh_st_pcd1 %>% group_by(!!!syms(colnames(hh_st_pcd1)[!colnames(hh_st_pcd1) %like% 'population|tenure'])) %>% 
+            summarise(population = sum(population)),  
+          here::here('data','census','pcd1hhsize.csv'))
+write_csv(hh_st_pcd1 %>% group_by(!!!syms(colnames(hh_st_pcd1)[!colnames(hh_st_pcd1) %like% 'population|size'])) %>% 
+            summarise(population = sum(population)), here::here('data','census','pcd1hhtenure.csv'))
 
 write_csv(ns_hq_pcd1, here::here('data','census','pcd1agehiqualnssec.csv'))
+write_csv(ns_hq_pcd1 %>% group_by(!!!syms(colnames(ns_hq_pcd1)[!colnames(ns_hq_pcd1) %like% 'population|hiqual'])) %>% 
+            summarise(population = sum(population)), 
+          here::here('data','census','pcd1agenssec.csv'))
+write_csv(ns_hq_pcd1 %>% group_by(!!!syms(colnames(ns_hq_pcd1)[!colnames(ns_hq_pcd1) %like% 'population|nssec|p_sec_'])) %>% 
+            summarise(population = sum(population)),
+          here::here('data','census','pcd1agehiqual.csv'))
 
 write_csv(age_ethn_pcd1, here::here('data','census','pcd1ageethn.csv'))
+write_csv(age_ethn_pcd1 %>% group_by(!!!syms(colnames(age_ethn_pcd1)[!colnames(age_ethn_pcd1) %like% 'population|age'])) %>% 
+            summarise(population = sum(population)), here::here('data','census','pcd1ethn.csv'))
 
 write_csv(ethn_tenure_pcd1, here::here('data','census','pcd1ethntenure.csv'))
+
+write_csv(ethn_hiqual_pcd1, here::here('data','census','pcd1ethnhiqual.csv'))
+
+write_csv(tenure_nssec_pcd1, here::here('data','census','pcd1tenurenssec.csv'))
 
 ####################################
 ####################################

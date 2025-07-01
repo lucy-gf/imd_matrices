@@ -10,18 +10,18 @@ library(purrr, warn.conflicts = FALSE)
 library(tidyr, warn.conflicts = FALSE)
 library(ggplot2)
 
-# source colors
-source(file.path("scripts", "setup", "colors.R"))
 # source functions
 source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
+# source colors
+source(file.path("scripts", "setup", "colors.R"))
 # source true value datasets
 source(file.path("scripts", "assign_imd", "load_true_data.R"))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","connect_det_pcd1.rds"),
-  'det_pcd1',
-  file.path("output", "figures", "assignment","det_pcd1","true_distrs.png")
+  file.path("output", "data", "assignment","connect_prob_pcd1agehiqualnssec.rds"),
+  'prob_pcd1agehiqualnssec',
+  file.path("output", "figures", "assignment","prob_pcd1agehiqualnssec","true_distrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 ## make directory for plots
