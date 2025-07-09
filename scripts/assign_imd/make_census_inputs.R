@@ -35,6 +35,25 @@ rle_upi <- rle(unique_pcd_imd$lsoa21cd)
 
 cat('Uniquely identified LSOAs: ', length(rle_upi$lengths[rle_upi$lengths == 1]), '/', length(rle_upi$lengths), sep = '')
 
+## UTLAs (from https://geoportal.statistics.gov.uk/datasets/1dbdf580a6be4882a046c99006eceb9a_0/about)
+lsoa_to_utla <- unique(data.table(
+  suppressWarnings(read_csv(here::here('data','ons',
+                                       'Lower_Layer_Super_Output_Area_(2021)_to_Upper_Tier_Local_Authorities_(2022)_Lookup_in_England_and_Wales__v2.csv'),
+                            show_col_types = F)) %>% 
+    select('UTLA22NM','LSOA21CD') %>% 
+    rename(lsoa21cd = LSOA21CD,
+           utla = UTLA22NM)
+))[substr(lsoa21cd, 1, 1) == 'E',]
+
+lsoa_to_utla[utla == 'St. Helens', utla := 'St Helens']
+
+# merge London into one London UTLA
+london_boroughs <- c('Barking and Dagenham', 'Barnet', 'Bexley', 'Brent', 'Bromley', 'Camden', 'Croydon', 'Ealing', 'Enfield', 'Greenwich', 'Hackney', 
+                     'Hammersmith and Fulham', 'Haringey', 'Harrow', 'Havering', 'Hillingdon', 'Hounslow', 'Islington', 'Kensington and Chelsea', 
+                     'Kingston upon Thames', 'Lambeth', 'Lewisham', 'Merton', 'Newham', 'Redbridge', 'Richmond upon Thames', 'Southwark', 'Sutton', 
+                     'Tower Hamlets', 'Waltham Forest', 'Wandsworth', 'Westminster', 'City of London')
+lsoa_to_utla[utla %in% london_boroughs, utla := 'London']
+
 # IMD by LSOA
 # (https://www.gov.uk/government/statistics/english-indices-of-deprivation-2019)
 
@@ -64,6 +83,8 @@ colnames(lsoa_to_reg) <- c('lsoa21cd','eng_reg')
 pcd_imd <- pcd_imd[lsoa_to_reg[lsoa21cd %in% unique(pcd_imd$lsoa21cd)], on = 'lsoa21cd']
 cat('LSOAs after adding region: ', n_distinct(pcd_imd$lsoa21cd), '\n', sep = '')
 
+pcd_imd <- pcd_imd[lsoa_to_utla[lsoa21cd %in% unique(pcd_imd$lsoa21cd)], on = 'lsoa21cd']
+cat('LSOAs after adding UTLA: ', n_distinct(pcd_imd$lsoa21cd), '\n', sep = '')
 
 #####################
 #### CENSUS DATA ####
@@ -136,7 +157,7 @@ ggsave(here::here('output','figures','census','hiqual_age_region.png'),
 # Protecting personal data will prevent 3,029 areas from being published.
 
 age_ethn <- data.table(read_csv(here::here('data','census','raw','age_ethn.csv'), show_col_types = F))
-colnames(age_ethn) <- c('lsoa21cd','lsoa21nm','age_cd','age_nm','ethn_cd','ethn_nm','population')
+colnames(age_ethn) <- c('lsoa21cd','lsoa21nm','ethn_cd','ethn_nm','age_cd','age_nm','population')
 age_ethn <- age_ethn[substr(lsoa21cd,1,1) == 'E']
 
 # merge with postcodes
@@ -151,7 +172,18 @@ if(length(cd_remove) > 0){
 }
 
 age_ethn_pcd1 <- age_ethn_pcd1 %>%
-  rename(age_grp_6 = age_nm) %>% 
+  mutate(age_nm = case_when(
+    grepl('Aged 4 years', age_nm) ~ '0 to 4',
+    grepl('75|80|85', age_nm) ~ '75 to 100',
+    T ~ age_nm
+  )) %>% 
+  extract(age_nm, c("lower", "upper"), "([\\d.]+)[^\\d.]+([\\d.]+)", remove = F) %>% 
+  mutate(p_age_group = paste0(lower, '-', upper)) %>% 
+  mutate(p_age_group = case_when(
+    p_age_group == '75-100' ~ '75+',
+    T ~ p_age_group
+  )) %>% 
+  select(!c(age_nm, lower, upper)) %>% 
   mutate(p_ethnicity = case_when(
     ethn_nm %like% 'Asian' ~ 'Asian',
     ethn_nm %like% 'Black' ~ 'Black',
@@ -160,13 +192,22 @@ age_ethn_pcd1 <- age_ethn_pcd1 %>%
     ethn_nm %like% 'White' ~ 'White',
   )) 
 
+age_ethn_pcd1$p_age_group <- factor(age_ethn_pcd1$p_age_group,
+                                    levels = c('0-4','5-9',
+                                               '10-14','15-19',
+                                               '20-24','25-29',
+                                               '30-34','35-39',
+                                               '40-44','45-49',
+                                               '50-54','55-59',
+                                               '60-64','65-69',
+                                               '70-74','75+'))
 age_ethn_pcd1 %>%
-  group_by(age_grp_6, imd_quintile, eng_reg) %>%
+  group_by(p_age_group, imd_quintile, eng_reg) %>%
   mutate(n = sum(population)) %>% 
-  group_by(age_grp_6, p_ethnicity, imd_quintile, eng_reg, n) %>%
+  group_by(p_age_group, p_ethnicity, imd_quintile, eng_reg, n) %>%
   summarise(s = sum(population)) %>%
   ggplot() + 
-  geom_line(aes(x = age_grp_6, y = s/n, color = imd_quintile,
+  geom_line(aes(x = p_age_group, y = s/n, color = imd_quintile,
                 group = imd_quintile)) + 
   theme_bw() + facet_grid(p_ethnicity ~ eng_reg, scales = 'free') + 
   labs(y = 'Proportion', 
@@ -467,6 +508,58 @@ ggsave(here::here('output','figures','census','hiqual_ethn_region.png'),
 
 ## DATASET 9 ##
 
+# Population: All household reference persons
+# Area type: Lower layer Super Output Area
+# Coverage: England and Wales
+
+# Variables: NS-SEC and Ethnicity
+# https://statistics.ukdataservice.ac.uk/dataset/england-and-wales-census-2021-rm049-highest-level-of-qualification-by-ethnic-group
+
+# All areas available 
+
+ethn_nssec <- data.table(read_csv(here::here('data','census','raw','ethn_nssec.csv'), show_col_types = F))
+colnames(ethn_nssec) <- c('lsoa21cd','lsoa21nm','ethn_cd','ethn_nm','nssec_cd','nssec_nm','population')
+
+# merge with postcodes
+ethn_nssec_pcd1 <- full_join(ethn_nssec, pcd_imd, by = 'lsoa21cd', relationship = 'many-to-many')
+ethn_nssec_pcd1 <- ethn_nssec_pcd1 %>% filter(!is.na(population), !is.na(pcd1)) 
+
+# remove categories with no observations ('Does not apply')
+cd_remove <- (ethn_nssec_pcd1 %>% group_by(nssec_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$nssec_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  ethn_nssec_pcd1 <- ethn_nssec_pcd1[hiqual_cd != cd_remove, ]
+}
+cd_remove <- (ethn_nssec_pcd1 %>% group_by(ethn_cd) %>% summarise(s = sum(population)) %>% filter(s == 0))$ethn_cd
+cd_remove <- unname(cd_remove)
+if(length(cd_remove) > 0){
+  ethn_nssec_pcd1 <- ethn_nssec_pcd1[ethn_cd != cd_remove, ]
+}
+
+ethn_nssec_pcd1 <- ethn_nssec_pcd1 %>% 
+  mutate(p_ethnicity = case_when(
+    ethn_nm %like% 'White' ~ 'White',
+    ethn_nm %like% 'Black' ~ 'Black',
+    ethn_nm %like% 'Asian' ~ 'Asian',
+    ethn_nm %like% 'Mixed' ~ 'Mixed',
+    ethn_nm %like% 'Other ethnic' ~ 'Other'
+  )) %>% 
+  mutate(p_sec_input = case_when(
+    nssec_nm %like% 'L3' ~ '1',
+    nssec_nm %like% 'L4' ~ '2',
+    nssec_nm %like% 'L7' ~ '3',
+    nssec_nm %like% 'L8' ~ '4',
+    nssec_nm %like% 'L10' ~ '5',
+    nssec_nm %like% 'L12' ~ '6',
+    nssec_nm %like% 'L13' ~ '7',
+    nssec_nm %like% 'student' ~ 'Student',
+    nssec_nm %like% 'unemployed' ~ 'Unemployed', # this is an assumption
+    T ~ 'Not applic.'
+  )) 
+
+
+## DATASET 10 ##
+
 # FROM UK DATA SERVICE BULK DOWNLOAD
 
 # Population: All household reference persons
@@ -555,12 +648,23 @@ write_csv(ns_hq_pcd1 %>% group_by(!!!syms(colnames(ns_hq_pcd1)[!colnames(ns_hq_p
           here::here('data','census','pcd1agehiqual.csv'))
 
 write_csv(age_ethn_pcd1, here::here('data','census','pcd1ageethn.csv'))
+write_csv(age_ethn_pcd1, here::here('data','census','utlaageethn.csv'))
+write_csv(age_ethn_pcd1 %>% group_by(p_ethnicity, p_age_group, imd_quintile) %>% 
+            summarise(population = sum(population)), 
+          here::here('data','census','ageethn.csv'))
 write_csv(age_ethn_pcd1 %>% group_by(!!!syms(colnames(age_ethn_pcd1)[!colnames(age_ethn_pcd1) %like% 'population|age'])) %>% 
-            summarise(population = sum(population)), here::here('data','census','pcd1ethn.csv'))
+            summarise(population = sum(population)), 
+          here::here('data','census','pcd1ethn.csv'))
 
 write_csv(ethn_tenure_pcd1, here::here('data','census','pcd1ethntenure.csv'))
 
 write_csv(ethn_hiqual_pcd1, here::here('data','census','pcd1ethnhiqual.csv'))
+
+write_csv(ethn_nssec_pcd1 %>% group_by(p_ethnicity, p_sec_input, imd_quintile) %>% 
+            summarise(population = sum(population)), 
+          here::here('data','census','ethnnssec.csv'))
+write_csv(ethn_nssec_pcd1, here::here('data','census','pcd1ethnnssec.csv'))
+write_csv(ethn_nssec_pcd1, here::here('data','census','utlaethnnssec.csv'))
 
 write_csv(tenure_nssec_pcd1, here::here('data','census','pcd1tenurenssec.csv'))
 
@@ -584,6 +688,15 @@ if('age_lower' %notin% colnames(connect_part)){
 
 
 connect_input <- connect_part %>% 
+  mutate(utla = case_when(
+    p_la == 'City of Bristol' ~ 'Bristol',
+    p_la == 'City of Kingston upon Hull' ~ 'Kingston upon Hull',
+    p_la == 'County of Herefordshire' ~ 'Hereforeshire',
+    p_la == 'Westmorland and Furness' ~ 'Cumbria',
+    p_la == 'Cumberland' ~ 'Cumbria',
+    p_la %in% london_boroughs ~ 'London',
+    T ~ p_la
+  )) %>% 
   mutate(hh_tenure_nm = case_when(
     p_tenure == 'Owned outright' ~ "Owned: Owns outright",
     p_tenure == 'Rented from private landlord or letting agency' ~ "Private rented: Private landlord or letting agency",
@@ -648,6 +761,7 @@ connect_input <- connect_part %>%
   )) %>% 
   mutate(p_sec_input = case_when(
     p_sec_input %like% 'Under 17' ~ 'Not applic.',
+    p_age == 17 ~ 'Not applic.',
     p_sec_input %like% 'Retired' ~ 'Not applic.',
     p_sec_input %like% 'Unknown' ~ NA,
     T ~ p_sec_input

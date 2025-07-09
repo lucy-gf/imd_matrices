@@ -1,7 +1,7 @@
 
 #### EVALUATE EACH MODEL ASSIGNMENT ####
 
-summary_stat_in <- c('mse','wis')[2]
+summary_stat_in <- c('mse','wis','crps')[2]
 
 # load packages
 library(data.table)
@@ -25,7 +25,7 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
   file.path("output", "data", "assignment","connect_prob_pcd1.rds"),
   file.path("output", "data", "assignment","wis", "prob_pcd1_scores.csv"),
   'prob_pcd1',
-  file.path("output", "figures", "assignment","evaluation_prob_pcd1.png")
+  file.path("output", "figures", "assignment","prob_pcd1","evaluation.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 connect_output <- readRDS(.args[1])
@@ -40,7 +40,7 @@ variables_input <- variables_from_name(varname)
 
 n_bootstraps <- n_distinct(connect_output$bootstrap)
 
-## plot patchwork of goodness-of-fit indicators
+## plot patchwork of goodness-of-fit indicators 
 fcn_evaluate_imd(
   data_input = connect_output,
   census_data_list = list(true_vals_engreg,

@@ -16,7 +16,7 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 # source colors
 source(file.path("scripts", "setup", "colors.R"))
 
-# set arguments
+# set arguments 
 .args <- if (interactive()) c(
   file.path("output", "data", "assignment","wis","merged_scores.csv"),
   'wis',
@@ -25,8 +25,9 @@ source(file.path("scripts", "setup", "colors.R"))
 
 ## read in data 
 
-error_scores <- read_csv(.args[1], show_col_type = F) %>% 
-  filter(imd_quintile != 'imd_quintile') %>%  # filter out the header rows from merging process
+error_scores <- suppressWarnings(read_csv(.args[1], show_col_type = F)) %>% 
+  filter(imd_quintile != 'imd_quintile',
+         !is.na(imd_quintile)) %>%  # filter out the header rows from merging process
   mutate(stat = as.numeric(stat))
 
 error_scores <- data.table(error_scores)
@@ -47,7 +48,7 @@ if(.args[2] != 'mse'){
     filter(method != 'det')
 }
 
-
+ 
 ## plot 
 
 nudge <- if(.args[2] == 'mse'){0.003}else{0.005}
@@ -58,19 +59,23 @@ plot_df <- error_scores %>%
   summarise(mean_stat = mean(stat)) %>%
   group_by(variable) %>% 
   arrange(mean_stat) %>% 
-  mutate(rank = 1:n())
+  mutate(rank = 1:n()) 
+
+## remove household tenure and urban/rural
+plot_df <- plot_df %>%
+  filter(! variable %like% 'engreg|tenure|urban')
 
 plot_df %>% 
-  ggplot() + 
+  ggplot() +  
   geom_point(aes(predictors, mean_stat, col = predictors, shape = method),
              size = 3) + 
-  geom_text(data = plot_df,
-            aes(predictors, mean_stat, label = rank),
-             size = 3, nudge_y = nudge) + 
+  # geom_text(data = plot_df,
+  #           aes(predictors, mean_stat, label = rank),
+  #            size = 3, nudge_y = nudge) + 
   theme_bw() + 
   facet_grid(. ~ variable, switch ='x') +
   scale_color_manual(values = model_colors,
-                     labels = model_names) +
+                     labels = model_names[names(model_names) %in% plot_df$predictors]) +
   scale_shape_manual(values = method_shapes, labels = method_names) +
   labs(col = 'Predictors',
        shape = 'Method',
@@ -87,7 +92,7 @@ plot_df %>%
 
 ## save
 ggsave(.args[3],
-       width = 12, height = 6)
+       width = 14, height = 6)
 
 
 

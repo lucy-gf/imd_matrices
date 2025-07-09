@@ -48,6 +48,9 @@ po/*~
 # data
 data/
 
+# old scripts
+scripts/old
+
 # outputs
 output/
 

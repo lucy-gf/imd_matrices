@@ -25,8 +25,9 @@ source(file.path("scripts", "setup", "colors.R"))
 
 ## read in data
 
-error_scores <- read_csv(.args[1], show_col_type = F) %>% 
-  filter(imd_quintile != 'imd_quintile') %>%  # filter out the header rows from merging process
+error_scores <- suppressWarnings(read_csv(.args[1], show_col_type = F)) %>% 
+  filter(imd_quintile != 'imd_quintile',
+         !is.na(imd_quintile)) %>%  # filter out the header rows from merging process
   mutate(stat = as.numeric(stat))
 
 error_scores <- data.table(error_scores)

@@ -713,7 +713,7 @@ fcn_evaluate_imd <- function(
     census_data_list,
     predictors,
     modal,
-    summary_stat = 'wis', # c('wis','mse')
+    summary_stat = 'wis', # c('mse','wis','crps')
     scores 
 ){
   
@@ -788,8 +788,11 @@ fcn_evaluate_imd <- function(
       filter(variable == var_name) %>% 
       mutate(stat = mean(stat))
     
+    # make sure only using variable categories which align 
     data_filt <- data.table(data)
-    data_filt <- data_filt[get(var_name) %in% unname(unlist(unique(census[,var_name]))), ]
+    census <- data.table(census)
+    data_filt <- data_filt[get(var_name) %in% unname(unlist(unique(census[,get(var_name)]))), ]
+    census <- census[get(var_name) %in% unname(unlist(unique(data_filt[,get(var_name)]))), ]
     
     p <- fcn_rev_errorbarplot_imd(data_output = data_filt, 
                                   vars_list = var_name,
@@ -1145,8 +1148,11 @@ fcn_crps <- function(
 
 simp_labels <- function(string){
   if(string == 'p_sec_input'){return('nssec')}
+  string <- gsub('_group','',string)
   string <- gsub('_grp','',string)
+  string <- gsub('nssec','',string)
   string <- gsub('p_sec_input_','nsseccode_',string)
+  string <- gsub('_p_sec_input','_nsseccode',string)
   string <- gsub('c_','',string)
   string <- gsub('p_','',string)
   string <- gsub('_cd','',string)
@@ -1253,7 +1259,9 @@ variables_and_names <- list(
   'engreg' = c('eng_reg'),
   'pcd1' = c('pcd1'),
   'pcd1age' = c('pcd1','age_grp'),
-  'pcd1ageethn' = c('pcd1','age_grp_6','p_ethnicity'),
+  'ageethn' = c('p_age_group','p_ethnicity'),
+  'pcd1ageethn' = c('pcd1','p_age_group','p_ethnicity'),
+  'utlaageethn' = c('utla','p_age_group','p_ethnicity'),
   'pcd1agehiqualnssec' = c('pcd1','age_grp_8','p_hiqual','p_sec_input'),
   'pcd1household' = c('pcd1','hh_size_nm','hh_tenure_nm'),
   'pcd1hhsize' = c('pcd1','hh_size_nm'),
@@ -1263,7 +1271,13 @@ variables_and_names <- list(
   'pcd1ethn' = c('pcd1','p_ethnicity'),
   'pcd1ethntenure' = c('pcd1','p_ethnicity','p_tenure_short'),
   'pcd1ethnhiqual' = c('pcd1','p_ethnicity','p_hiqual'),
-  'pcd1tenurenssec' = c('pcd1','p_tenure_short','p_sec_input')
+  'pcd1tenurenssec' = c('pcd1','p_tenure_short','p_sec_input'),
+  'ethnnssec' = c('p_ethnicity','p_sec_input'),
+  'pcd1ethnnssec' = c('pcd1','p_ethnicity','p_sec_input'),
+  'utlaethnnssec' = c('utla','p_ethnicity','p_sec_input'),
+  'pcd1ageethnnssec' = c('pcd1','p_age_group','p_ethnicity','p_sec_input'),
+  'utlaageethnnssec' = c('utla','p_age_group','p_ethnicity','p_sec_input'),
+  'ageethnnssec' = c('p_age_group','p_ethnicity','p_sec_input')
 )
 
 
