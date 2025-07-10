@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allplots 
+localdef: allassignplots allmatrsplots 
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -24,6 +24,9 @@ ONSDIR ?= ${INPUTDIR}/ons
 OUTDIR ?= output
 FIGDIR ?= ${OUTDIR}/figures
 DATDIR ?= ${OUTDIR}/data
+CONTCODE ?= ${CODEDIR}/run_cont_matrs
+CONTDATA ?= ${DATDIR}/cont_matrs
+CONTFIG ?= ${FIGDIR}/cont_matrs
 
 # figure extension filetype
 FIGEXT ?= png
@@ -256,8 +259,32 @@ allheatplots: $(patsubst %,${FIGDIR}/assignment/eval_heatmap_%.png, ${SCOREVAR})
 
 allerrorplots: allscatterplots allheatplots 
 
+##### Needed outputs: ##########################################################
+
+allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplots alllmplots
+
+
+################################################################################
+
+##### Make contact matrices ########## 
+
+# 1. ${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ageethn.rds ${CENSUSDIR}/pcd1ethnnssec.rds
+
+# 2. ${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.rds ${CENSUSDIR}/utlaethnnssec.rds
+
+# 3. ${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds
+
+# 4. ${CONTDATA}/large_cont_ages.rds: ${CONTCODE}/large_group_cont_ages.R ${CONTDATA}/participants.rds
+
+# 5. ${CONTDATA}/large_cont_imd.rds: ${CONTCODE}/large_group_cont_imd.R ${CONTDATA}/large_cont_ages.rds ${CONTDATA}/cont_imd_distr.rds
+
+# 6. ${CONTDATA}/merged_data.rds: ${CONTCODE}/merge_part_cont.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/large_cont_imd.rds
+
+# 7. ${CONTDATA}/fitted_matrs.rds: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/merged_data.rds
+
+# 8. ${CONTDATA}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs.rds
+
 
 ##### Needed outputs: ##########################################################
 
-allplots: alltruedistplots allageplots allCMplots allevalplots allerrorplots alllmplots
-
+allmatrsplots: allmatrixplots

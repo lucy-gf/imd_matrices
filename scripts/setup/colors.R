@@ -34,7 +34,11 @@ colors_hh_tenure_nm <- c('Owned: Owns outright' = 'darkorange2',
                          'Private rented: Other private rented or lives rent free' = 'lightskyblue2', 
                          'Private rented: Private landlord or letting agency' = 'steelblue2', 
                          'Social rented: Other social rented' = 'violet', 
-                         'Social rented: Rents from council or Local Authority' = 'mediumpurple')
+                         'Social rented: Rents from council or Local Authority' = 'mediumpurple',
+                         'Owned: Owns with a mortgage or\nloan or shared ownership' = 'orangered2', 
+                         'Private rented: Other private\nrented or lives rent free' = 'lightskyblue2', 
+                         'Private rented: Private landlord\nor letting agency' = 'steelblue2', 
+                         'Social rented: Rents from council\nor Local Authority' = 'mediumpurple')
 
 colors_p_age_group <- c('0-4' = '#4d004b', '5-9' = '#7a0177',
                         '10-14' = '#ae017e', '15-19' = '#dd3497',

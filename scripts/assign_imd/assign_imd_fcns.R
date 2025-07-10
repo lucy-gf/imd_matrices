@@ -503,6 +503,21 @@ fcn_rev_errorbarplot_imd <- function(
                                                        'Aged 70 to 74 years', 'Aged 75+'))
         }
         
+        if(var == 'hh_tenure_nm'){
+          plot_input <- plot_input %>% 
+            mutate(hh_tenure_nm = case_when(
+              hh_tenure_nm == 'Owned: Owns with a mortgage or loan or shared ownership' ~ 
+                'Owned: Owns with a mortgage or\nloan or shared ownership',
+              hh_tenure_nm == 'Private rented: Other private rented or lives rent free' ~ 
+                'Private rented: Other private\nrented or lives rent free',
+              hh_tenure_nm == 'Private rented: Private landlord or letting agency' ~ 
+                'Private rented: Private landlord\nor letting agency',
+              hh_tenure_nm == 'Social rented: Rents from council or Local Authority' ~ 
+                'Social rented: Rents from council\nor Local Authority',
+              T ~ hh_tenure_nm
+            )) 
+        }
+        
         if(facet){
           
           p <- plot_input %>% 
@@ -801,7 +816,7 @@ fcn_evaluate_imd <- function(
                                   facet = T
     )
     
-    p + ggtitle(paste0(format_legend(var_name), ', ', toupper(summary_stat),' = ', 
+    p + ggtitle(paste0(format_legend(var_name), ', Mean ', toupper(summary_stat),' = ', 
                        round(mean(scores$stat), 3)))
     
   }
@@ -826,8 +841,8 @@ fcn_evaluate_imd <- function(
   '
   
   patched_total <- plot1 + bars + age_spec_contacts + patched_summ + plot_layout(design = layout) +
-    plot_annotation(title = title_patch,
-                    theme = theme(plot.title = element_text(size = 18)))
+    plot_annotation(theme = theme(plot.title = element_text(size = 18)),
+                    tag_levels = 'a')
   
   patched_total
   

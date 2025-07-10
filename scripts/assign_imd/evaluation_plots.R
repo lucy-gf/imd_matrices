@@ -43,14 +43,15 @@ n_bootstraps <- n_distinct(connect_output$bootstrap)
 ## plot patchwork of goodness-of-fit indicators 
 fcn_evaluate_imd(
   data_input = connect_output,
-  census_data_list = list(true_vals_engreg,
+  census_data_list = list(#true_vals_engreg,
                           true_vals_age,
                           true_vals_hh_tenure,
                           true_vals_hh_size,
                           true_vals_ethnicity,
                           true_vals_hiqual,
-                          true_vals_nssec,
-                          true_vals_urban),
+                          true_vals_nssec
+                          # true_vals_urban
+                          ),
   predictors = variables_input,
   modal = modal_in,
   summary_stat = summary_stat_in, 
