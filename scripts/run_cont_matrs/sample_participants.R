@@ -24,10 +24,6 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 n_bootstraps <- 1000
 
-age_breaks <- c(-Inf, 5*1:(75/5), Inf)
-age_vals <- age_breaks[is.finite(age_breaks)]
-age_labels <- c(paste0(c(0, age_vals[1:length(age_vals)-1]), '-', c(age_vals-1)), paste0(age_vals[length(age_vals)], '+'))
-
 #### READ IN DATA FOR WEIGHTING #### 
 
 part <- readRDS(.args[1])
@@ -115,6 +111,9 @@ sampled_imd_ethn_nssec <- fcn_assign_imd_cm(
 
 sampled_imd <- rbind(sampled_imd_age_ethn,
                      sampled_imd_ethn_nssec)
+
+sampled_imd <- sampled_imd %>% 
+  mutate(row_id = paste0(p_id, '_', bootstrap_index, '_', 1:nrow(sampled_imd)))
 
 #### SAVE RDS ####
 

@@ -42,33 +42,73 @@ merged <- sampled_parts %>%
   filter(n_contacts > 0) %>% 
   full_join(contacts %>% 
               filter(p_id %in% unique(sampled_parts$p_id)), 
-            by = 'p_id', relationship = 'many-to-many'
-            )
+            by = 'p_id', relationship = 'many-to-many') 
 
+### FOR NOW TO REDUCE CALC. TIME
+# TODO remove later
+merged <- merged %>% filter(bootstrap_index <= 10)
 
 #### ASSIGN IMD TO CONTACTS ####
 
-# utla + age group + ethnicity for those aged <20, 65+, or unknown NS-SEC
+## Home location contacts
+
+contacts_home <- merged %>% filter(c_location == 'Home') %>% 
+  rename(p_imd_q = imd_quintile) %>% 
+  mutate(c_imd_q = p_imd_q)
+  
+contacts_not_home <- merged %>% filter(c_location != 'Home') %>% 
+  select(!imd_quintile)
+
+## utla + age group + ethnicity for those aged <20, 65+, or unknown NS-SEC
 
 sampled_imd_age_ethn <- fcn_assign_imd_cm(
-  data_input = merged %>% filter(c_age < 20 | c_age >= 65 | c_sec_input == 'Unknown'),
+  data_input = contacts_not_home %>% 
+    filter(c_age < 20 | c_age >= 65 | c_sec_input == 'Unknown'),
   census_data = utlaageethn,
   variables = c('utla','c_age_group','c_ethnicity')
 )
 
-# utla + ethnicity + nssec for everyone else
+## utla + ethnicity + nssec for everyone else
 
 sampled_imd_ethn_nssec <- fcn_assign_imd_cm(
-  data_input = merged %>% filter(p_age %in% 20:64 & c_sec_input != 'Unknown'),
+  data_input = contacts_not_home %>% 
+    filter(p_age %in% 20:64 & c_sec_input != 'Unknown'),
   census_data = utlaethnnssec,
   variables = c('utla','c_ethnicity','c_sec_input')
 )
 
-sampled_imd <- rbind(sampled_imd_age_ethn,
-                     sampled_imd_ethn_nssec)
+sampled_imd_not_home <- rbind(sampled_imd_age_ethn,
+                     sampled_imd_ethn_nssec) %>% 
+  left_join(sampled_parts %>% 
+              select(p_id, bootstrap_index, imd_quintile),
+            by = c('p_id','bootstrap_index'),
+            relationship = 'many-to-many',
+            suffix = c('_c','_p')) %>% 
+  rename(c_imd_q = imd_quintile_c,
+         p_imd_q = imd_quintile_p)
 
+sampled_imd <- rbind(
+  sampled_imd_not_home, 
+  contacts_home
+)
 
 #### SAVE RDS ####
 
 write_rds(sampled_imd, .args[5])
 
+
+
+# sampled_imd$p_age_group <- factor(sampled_imd$p_age_group,
+#                                   levels = age_labels)
+# 
+# sampled_imd %>% 
+#      group_by(p_age_group, p_imd_q) %>% 
+#      mutate(n_tot = n()) %>% 
+#      group_by(p_age_group, c_age_group, p_imd_q, c_imd_q, n_tot) %>% 
+#      summarise(n = n()) %>% 
+#      mutate(cont = n/n_tot) %>% 
+#      ggplot() + 
+#      geom_tile(aes(x = p_age_group, y = c_age_group,
+#                    fill = cont)) + 
+#      facet_grid(p_imd_q ~ c_imd_q) +
+#      theme_bw() 

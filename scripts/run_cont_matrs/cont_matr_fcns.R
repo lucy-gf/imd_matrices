@@ -5,6 +5,10 @@
 
 options(dplyr.summarise.inform = FALSE)
 
+age_breaks <- c(-Inf, 5*1:(75/5), Inf)
+age_vals <- age_breaks[is.finite(age_breaks)]
+age_labels <- c(paste0(c(0, age_vals[1:length(age_vals)-1]), '-', c(age_vals-1)), paste0(age_vals[length(age_vals)], '+'))
+
 # FUNCTION TO MAKE PARTICIPANT WEIGHTS ##
 # (take this function from ukscs github)
 
@@ -302,6 +306,309 @@ fcn_assign_imd_cm <- function(
   out
   
 }
+
+
+## Function to get weights for large_n contacts from Polymod setting-specific matrices
+polymod_weights <- function(
+    broad_ages = c(18,65),
+    fine_ages = age_vals,
+    age_struc = age_structure_fine,
+    locations = c('total','work','school','other')
+){
+  
+  # add 0 to lower bounds if not there, same with 18
+  fine_ages <- sort(unique(c(0, fine_ages)))
+  age_labels <- c(paste0(c(fine_ages[1:length(fine_ages)-1]), '-', c(fine_ages[2:length(fine_ages)]-1)), paste0(fine_ages[length(fine_ages)], '+'))
+  
+  # broad ages labels 
+  broad_ages <- sort(unique(c(0, broad_ages)))
+  broad_age_labels <- c(paste0(c(broad_ages[1:length(broad_ages)-1]), '-', c(broad_ages[2:length(broad_ages)]-1)), paste0(broad_ages[length(broad_ages)], '+'))
+  
+  # overlaps between fine and broad age groups 
+  overlaps <- CJ(age_labels, broad_age_labels, overlap = F)
+  for(i in 1:nrow(overlaps)){
+    broad_vec <- suppressWarnings(case_when(grepl('[+]', overlaps[i, broad_age_labels]) ~ 
+                                              c(as.numeric(gsub('[+]','',overlaps[i, broad_age_labels])), 120),
+                                            T ~ as.numeric(unlist(strsplit(overlaps[i, broad_age_labels],'-')))))
+    c_vec <- suppressWarnings(case_when(grepl('[+]', overlaps[i, age_labels]) ~ 
+                                          c(as.numeric(gsub('[+]','',overlaps[i, age_labels])), 120),
+                                        T ~ as.numeric(unlist(strsplit(overlaps[i, age_labels],'-')))))
+    
+    if(length(intersect(c(broad_vec[1]:broad_vec[2]), c(c_vec[1]:c_vec[2]))) > 0){
+      overlaps[i, overlap := T]
+    }
+  }
+  
+  # switch between age label styles (ukscs vs polymod)
+  age_to_pm_lab <- function(chars){
+    out <- c()
+    for(char in chars){
+      if(char == paste0(max(fine_ages), '+')){
+        out <- c(out, char)
+      }else{
+        vals <- as.numeric(unlist(strsplit(char, '-')))
+        val <- paste0('[',vals[1], ',', vals[2] + 1,')')
+        out <- c(out, val)
+      }
+    }
+    out
+  }
+  
+  # contact matrices list
+  matrices <- list()
+  
+  # per capita location-specific contact matrix, scaled up to 2025 population
+  for(i in 1:length(locations)){
+    location <- locations[i]
+    filter_locn <- list(a = 1)
+    names(filter_locn) <- paste0('cnt_', location)
+    
+    if(location == 'other'){
+      out <- socialmixr::contact_matrix(polymod, countries = "United Kingdom", age.limits = fine_ages, 
+                                        per.capita = TRUE,
+                                        filter = list(cnt_transport = 1), 
+                                        missing.participant.age = 'remove',
+                                        missing.contact.age = 'remove')$matrix.per.capita
+      out <- out + socialmixr::contact_matrix(polymod, countries = "United Kingdom", age.limits = fine_ages, 
+                                              per.capita = TRUE,
+                                              filter = list(cnt_leisure = 1), 
+                                              missing.participant.age = 'remove',
+                                              missing.contact.age = 'remove')$matrix.per.capita
+      out <- out + socialmixr::contact_matrix(polymod, countries = "United Kingdom", age.limits = fine_ages, 
+                                              per.capita = TRUE,
+                                              filter = list(cnt_otherplace = 1), 
+                                              missing.participant.age = 'remove',
+                                              missing.contact.age = 'remove')$matrix.per.capita
+    }else{
+      if(location=='total'){
+        out <- socialmixr::contact_matrix(polymod, countries = "United Kingdom", age.limits = fine_ages, 
+                                          per.capita = TRUE,
+                                          missing.participant.age = 'remove',
+                                          missing.contact.age = 'remove')$matrix.per.capita  
+      }else{
+        out <- socialmixr::contact_matrix(polymod, countries = "United Kingdom", age.limits = fine_ages, 
+                                          per.capita = TRUE,
+                                          filter = filter_locn, 
+                                          missing.participant.age = 'remove',
+                                          missing.contact.age = 'remove')$matrix.per.capita    
+      }
+    }
+    
+    # scale up to 2022 population 
+    for(age in 1:nrow(age_struc)){
+      out[, age] <- out[, age]*age_struc$n[age]
+    }
+    
+    matrices[[i]] <- out
+  }
+  
+  names(matrices) <- locations
+  
+  # polymod weights for each p_age_group, c_age_group, c_location
+  pmw <- data.table(CJ(p_age_group = age_labels, c_age_group = age_labels, 
+                       broad_age_group = broad_age_labels, c_location = locations, prob = -8, sorted=F))
+  
+  for(i in 1:nrow(pmw)){
+    # if no overlap, prob = 0
+    if(overlaps[age_labels == pmw[i, c_age_group] & broad_age_labels == pmw[i, broad_age_group], overlap] == F){
+      pmw[i, prob := 0]
+    }else{
+      matr <- data.table(matrices[[pmw[i, c_location]]]) # location-specfic matrix
+      row <- matr[which(age_labels == pmw[i, p_age_group]), ] # participant's age row
+      ages_to_subset <- overlaps[broad_age_labels == pmw[i, broad_age_group] & overlap == T, age_labels]
+      ages_to_subset_pm <- age_to_pm_lab(ages_to_subset)
+      subset_row <- row[,..ages_to_subset_pm] # contacts with feasible ages
+      if(rowSums(subset_row) == 0){ # if all 0, allocated according to population size 2025
+        filt_age <- data.table(age_struc[age_struc$p_age_group %in% ages_to_subset, ])
+        # scale 15-19 value by 60% if broad age group is 0-17
+        if(pmw[i, broad_age_group] == '0-17'){
+          filt_age[p_age_group == '15-19', n := 0.6*n]
+          pmw[i, prob := filt_age[p_age_group == pmw[i, c_age_group], n]/sum(filt_age$n)]  
+        }else{
+          # scale 15-19 value by 40% if broad age group is 18-64
+          if(pmw[i, broad_age_group] == '18-64'){
+            filt_age[p_age_group == '15-19', n := 0.4*n]
+            pmw[i, prob := filt_age[p_age_group == pmw[i, c_age_group], n]/sum(filt_age$n)]  
+          }else{
+            pmw[i, prob := filt_age[p_age_group == pmw[i, c_age_group], n]/sum(filt_age$n)]  
+          }
+        }
+      }else{
+        col <- age_to_pm_lab(pmw[i, c_age_group])
+        # scale 15-19 value by 60% if broad age group is 0-17
+        if(pmw[i, broad_age_group] == '0-17'){
+          subset_row[, '[15,20)'] <- 0.6*subset_row[, '[15,20)']
+          suppressWarnings(pmw[i, prob := subset_row[,..col]/rowSums(subset_row)])
+        }else{
+          # scale 15-19 value by 40% if broad age group is 18-64
+          if(pmw[i, broad_age_group] == '18-64'){
+            subset_row[, '[15,20)'] <- 0.4*subset_row[, '[15,20)']
+            suppressWarnings(pmw[i, prob := subset_row[,..col]/rowSums(subset_row)])
+          }else{
+            suppressWarnings(pmw[i, prob := subset_row[,..col]/rowSums(subset_row)])
+          }
+        }
+      }
+    }
+  }
+  
+  # check all appropriate sums are 1
+  test <- pmw %>% group_by(p_age_group, broad_age_group, c_location) %>% summarise(s=sum(prob)) 
+  if(!all.equal(test$s, rep(1,nrow(test)))){warning('Some sums not 1')}
+  
+  pmw
+  
+}
+
+
+## FUNCTION TO FILTER PARTICIPANT AGE GROUP ##
+
+fit_matr_age_spec <- function(
+    part,
+    cont,
+    distr,
+    p_weights
+){
+  
+  fit_matr_as <- function(age){
+    
+    out <- fit_matr(part_filt = part %>% filter(p_age_group == age),
+                    cont_filt = cont %>% filter(p_age_group == age),
+                    distr_filt = distr %>% filter(p_age_group == age),
+                    p_weights_filt = p_weights %>% filter(p_age_group == age)
+    )
+    
+    out
+    
+  }
+  
+  age_spec_fits <- map(
+    .x = unique(data$p_age_group),
+    .f = fit_matr_as
+  )
+  
+  age_spec_fits
+  
+}
+
+
+## FUNCTION TO FIT MATRICES ##
+
+fit_matr <- function(
+    part_filt,
+    cont_filt,
+    distr_filt,
+    p_weights_filt
+){
+  
+  ## sample large_contact ages   ## 
+  
+  # select probabilities and large_n for each sampled participant
+  large_contacts <- part_filt %>% 
+    select(row_id, p_id, p_age_group, bootstrap_index, 
+           contains('add_')) %>% 
+    pivot_longer(!c(row_id, p_id, p_age_group, bootstrap_index)) %>% 
+    rename(large_n = value) %>% 
+    filter(large_n != 0) %>% 
+    mutate(name = gsub('18_64', '1864', name)) %>% 
+    separate_wider_delim(name, delim = '_',
+                         names = c('null','broad_age_group','c_location')) %>% 
+    select(!null) %>% 
+    mutate(broad_age_group = case_when(
+      broad_age_group == 'u18' ~ '0-17',
+      broad_age_group == '1864' ~ '18-64',
+      broad_age_group == '65' ~ '65+'
+    )) %>% 
+    left_join(p_weights_filt %>% pivot_wider(names_from = c_age_group, values_from = prob),
+              by = c('p_age_group','broad_age_group','c_location')) %>% 
+    mutate(context = paste0(row_id,'_',broad_age_group,'_',c_location)) %>% 
+    select(!c(row_id, p_id, p_age_group, bootstrap_index, broad_age_group, c_location))
+  
+  large_contacts <- data.table(large_contacts)
+  
+  # transpose so that can be vectorised
+  large_contacts_flip <- dcast.data.table(melt.data.table(large_contacts, 
+                                                          id.vars = c('context')),
+                                          variable ~ context, value.var = 'value')
+  
+  # remove variable names
+  large_contacts_flip <- large_contacts_flip[, 2:ncol(large_contacts_flip)]
+  
+  # run add_large_n
+  large_contacts_sampled <- large_contacts_flip[, lapply(.SD, add_large_n)]
+  
+  # transpose back to original form
+  large_contacts_sampled_wide <- data.table(cbind(colnames(large_contacts_sampled), t(large_contacts_sampled)))
+  colnames(large_contacts_sampled_wide) <- c('context','large_n',age_labels)
+  
+  # make as.numeric
+  large_contacts_sampled_wide <- large_contacts_sampled_wide[, lapply(.SD, as.numeric), by=context]
+  
+  # add back to participant data
+  part_w_large <- part_filt %>% 
+    select(row_id, p_id, p_age_group, bootstrap_index, 
+           contains('add_')) %>% 
+    pivot_longer(!c(row_id, p_id, p_age_group, bootstrap_index)) %>% 
+    rename(large_n = value) %>% 
+    filter(large_n != 0) %>% 
+    mutate(name = gsub('18_64', '1864', name)) %>% 
+    separate_wider_delim(name, delim = '_',
+                         names = c('null','broad_age_group','c_location')) %>% 
+    select(!null) %>% 
+    mutate(broad_age_group = case_when(
+      broad_age_group == 'u18' ~ '0-17',
+      broad_age_group == '1864' ~ '18-64',
+      broad_age_group == '65' ~ '65+'
+    )) %>% 
+    mutate(context = paste0(row_id,'_',broad_age_group,'_',c_location)) 
+  
+  part_w_large <- data.table(part_w_large)
+  
+  part_w_large <- part_w_large[large_contacts_sampled_wide, on = c('context','large_n')]
+  
+  part_w_large[, broad_age_group := NULL]
+  part_w_large[, large_n := NULL]
+  
+  part_w_large <- part_w_large[, lapply(.SD, sum), by = c('row_id', 'p_id', 'p_age_group', 'bootstrap_index', 'c_location', 'context')]
+  
+  ## sample large_contact imd - UP TO HERE!
+  
+  
+  ## fit 
+  
+  
+}
+
+
+## VECTORISED FUNCTION TO ADD LARGE_N
+
+add_large_n <- function(vec){
+  
+  n <- vec[1]
+  probs <- vec[2:17]
+  
+  samples <- sample(x = 1:length(probs),
+                    size = n,
+                    prob = probs,
+                    replace = T)
+  
+  occurrence_vec <- sapply(1:length(probs), FUN = function(x) length(samples[samples==x]))
+  
+  out_vec <- c(n, occurrence_vec)
+  
+  out_vec
+  
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
