@@ -78,14 +78,14 @@ sampled_imd_ethn_nssec <- fcn_assign_imd_cm(
 )
 
 sampled_imd_not_home <- rbind(sampled_imd_age_ethn,
-                     sampled_imd_ethn_nssec) %>% 
+                              sampled_imd_ethn_nssec) %>% 
+  rename(c_imd_q = imd_quintile) %>% 
   left_join(sampled_parts %>% 
-              select(p_id, bootstrap_index, imd_quintile),
-            by = c('p_id','bootstrap_index'),
+              select(row_id, p_id, bootstrap_index, imd_quintile) %>% 
+              rename(p_imd_q = imd_quintile),
+            by = c('row_id','p_id','bootstrap_index'),
             relationship = 'many-to-many',
-            suffix = c('_c','_p')) %>% 
-  rename(c_imd_q = imd_quintile_c,
-         p_imd_q = imd_quintile_p)
+            suffix = c('_c','_p')) 
 
 sampled_imd <- rbind(
   sampled_imd_not_home, 

@@ -3,7 +3,8 @@
 
 default: localdef
 
-localdef: allassignplots allmatrsplots 
+localdef: allmatrsplots 
+#localdef: allassignplots allmatrsplots 
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -268,22 +269,28 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 
 ##### Make contact matrices ########## 
 
-# 1. ${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ageethn.rds ${CENSUSDIR}/pcd1ethnnssec.rds
+${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
+	$(call R, $*)
 
-# 2. ${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.rds ${CENSUSDIR}/utlaethnnssec.rds
+${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.rds ${CENSUSDIR}/utlaethnnssec.rds
+	$(call R, $*)
 
-# 3. ${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds
+${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds
+	$(call R, $*)
+	
+${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
+	$(call R, $*)
+	
+${CONTDATA}/fitted_matrs.rds: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
+	$(call R, $*)
 
-# 4. ${CONTDATA}/large_cont_ages.rds: ${CONTCODE}/large_group_cont_ages.R ${CONTDATA}/participants.rds
-
-# 5. ${CONTDATA}/large_cont_imd.rds: ${CONTCODE}/large_group_cont_imd.R ${CONTDATA}/large_cont_ages.rds ${CONTDATA}/cont_imd_distr.rds
-
-# 6. ${CONTDATA}/merged_data.rds: ${CONTCODE}/merge_part_cont.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/large_cont_imd.rds
-
-# 7. ${CONTDATA}/fitted_matrs.rds: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/merged_data.rds
-
-# 8. ${CONTDATA}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs.rds
-
+${CONTDATA}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs.rds
+	$(call R, $*)
+	
+${CONTDATA}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/fitted_matrs.rds
+	$(call R, $*)
+	
+allmatrixplots: ${CONTDATA}/fitted_matrs.png ${CONTDATA}/fitted_matrs_locn.png
 
 ##### Needed outputs: ##########################################################
 

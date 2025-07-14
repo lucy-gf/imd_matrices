@@ -482,10 +482,14 @@ fit_matr_age_spec <- function(
     
   }
   
-  age_spec_fits <- map(
-    .x = unique(data$p_age_group),
+  part <- part %>% arrange(p_age_group)
+  
+  age_spec_fits_list <- map(
+    .x = unique(part$p_age_group),
     .f = fit_matr_as
   )
+  
+  age_spec_fits <- rbindlist(age_spec_fits_list)
   
   age_spec_fits
   
@@ -546,9 +550,9 @@ fit_matr <- function(
   
   # add back to participant data
   part_w_large <- part_filt %>% 
-    select(row_id, p_id, p_age_group, bootstrap_index, 
+    select(row_id, p_id, p_age_group, p_imd_q, bootstrap_index, 
            contains('add_')) %>% 
-    pivot_longer(!c(row_id, p_id, p_age_group, bootstrap_index)) %>% 
+    pivot_longer(!c(row_id, p_id, p_age_group, p_imd_q, bootstrap_index)) %>% 
     rename(large_n = value) %>% 
     filter(large_n != 0) %>% 
     mutate(name = gsub('18_64', '1864', name)) %>% 
@@ -568,14 +572,116 @@ fit_matr <- function(
   
   part_w_large[, broad_age_group := NULL]
   part_w_large[, large_n := NULL]
+  part_w_large[, context := NULL]
   
-  part_w_large <- part_w_large[, lapply(.SD, sum), by = c('row_id', 'p_id', 'p_age_group', 'bootstrap_index', 'c_location', 'context')]
+  id_vars <- c('row_id', 'p_id', 'p_age_group', 'p_imd_q', 'bootstrap_index', 'c_location')
   
-  ## sample large_contact imd - UP TO HERE!
+  part_w_large <- part_w_large[, lapply(.SD, sum), by = id_vars]
   
+  ## sample large_contact imd 
   
-  ## fit 
+  part_l <- melt.data.table(part_w_large, id.vars = id_vars,
+                            variable.name = 'c_age_group', value.name = 'n')
+                  
+  distr_dt <- data.table(distr_filt)
+  distr_dt[, c_location := tolower(c_location)]
+  distr_dt_w <- dcast.data.table(distr_dt, p_age_group + c_age_group + c_location + p_imd_q ~ c_imd_q, value.var = 'prop')
   
+  part_l <- part_l[distr_dt_w, on = c('p_age_group','c_age_group','c_location','p_imd_q')]
+  part_l <- part_l[!is.na(row_id)] # remove rows of distr_dt_w which don't occur in part_l
+  part_l <- part_l[n != 0] # remove rows with no occurrences
+  
+  # remake 'context' column
+  part_l[, context := paste0(row_id, '_', c_location, '_', c_age_group)]
+  part_l <- part_l[, c('context','n','1','2','3','4','5')]
+  
+  # transpose so that can be vectorised
+  large_contacts_imd_flip <- dcast.data.table(melt.data.table(part_l, 
+                                                              id.vars = c('context')),
+                                              variable ~ context, value.var = 'value')
+  
+  # remove variable names
+  large_contacts_imd_flip <- large_contacts_imd_flip[, 2:ncol(large_contacts_imd_flip)]
+  
+  # run add_c_imd
+  large_contacts_imd_sampled <- large_contacts_imd_flip[, lapply(.SD, add_c_imd)]
+  
+  # transpose back to original form
+  large_contacts_imd_sampled_wide <- data.table(cbind(colnames(large_contacts_imd_sampled), t(large_contacts_imd_sampled)))
+  colnames(large_contacts_imd_sampled_wide) <- c('context','large_n',as.character(1:5))
+  
+  # make as.numeric
+  large_contacts_imd_sampled_wide <- large_contacts_imd_sampled_wide[, lapply(.SD, as.numeric), by=context]
+  
+  # remove those who couldn't be sampled
+  large_contacts_imd_sampled_wide <- large_contacts_imd_sampled_wide[large_n != 0]
+  
+  # make longer
+  large_contacts_imd_sampled_long <- melt.data.table(large_contacts_imd_sampled_wide,
+                                                     id.vars = 'context')
+                                                      
+  large_contacts_imd_sampled_long <- large_contacts_imd_sampled_long[variable != 'large_n']
+  setnames(large_contacts_imd_sampled_long, 'variable','c_imd_q')
+  
+  ## merge individual and large contacts
+  
+  # participants
+  p_f <- part_filt[, c('row_id','p_id','p_age_group','bootstrap_index','p_imd_q')]
+  
+  # indiv contacts
+  c_f <- cont_filt[, c('row_id','c_id','c_age_group','c_location','c_imd_q')]
+  c_f[, c_location := tolower(c_location)]
+  c_f[, context := paste0(row_id, '_', c_location, '_', c_age_group)]
+  # aggregate
+  c_f_agg <- c_f[, c('row_id','context','c_imd_q')][, n := 1][, lapply(.SD, sum), by = c('row_id','context','c_imd_q')]
+  c_f_agg[, c_imd_q := as.factor(c_imd_q)]
+  c_f_agg[, context := paste0(context, '_', c_imd_q)]
+  
+  # group contacts, adding in participants with no large n in specific age/location/c_imd_q
+  large_contacts_imd_sampled_long[, context := paste0(context, '_', c_imd_q)]
+  large_c <- large_contacts_imd_sampled_long[, c('context','value')]
+  large_c_rbind <- rbind(large_c,
+                         cbind(c_f_agg[context %notin% large_c$context, 
+                                       c('context')],
+                               value = 0))
+  
+  # merge contacts
+  row_id_vecs <- unlist(strsplit(large_c_rbind$context, split = '_'))
+  row_id_vec <- paste0(row_id_vecs[6*(1:nrow(large_c_rbind)) - 5],'_',
+                       row_id_vecs[6*(1:nrow(large_c_rbind)) - 4],'_',
+                       row_id_vecs[6*(1:nrow(large_c_rbind)) - 3])
+  c_location_vec <- row_id_vecs[6*(1:nrow(large_c_rbind)) - 2]
+  c_age_group_vec <- row_id_vecs[6*(1:nrow(large_c_rbind)) - 1]
+  c_imd_q_vec <- row_id_vecs[6*(1:nrow(large_c_rbind))]
+  large_c_rbind[, row_id := row_id_vec]
+  large_c_rbind[, c_location := c_location_vec]
+  large_c_rbind[, c_age_group := c_age_group_vec]
+  large_c_rbind[, c_imd_q := c_imd_q_vec]
+  
+  contacts_merged <- c_f_agg[large_c_rbind, on = c('row_id','context','c_imd_q')]
+  contacts_merged[is.na(n), n := 0]
+  contacts_merged[, n := n + value]
+  contacts_merged[, value := NULL]
+  contacts_merged[, context := NULL]
+  
+  ## filling in participants with 0 contacts
+  all_merged <- contacts_merged %>% 
+    complete(row_id = p_f$row_id,
+             c_imd_q = as.character(1:5),
+             c_location = unique(distr_filt$c_location),
+             c_age_group = age_labels,
+             fill = list(n = 0)) %>% 
+    left_join(p_f, by = 'row_id')
+  
+  all_merged <- data.table(all_merged)
+  
+  ## fit - using mean for now
+  # TODO change to negative binomial estimation
+
+  out_df <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location', 'n')]
+  out_df <- out_df[, lapply(.SD, mean), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location')]
+  
+  out_df
   
 }
 
@@ -600,8 +706,36 @@ add_large_n <- function(vec){
   
 }
 
+## VECTORISED FUNCTION TO ADD IMD
 
+add_c_imd <- function(vec){
 
+  n <- vec[1]
+  probs <- vec[2:6]
+  
+  # if no occurrences in the indiv contact data 
+  # (i.e. sum(probs) == 0)
+  # don't sample large group contacts
+  if(sum(probs) == 0){return(rep(0, 6))}
+  
+  samples <- sample(x = 1:5,
+                    size = n,
+                    prob = probs,
+                    replace = T)
+  
+  occurrence_vec <- sapply(1:length(probs), FUN = function(x) length(samples[samples==x]))
+  
+  out_vec <- c(n, occurrence_vec)
+  
+  out_vec
+  
+}
+
+## TEXT FORMATTING ##
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
 
 
 

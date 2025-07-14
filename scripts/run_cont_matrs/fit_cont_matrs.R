@@ -25,9 +25,12 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 participants <- readRDS(.args[1]) %>% 
   rename(p_imd_q = imd_quintile)
-indiv_contacts <- readRDS(.args[2])
-cont_imd_distr <- readRDS(.args[3])
-poly_weights <- readRDS(.args[4])
+indiv_contacts <- readRDS(.args[2]) %>% 
+  mutate(c_location = tolower(c_location))
+cont_imd_distr <- readRDS(.args[3]) %>% 
+  mutate(c_location = tolower(c_location))
+poly_weights <- readRDS(.args[4]) %>% 
+  mutate(c_location = tolower(c_location))
 
 #### RUN NEGATIVE BINOMIAL FITTING ####
 ## parallelised across p_age_group, p_imd_quintile
@@ -47,17 +50,17 @@ fit_matr_parallel <- function(imd){
   
 }
 
-fitted <- map(
-  .x = 1:5,
+fitted_list <- map(
+  .x = as.character(1:5),
   .f = fit_matr_parallel
 )
 
+fitted <- rbindlist(fitted_list)
+
+# TODO Make reciprocal too
 
 
+#### SAVE RDS ####
 
-
-
-####
-## SAVE RDS
-####
+write_rds(fitted, .args[5])
 

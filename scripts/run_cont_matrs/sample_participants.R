@@ -24,12 +24,11 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 n_bootstraps <- 1000
 
-#### READ IN DATA FOR WEIGHTING #### 
-
+#### READ IN DATA FOR WEIGHTING #### ]
 part <- readRDS(.args[1])
 age_ethn_sex <- read_xlsx(.args[2])
-pcd1ageethn <- read_csv(.args[3], show_col_types = F)
-pcd1ethnnssec <- read_csv(.args[4], show_col_types = F)
+pcd1ageethn <- readr::read_csv(.args[3], show_col_types = F)
+pcd1ethnnssec <- readr::read_csv(.args[4], show_col_types = F)
 
 # filter to only those usable in analysis
 
