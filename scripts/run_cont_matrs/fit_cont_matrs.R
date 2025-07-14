@@ -36,7 +36,7 @@ poly_weights <- readRDS(.args[4]) %>%
 ## parallelised across p_age_group, p_imd_quintile
 
 # TODO remove later
-participants <- participants %>% filter(bootstrap_index <= 10)
+# participants <- participants %>% filter(bootstrap_index <= 10)
 
 fit_matr_parallel <- function(imd){
   

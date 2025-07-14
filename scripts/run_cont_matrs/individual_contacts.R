@@ -46,7 +46,7 @@ merged <- sampled_parts %>%
 
 ### FOR NOW TO REDUCE CALC. TIME
 # TODO remove later
-merged <- merged %>% filter(bootstrap_index <= 10)
+# merged <- merged %>% filter(bootstrap_index <= 10)
 
 #### ASSIGN IMD TO CONTACTS ####
 
