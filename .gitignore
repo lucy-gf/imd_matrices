@@ -46,7 +46,8 @@ docs/
 po/*~
 
 # data
-data/
+# data/
+
 
 # old scripts
 scripts/old
