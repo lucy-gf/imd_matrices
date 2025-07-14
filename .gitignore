@@ -46,7 +46,7 @@ docs/
 po/*~
 
 # data
-# data/
+data/census
 
 
 # old scripts
