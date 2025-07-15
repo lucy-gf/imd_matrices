@@ -20,6 +20,15 @@ library(purrr, warn.conflicts = FALSE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+#### MAKE OUTPUT DIRS IF DON'T EXIST ####
+
+if(!file.exists(file.path("output", "data", "contact_matrs"))){
+  dir.create(file.path("output", "data", "contact_matrs"))
+}
+if(!file.exists(file.path("output", "figures", "contact_matrs"))){
+  dir.create(file.path("output", "figures", "contact_matrs"))
+}
+
 #### SET PARS #### 
 
 n_bootstraps <- 1000
