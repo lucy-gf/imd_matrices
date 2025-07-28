@@ -14,8 +14,8 @@ library(viridis, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "contact_matrs","fitted_matrs.rds"),
-  file.path("output", "figures", "contact_matrs","fitted_matrs.png")
+  file.path("output", "data", "cont_matrs","fitted_matrs.rds"),
+  file.path("output", "figures", "cont_matrs","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -46,14 +46,15 @@ agg %>%
   ggplot() + 
   geom_tile(aes(x = p_age_group, y = c_age_group, fill = width)) +
   theme_bw() + 
-  facet_grid(c_imd_q ~ p_imd_q) +
+  facet_grid(c_imd_q ~ p_imd_q, switch="both") +
   scale_fill_viridis(option = 'A') +
   labs(
-    x = 'Participant age group',
-    y = 'Contact age group',
+    x = 'Participant IMD, age group',
+    y = 'Contact IMD, age group',
     fill = 'Width of\n95% CI'
   ) + 
   theme(strip.background = element_blank(),
+        strip.placement = "outside",
         text = element_text(size = 14),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
@@ -89,17 +90,18 @@ diff %>%
   ggplot() + 
   geom_tile(aes(x = p_age_group, y = c_age_group, fill = med_n - med_n_gp)) +
   theme_bw() + 
-  facet_grid(c_imd_q ~ p_imd_q) +
+  facet_grid(c_imd_q ~ p_imd_q, switch="both") +
   scale_fill_gradientn(colors = colorscale, values = scales::rescale(breaks), 
                        breaks = breaks,
                        na.value = "#e5e5e5", limits = c(- max_stat, max_stat),
                        trans = 'pseudo_log') +
   labs(
-    x = 'Participant age group',
-    y = 'Contact age group',
+    x = 'Participant IMD, age group',
+    y = 'Contact IMD, age group',
     fill = 'Diff. from av.'
   ) + 
   theme(strip.background = element_blank(),
+        strip.placement = "outside",
         text = element_text(size = 14),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
         legend.position = 'none')
@@ -114,14 +116,15 @@ agg %>%
   ggplot() + 
   geom_tile(aes(x = p_age_group, y = c_age_group, fill = med_n)) +
   theme_bw() + 
-  facet_grid(c_imd_q ~ p_imd_q) +
+  facet_grid(c_imd_q ~ p_imd_q, switch="both") +
   scale_fill_viridis() +
   labs(
-    x = 'Participant age group',
-    y = 'Contact age group',
+    x = 'Participant IMD, age group',
+    y = 'Contact IMD, age group',
     fill = 'Mean daily\ncontacts'
   ) + 
   theme(strip.background = element_blank(),
+        strip.placement = "outside",
         text = element_text(size = 14),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 

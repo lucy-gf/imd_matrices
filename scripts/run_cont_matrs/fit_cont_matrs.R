@@ -21,6 +21,10 @@ library(patchwork, warn.conflicts = FALSE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+#### SET SEED #### 
+
+set.seed(70)
+
 #### READ IN DATA ####
 
 participants <- readRDS(.args[1]) %>% 

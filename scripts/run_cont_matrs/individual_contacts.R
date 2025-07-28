@@ -20,6 +20,10 @@ library(purrr, warn.conflicts = FALSE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+#### SET SEED #### 
+
+set.seed(70)
+
 #### READ IN DATA ####
 
 sampled_parts <- readRDS(.args[1])
@@ -63,7 +67,7 @@ contacts_not_home <- merged %>% filter(c_location != 'Home') %>%
 
 sampled_imd_age_ethn <- fcn_assign_imd_cm(
   data_input = contacts_not_home %>% 
-    filter(c_age < 20 | c_age >= 65 | c_sec_input == 'Unknown'),
+    filter(c_age < 18 | c_age >= 65 | c_sec_input == 'Unknown'),
   census_data = utlaageethn,
   variables = c('utla','c_age_group','c_ethnicity')
 )
@@ -72,7 +76,7 @@ sampled_imd_age_ethn <- fcn_assign_imd_cm(
 
 sampled_imd_ethn_nssec <- fcn_assign_imd_cm(
   data_input = contacts_not_home %>% 
-    filter(p_age %in% 20:64 & c_sec_input != 'Unknown'),
+    filter(p_age %in% 18:64 & c_sec_input != 'Unknown'),
   census_data = utlaethnnssec,
   variables = c('utla','c_ethnicity','c_sec_input')
 )

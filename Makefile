@@ -272,7 +272,7 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 ${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
 	$(call R, $*)
 
-${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.rds ${CENSUSDIR}/utlaethnnssec.rds
+${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
 	$(call R, $*)
 
 ${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds

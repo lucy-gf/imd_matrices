@@ -9,12 +9,13 @@ library(tidyr, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(patchwork, warn.conflicts = FALSE)
+library(ggplot2)
 library(viridis)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "contact_matrs","indiv_contacts.rds"),
-  file.path("output", "data", "contact_matrs","cont_imd_distr.rds")
+  file.path("output", "data", "cont_matrs","indiv_contacts.rds"),
+  file.path("output", "data", "cont_matrs","cont_imd_distr.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -46,9 +47,18 @@ plot_imd_proportions <- function(location){
     ggplot() + 
     geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = prop, group = p_age_group)) +
     theme_bw() +
-    facet_grid(p_age_group ~ c_age_group) +
+    facet_grid(p_age_group ~ c_age_group, 
+               switch = 'both') +
+    labs(
+      x = 'Participant IMD, age group',
+      y = 'Contact IMD, age group',
+      fill = 'Proportion'
+    ) + 
     scale_fill_viridis(trans = 'pseudo_log') +
-    ggtitle(location) + labs(fill = '')
+    ggtitle(location) +
+    theme(strip.background = element_blank(),
+          strip.placement = "outside",
+          text = element_text(size = 15))
   
 }
 
@@ -60,8 +70,8 @@ plots <- map(
 patchwork::wrap_plots(plots, nrow = 2,
                       guides = 'collect')
 
-ggsave(file.path("output", "figures", "contact_matrs","cont_imd_distr.png"),
-       width = 16, height = 16)
+ggsave(file.path("output", "figures", "cont_matrs","cont_imd_distr.png"),
+       width = 24, height = 24)
 
 
 #### SAVE RDS ####

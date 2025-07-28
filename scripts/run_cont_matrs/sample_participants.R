@@ -15,19 +15,29 @@ library(purrr, warn.conflicts = FALSE)
   file.path("data", "ons", "age_ethn_sex.xlsx"),
   file.path("data", "census", "pcd1ageethn.csv"),
   file.path("data", "census", "pcd1ethnnssec.csv"),
-  file.path("output", "data", "contact_matrs","participants.rds")
+  file.path("output", "data", "cont_matrs","participants.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 #### MAKE OUTPUT DIRS IF DON'T EXIST ####
 
-if(!file.exists(file.path("output", "data", "contact_matrs"))){
-  dir.create(file.path("output", "data", "contact_matrs"))
+if(!file.exists(file.path("output"))){
+  dir.create(file.path("output"))
+  dir.create(file.path("output", "data"))
+  dir.create(file.path("output", "figures"))
 }
-if(!file.exists(file.path("output", "figures", "contact_matrs"))){
-  dir.create(file.path("output", "figures", "contact_matrs"))
+
+if(!file.exists(file.path("output", "data", "cont_matrs"))){
+  dir.create(file.path("output", "data", "cont_matrs"))
 }
+if(!file.exists(file.path("output", "figures", "cont_matrs"))){
+  dir.create(file.path("output", "figures", "cont_matrs"))
+}
+
+#### SET SEED #### 
+
+set.seed(70)
 
 #### SET PARS #### 
 
@@ -43,7 +53,7 @@ pcd1ethnnssec <- readr::read_csv(.args[4], show_col_types = F)
 
 part <- part %>% 
   filter(p_country == 'England',
-         ! (is.na(p_sec_input) & p_age %in% 20:64),
+         ! (is.na(p_sec_input) & p_age %in% 18:64),
          p_ethnicity != 'Prefer not to say',
          pcd1 %in% unique(pcd1ageethn$pcd1))
 
@@ -104,7 +114,7 @@ sampled <- rbindlist(sampled_list) %>%
 # pcd1, age, ethnic group
 
 sampled_imd_age_ethn <- fcn_assign_imd_cm(
-  data_input = sampled %>% filter(p_age < 20 | p_age >= 65),
+  data_input = sampled %>% filter(p_age < 18 | p_age >= 65),
   census_data = pcd1ageethn,
   variables = c('pcd1','p_age_group','p_ethnicity')
   )
@@ -112,7 +122,7 @@ sampled_imd_age_ethn <- fcn_assign_imd_cm(
 # pcd1, ethnic group, NS-SEC code
 
 sampled_imd_ethn_nssec <- fcn_assign_imd_cm(
-  data_input = sampled %>% filter(p_age %in% 20:64),
+  data_input = sampled %>% filter(p_age %in% 18:64),
   census_data = pcd1ethnnssec,
   variables = c('pcd1','p_ethnicity','p_sec_input')
 )

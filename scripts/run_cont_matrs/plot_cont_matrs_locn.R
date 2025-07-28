@@ -14,8 +14,8 @@ library(viridis, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "contact_matrs","fitted_matrs.rds"),
-  file.path("output", "figures", "contact_matrs","fitted_matrs_locn.png")
+  file.path("output", "data", "cont_matrs","fitted_matrs.rds"),
+  file.path("output", "figures", "cont_matrs","fitted_matrs_locn.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -47,14 +47,15 @@ plot_locn_cm <- function(locn){
     ggplot() + 
     geom_tile(aes(x = p_age_group, y = c_age_group, fill = med_n)) +
     theme_bw() + 
-    facet_grid(c_imd_q ~ p_imd_q) +
+    facet_grid(c_imd_q ~ p_imd_q, switch = 'both') +
     scale_fill_viridis() +
     labs(
-      x = 'Participant age group',
-      y = 'Contact age group',
+      x = 'Participant IMD, age group',
+      y = 'Contact IMD, age group',
       fill = 'Mean daily\ncontacts'
     ) + 
     theme(strip.background = element_blank(),
+          strip.placement = "outside",
           text = element_text(size = 14),
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
     ggtitle(firstup(locn))
