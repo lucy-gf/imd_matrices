@@ -9,7 +9,7 @@ library(patchwork)
 library(purrr, warn.conflicts = FALSE)
 library(tidyr, warn.conflicts = FALSE)
 library(ggplot2)
-suppressMessages(library(viridis))
+suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # source functions
 source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))

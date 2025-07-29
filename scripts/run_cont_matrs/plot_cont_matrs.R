@@ -10,11 +10,11 @@ library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(patchwork, warn.conflicts = FALSE)
 library(ggplot2)
-library(viridis, warn.conflicts = FALSE)
+suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs.rds"),
+  file.path("output", "data", "cont_matrs","fitted_matrs.csv"),
   file.path("output", "figures", "cont_matrs","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -22,7 +22,7 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 #### READ IN FITTED DATA ####
 
-fitted <- readRDS(.args[1])
+fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 
 #### PLOT ####
 
@@ -71,6 +71,7 @@ gen_pop <- fitted %>%
   summarise(med_n_gp = mean(n)) 
 
 diff <- agg %>% 
+  mutate(c_imd_q = as.numeric(c_imd_q)) %>% 
   left_join(gen_pop, by = c('p_age_group','c_age_group','c_imd_q')) %>% 
   mutate(diff = med_n - med_n_gp)
 

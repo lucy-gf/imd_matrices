@@ -632,6 +632,7 @@ fit_matr <- function(
   c_f <- cont_filt[, c('row_id','c_id','c_age_group','c_location','c_imd_q')]
   c_f[, c_location := tolower(c_location)]
   c_f[, context := paste0(row_id, '_', c_location, '_', c_age_group)]
+  
   # aggregate
   c_f_agg <- c_f[, c('row_id','context','c_imd_q')][, n := 1][, lapply(.SD, sum), by = c('row_id','context','c_imd_q')]
   c_f_agg[, c_imd_q := as.factor(c_imd_q)]

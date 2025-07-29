@@ -12,11 +12,12 @@ library(patchwork, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "contact_matrs","participants.rds"),
-  file.path("output", "data", "contact_matrs","indiv_contacts.rds"),
-  file.path("output", "data", "contact_matrs","cont_imd_distr.rds"),
+  file.path("output", "data", "cont_matrs","participants.rds"),
+  file.path("output", "data", "cont_matrs","indiv_contacts.rds"),
+  file.path("output", "data", "cont_matrs","cont_imd_distr.rds"),
   file.path("data", "ons","polymod_weights.rds"),
-  file.path("output", "data", "contact_matrs","fitted_matrs.rds")
+  '0-4',
+  file.path("output", "data", "cont_matrs","fitted_matrs_0-4.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -36,18 +37,21 @@ cont_imd_distr <- readRDS(.args[3]) %>%
 poly_weights <- readRDS(.args[4]) %>% 
   mutate(c_location = tolower(c_location))
 
-#### RUN NEGATIVE BINOMIAL FITTING ####
-## parallelised across p_age_group, p_imd_quintile
+age_in <- .args[5]
 
-# TODO remove later
-# participants <- participants %>% filter(bootstrap_index <= 10)
+#### RUN NEGATIVE BINOMIAL FITTING ####
+## parallelised across p_imd_quintile
+## specific to p_age_group
 
 fit_matr_parallel <- function(imd){
   
-  out <- fit_matr_age_spec(part = participants %>% filter(p_imd_q == imd),
-                           cont = indiv_contacts %>% filter(p_imd_q == imd),
-                           distr = cont_imd_distr %>% filter(p_imd_q == imd),
-                           p_weights = poly_weights
+  out <- fit_matr(part_filt = participants %>% filter(p_imd_q == imd,
+                                                 p_age_group == age_in),
+                           cont_filt = indiv_contacts %>% filter(p_imd_q == imd,
+                                                            p_age_group == age_in),
+                           distr_filt = cont_imd_distr %>% filter(p_imd_q == imd,
+                                                             p_age_group == age_in),
+                           p_weights_filt = poly_weights %>% filter(p_age_group == age_in)
   )
   
   out
@@ -64,7 +68,7 @@ fitted <- rbindlist(fitted_list)
 # TODO Make reciprocal too
 
 
-#### SAVE RDS ####
+#### SAVE CSV ####
 
-write_rds(fitted, .args[5])
+write_csv(fitted, .args[6])
 

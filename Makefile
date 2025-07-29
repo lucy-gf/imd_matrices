@@ -61,6 +61,12 @@ SCOREVAR ?= mse wis crps
 makeassigndet = $(addprefix ${DATDIR}/assignment/connect_det_,$(patsubst %,%.${DATAEXT},$(1))) 
 makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.${DATAEXT},$(1))) 
 
+# ages for fitting contact matrices
+ALLAGES ?= 0-4 5-9 10-14 15-19 20-24 25-29 30-34 35-39 40-44 45-49 50-54 55-59 60-64 65-69 70-74 75+
+
+# functions to make into assigned .rds
+makeagesuffix = $(addprefix ${CONTDATA}/fitted_matrs_,$(patsubst %,%.${DATAEXT},$(1))) 
+
 # TODO add back in later? 
 #clean:
 #	rm -rf ${RENV}
@@ -68,6 +74,11 @@ makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.$
 #	rm -rf ${OUTDIR}
 #	rm -rf ${FIGDIR}
 #	rm -rf renv/library
+clean:
+	rm ${DATDIR}/assignment/mse/merged_scores.csv
+	rm ${DATDIR}/assignment/wis/merged_scores.csv
+	rm ${DATDIR}/assignment/crps/merged_scores.csv
+	rm ${CONTDATA}/fitted_matrs.csv
 
 ##### INPUTS ###################################################################
 
@@ -215,11 +226,6 @@ allcrps: $(patsubst %,${DATDIR}/assignment/crps/%_scores.csv, ${ALLSCN})
 
 # Merge scores
 
-clean:
-	rm ${DATDIR}/assignment/mse/merged_scores.csv
-	rm ${DATDIR}/assignment/wis/merged_scores.csv
-	rm ${DATDIR}/assignment/crps/merged_scores.csv
-
 ${DATDIR}/assignment/mse/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/mse/%_scores.csv,${ALLSCN})
 	cat $^> $@
 
@@ -281,16 +287,25 @@ ${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_c
 ${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
 	$(call R, $*)
 	
-${CONTDATA}/fitted_matrs.rds: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
-	$(call R, $*)
+${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
+	$(call R, $(firstword $(subst _, ,$*)))
+	
+allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
 
-${CONTDATA}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs.rds
+# merge
+
+${CONTDATA}/fitted_matrs.csv: $(patsubst %,${CONTDATA}/fitted_matrs_%.csv, ${ALLAGES})
+	cat $^> $@
+
+allmatrmerged: ${CONTDATA}/fitted_matrs.csv
+
+${CONTFIG}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs.csv
 	$(call R, $*)
 	
-${CONTDATA}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/fitted_matrs.rds
+${CONTFIG}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/fitted_matrs.csv
 	$(call R, $*)
 	
-allmatrixplots: ${CONTDATA}/fitted_matrs.png ${CONTDATA}/fitted_matrs_locn.png
+allmatrixplots: ${CONTFIG}/fitted_matrs.png ${CONTFIG}/fitted_matrs_locn.png
 
 ##### Needed outputs: ##########################################################
 

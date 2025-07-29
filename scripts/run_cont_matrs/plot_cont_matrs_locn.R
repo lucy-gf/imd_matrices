@@ -10,11 +10,11 @@ library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(patchwork, warn.conflicts = FALSE)
 library(ggplot2)
-library(viridis, warn.conflicts = FALSE)
+suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs.rds"),
+  file.path("output", "data", "cont_matrs","fitted_matrs.csv"),
   file.path("output", "figures", "cont_matrs","fitted_matrs_locn.png")
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -22,7 +22,7 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 #### READ IN FITTED DATA ####
 
-fitted <- readRDS(.args[1])
+fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 
 #### PLOT ####
 
