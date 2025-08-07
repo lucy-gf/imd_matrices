@@ -3,8 +3,7 @@
 
 default: localdef
 
-localdef: allmatrsplots 
-#localdef: allassignplots allmatrsplots 
+localdef: allassignplots allmatrsplots 
 
 ###### SUPPORT DEFINITIONS #####################################################
 

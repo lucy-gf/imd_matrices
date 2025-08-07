@@ -43,7 +43,7 @@ set.seed(70)
 
 n_bootstraps <- 1000
 
-#### READ IN DATA FOR WEIGHTING #### ]
+#### READ IN DATA FOR WEIGHTING #### 
 part <- readRDS(.args[1])
 age_ethn_sex <- read_xlsx(.args[2])
 pcd1ageethn <- readr::read_csv(.args[3], show_col_types = F)

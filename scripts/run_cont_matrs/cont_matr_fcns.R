@@ -505,7 +505,7 @@ fit_matr <- function(
     p_weights_filt
 ){
   
-  ## sample large_contact ages   ## 
+  ## sample large_contact ages ## 
   
   # select probabilities and large_n for each sampled participant
   large_contacts <- part_filt %>% 
@@ -738,8 +738,71 @@ firstup <- function(x) {
   x
 }
 
+## FUNCTION TO CAP AT 100
+max_large_n_fcn <- function(x){ifelse(x > max_large_n, max_large_n, x)}
 
+## FUNCTION TO MAKE MATRICES BALANCED/RECIPROCAL ##
 
+balancing_fcn <- function(
+    data,
+    age_structure
+){
+  
+  data <- data.table(data)
+  
+  # aggregate over contact settings
+  if('c_location' %in% colnames(data)){
+    data[, c_location := NULL]
+    data <- data[, lapply(.SD, sum), by = c('bootstrap_index','p_age_group', 'p_imd_q', 'c_age_group', 'c_imd_q')] 
+  }
+  
+  data <- data %>% ungroup()
+  
+  # select relevant population structure columns
+  population_dt <- age_structure %>% select(age, imd_q, prop_imd)
+  colnames(population_dt) <- c('p_age_group','p_imd_q','proportion')
+  
+  scaled_matrix_1 <- data %>% arrange(bootstrap_index, p_age_group, p_imd_q) %>% 
+    left_join(population_dt, by=c('p_age_group','p_imd_q')) %>% mutate(scaled_mu = n*proportion) 
+  
+  transposed_scaled_matrix_1 <- scaled_matrix_1 %>% 
+    select(bootstrap_index, p_age_group, p_imd_q, c_age_group, c_imd_q, scaled_mu)
+  colnames(transposed_scaled_matrix_1) <- c('bootstrap_index', 'c_age_group', 'c_imd_q', 'p_age_group', 'p_imd_q', 'scaled_mu_t')
+  
+  scaled_matrix_2 <- scaled_matrix_1 %>% 
+    left_join(transposed_scaled_matrix_1, by=c('bootstrap_index', 'c_age_group', 'c_imd_q', 'p_age_group', 'p_imd_q')) %>% 
+    mutate(mean_scaled_mu = (scaled_mu + scaled_mu_t)/2) %>% mutate(unscaled_mean_scaled_mu = mean_scaled_mu/proportion)
+  
+  matrix_out <- scaled_matrix_2 %>% select(bootstrap_index, p_age_group, p_imd_q, c_age_group, c_imd_q, unscaled_mean_scaled_mu) %>% 
+    setnames('unscaled_mean_scaled_mu', 'n')
+  
+  matrix_out
+  
+}
+
+## FORMAT NUMBERS ##
+format_number <- function(num){
+  
+  out <- num
+  
+  for(i in 1:length(out)){
+    if(out[i] < 10){
+      out[i] <- round(out[i], 2)
+    }else{
+      out[i] <- signif(out[i], 4)
+    }
+  }
+  
+  for(i in 1:length(out)){
+    if(as.numeric(out[i]) < 1000){
+      out[i] <- gsub(' ', '', format(as.numeric(out[i]), nsmall = 2))
+    }else{
+      out[i] <- as.character(out[i])
+    }
+  }
+  
+  out
+}
 
 
 

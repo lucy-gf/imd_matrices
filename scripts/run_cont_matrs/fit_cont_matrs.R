@@ -43,6 +43,12 @@ age_in <- .args[5]
 ## parallelised across p_imd_quintile
 ## specific to p_age_group
 
+# restrict large_n columns to max. 100
+max_large_n <- 100
+participants <- participants %>% 
+  mutate(across(contains('add_'), ~ case_when(. > max_large_n ~ max_large_n, T ~ .))) %>% 
+  mutate(large_n = rowSums(across(contains('add_'))))
+
 fit_matr_parallel <- function(imd){
   
   out <- fit_matr(part_filt = participants %>% filter(p_imd_q == imd,
@@ -64,9 +70,6 @@ fitted_list <- map(
 )
 
 fitted <- rbindlist(fitted_list)
-
-# TODO Make reciprocal too
-
 
 #### SAVE CSV ####
 

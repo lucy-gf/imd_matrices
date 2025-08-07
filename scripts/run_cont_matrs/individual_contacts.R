@@ -48,10 +48,6 @@ merged <- sampled_parts %>%
               filter(p_id %in% unique(sampled_parts$p_id)), 
             by = 'p_id', relationship = 'many-to-many') 
 
-### FOR NOW TO REDUCE CALC. TIME
-# TODO remove later
-# merged <- merged %>% filter(bootstrap_index <= 10)
-
 #### ASSIGN IMD TO CONTACTS ####
 
 ## Home location contacts
