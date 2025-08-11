@@ -73,7 +73,7 @@ List model(List parscpp) {
   std::vector<double> Dt(nt);  
   std::vector<double> Cct(nt); //cumulative clinical cases
   
-//LATER: dayly by age
+//LATER: daily by age
   NumericVector Sw(nd); //= Rcpp::clone(Sw);
   NumericVector Ew(nd);  
   NumericVector Uw(nd); 
@@ -81,7 +81,7 @@ List model(List parscpp) {
   NumericVector Rw(nd); 
   NumericVector Dw(nd); 
   NumericVector Ccw(nd);
-  NumericVector Ew_s1(nd);
+  NumericVector Ew_s1(nd); //SES
   NumericVector Ew_s2(nd);
   NumericVector Ew_s3(nd);
   NumericVector Ew_s4(nd);
@@ -100,8 +100,8 @@ List model(List parscpp) {
   NumericVector Rw_s2(nd);
   NumericVector Rw_s3(nd);
   NumericVector Rw_s4(nd);
-  NumericVector Rw_s5(nd);
-  NumericVector Iw_a1(nd);
+  NumericVector Rw_s5(nd); 
+  NumericVector Iw_a1(nd); //age
   NumericVector Iw_a2(nd);
   NumericVector Iw_a3(nd);
   NumericVector Iw_a4(nd);
@@ -133,6 +133,86 @@ List model(List parscpp) {
   NumericVector Uw_a14(nd);
   NumericVector Uw_a15(nd);
   NumericVector Uw_a16(nd);
+  NumericVector Iw_g1(nd); //all
+  NumericVector Iw_g2(nd);
+  NumericVector Iw_g3(nd);
+  NumericVector Iw_g4(nd);
+  NumericVector Iw_g5(nd);
+  NumericVector Iw_g6(nd);
+  NumericVector Iw_g7(nd);
+  NumericVector Iw_g8(nd);
+  NumericVector Iw_g9(nd);
+  NumericVector Iw_g10(nd);
+  NumericVector Iw_g11(nd);
+  NumericVector Iw_g12(nd);
+  NumericVector Iw_g13(nd);
+  NumericVector Iw_g14(nd);
+  NumericVector Iw_g15(nd);
+  NumericVector Iw_g16(nd);
+  NumericVector Iw_g17(nd);
+  NumericVector Iw_g18(nd);
+  NumericVector Iw_g19(nd);
+  NumericVector Iw_g20(nd);
+  NumericVector Iw_g21(nd);
+  NumericVector Iw_g22(nd);
+  NumericVector Iw_g23(nd);
+  NumericVector Iw_g24(nd);
+  NumericVector Iw_g25(nd);
+  NumericVector Iw_g26(nd);
+  NumericVector Iw_g27(nd);
+  NumericVector Iw_g28(nd);
+  NumericVector Iw_g29(nd);
+  NumericVector Iw_g30(nd);
+  NumericVector Iw_g31(nd);
+  NumericVector Iw_g32(nd);
+  NumericVector Iw_g33(nd);
+  NumericVector Iw_g34(nd);
+  NumericVector Iw_g35(nd);
+  NumericVector Iw_g36(nd);
+  NumericVector Iw_g37(nd);
+  NumericVector Iw_g38(nd);
+  NumericVector Iw_g39(nd);
+  NumericVector Iw_g40(nd);
+  NumericVector Iw_g41(nd);
+  NumericVector Iw_g42(nd);
+  NumericVector Iw_g43(nd);
+  NumericVector Iw_g44(nd);
+  NumericVector Iw_g45(nd);
+  NumericVector Iw_g46(nd);
+  NumericVector Iw_g47(nd);
+  NumericVector Iw_g48(nd);
+  NumericVector Iw_g49(nd);
+  NumericVector Iw_g50(nd);
+  NumericVector Iw_g51(nd);
+  NumericVector Iw_g52(nd);
+  NumericVector Iw_g53(nd);
+  NumericVector Iw_g54(nd);
+  NumericVector Iw_g55(nd);
+  NumericVector Iw_g56(nd);
+  NumericVector Iw_g57(nd);
+  NumericVector Iw_g58(nd);
+  NumericVector Iw_g59(nd);
+  NumericVector Iw_g60(nd);
+  NumericVector Iw_g61(nd);
+  NumericVector Iw_g62(nd);
+  NumericVector Iw_g63(nd);
+  NumericVector Iw_g64(nd);
+  NumericVector Iw_g65(nd);
+  NumericVector Iw_g66(nd);
+  NumericVector Iw_g67(nd);
+  NumericVector Iw_g68(nd);
+  NumericVector Iw_g69(nd);
+  NumericVector Iw_g70(nd);
+  NumericVector Iw_g71(nd);
+  NumericVector Iw_g72(nd);
+  NumericVector Iw_g73(nd);
+  NumericVector Iw_g74(nd);
+  NumericVector Iw_g75(nd);
+  NumericVector Iw_g76(nd);
+  NumericVector Iw_g77(nd);
+  NumericVector Iw_g78(nd);
+  NumericVector Iw_g79(nd);
+  NumericVector Iw_g80(nd);
   
   int ig;
   double Sig, E1ig, E2ig, I1ig, I2ig, U1ig, U2ig, Rig, Dig;
@@ -161,6 +241,7 @@ List model(List parscpp) {
   int  day0 = 1;
   
   double Spw = 0,   Epw = 0,   Upw = 0,   Ipw = 0,   Rpw=0,   Dpw = 0,   Ccpw = 0;     
+  NumericVector Epw_g(ng),   Upw_g(ng),   Ipw_g(ng),   Rpw_g(ng);
   NumericVector Epw_s(ns),   Upw_s(ns),   Ipw_s(ns),   Rpw_s(ns);
   NumericVector Upw_a(na),   Ipw_a(na);
 
@@ -263,6 +344,9 @@ List model(List parscpp) {
       // day incidence - age stratified - each ia=1:9 - add is=1:5
       Ipw_a[ia]  +=  dIin;
       Upw_a[ia]  +=  dUin;
+      // day incidence - all groups
+      Ipw_g[ig]  +=  dIin;
+      Upw_g[ig]  +=  dUin;
       }; //ia ////////////////////////////////////////////////////////////////////
     }; //is ////////////////////////////////////////////////////////////////////
     
@@ -329,6 +413,87 @@ List model(List parscpp) {
       Uw_a14[day-1] = Upw_a[13]; Upw_a[13]=0;
       Uw_a15[day-1] = Upw_a[14]; Upw_a[14]=0;
       Uw_a16[day-1] = Upw_a[15]; Upw_a[15]=0;
+      //all groups
+      Iw_g1[day-1] = Ipw_g[0]; Ipw_g[0]=0;
+      Iw_g2[day-1] = Ipw_g[1]; Ipw_g[1]=0;
+      Iw_g3[day-1] = Ipw_g[2]; Ipw_g[2]=0;
+      Iw_g4[day-1] = Ipw_g[3]; Ipw_g[3]=0;
+      Iw_g5[day-1] = Ipw_g[4]; Ipw_g[4]=0;
+      Iw_g6[day-1] = Ipw_g[5]; Ipw_g[5]=0;
+      Iw_g7[day-1] = Ipw_g[6]; Ipw_g[6]=0;
+      Iw_g8[day-1] = Ipw_g[7]; Ipw_g[7]=0;
+      Iw_g9[day-1] = Ipw_g[8]; Ipw_g[8]=0;
+      Iw_g10[day-1] = Ipw_g[9]; Ipw_g[9]=0;
+      Iw_g11[day-1] = Ipw_g[10]; Ipw_g[10]=0;
+      Iw_g12[day-1] = Ipw_g[11]; Ipw_g[11]=0;
+      Iw_g13[day-1] = Ipw_g[12]; Ipw_g[12]=0;
+      Iw_g14[day-1] = Ipw_g[13]; Ipw_g[13]=0;
+      Iw_g15[day-1] = Ipw_g[14]; Ipw_g[14]=0;
+      Iw_g16[day-1] = Ipw_g[15]; Ipw_g[15]=0;
+      Iw_g17[day-1] = Ipw_g[16]; Ipw_g[16]=0;
+      Iw_g18[day-1] = Ipw_g[17]; Ipw_g[17]=0;
+      Iw_g19[day-1] = Ipw_g[18]; Ipw_g[18]=0;
+      Iw_g20[day-1] = Ipw_g[19]; Ipw_g[19]=0;
+      Iw_g21[day-1] = Ipw_g[20]; Ipw_g[20]=0;
+      Iw_g22[day-1] = Ipw_g[21]; Ipw_g[21]=0;
+      Iw_g23[day-1] = Ipw_g[22]; Ipw_g[22]=0;
+      Iw_g24[day-1] = Ipw_g[23]; Ipw_g[23]=0;
+      Iw_g25[day-1] = Ipw_g[24]; Ipw_g[24]=0;
+      Iw_g26[day-1] = Ipw_g[25]; Ipw_g[25]=0;
+      Iw_g27[day-1] = Ipw_g[26]; Ipw_g[26]=0;
+      Iw_g28[day-1] = Ipw_g[27]; Ipw_g[27]=0;
+      Iw_g29[day-1] = Ipw_g[28]; Ipw_g[28]=0;
+      Iw_g30[day-1] = Ipw_g[29]; Ipw_g[29]=0;
+      Iw_g31[day-1] = Ipw_g[30]; Ipw_g[30]=0;
+      Iw_g32[day-1] = Ipw_g[31]; Ipw_g[31]=0;
+      Iw_g33[day-1] = Ipw_g[32]; Ipw_g[32]=0;
+      Iw_g34[day-1] = Ipw_g[33]; Ipw_g[33]=0;
+      Iw_g35[day-1] = Ipw_g[34]; Ipw_g[34]=0;
+      Iw_g36[day-1] = Ipw_g[35]; Ipw_g[35]=0;
+      Iw_g37[day-1] = Ipw_g[36]; Ipw_g[36]=0;
+      Iw_g38[day-1] = Ipw_g[37]; Ipw_g[37]=0;
+      Iw_g39[day-1] = Ipw_g[38]; Ipw_g[38]=0;
+      Iw_g40[day-1] = Ipw_g[39]; Ipw_g[39]=0;
+      Iw_g41[day-1] = Ipw_g[40]; Ipw_g[40]=0;
+      Iw_g42[day-1] = Ipw_g[41]; Ipw_g[41]=0;
+      Iw_g43[day-1] = Ipw_g[42]; Ipw_g[42]=0;
+      Iw_g44[day-1] = Ipw_g[43]; Ipw_g[43]=0;
+      Iw_g45[day-1] = Ipw_g[44]; Ipw_g[44]=0;
+      Iw_g46[day-1] = Ipw_g[45]; Ipw_g[45]=0;
+      Iw_g47[day-1] = Ipw_g[46]; Ipw_g[46]=0;
+      Iw_g48[day-1] = Ipw_g[47]; Ipw_g[47]=0;
+      Iw_g49[day-1] = Ipw_g[48]; Ipw_g[48]=0;
+      Iw_g50[day-1] = Ipw_g[49]; Ipw_g[49]=0;
+      Iw_g51[day-1] = Ipw_g[50]; Ipw_g[50]=0;
+      Iw_g52[day-1] = Ipw_g[51]; Ipw_g[51]=0;
+      Iw_g53[day-1] = Ipw_g[52]; Ipw_g[52]=0;
+      Iw_g54[day-1] = Ipw_g[53]; Ipw_g[53]=0;
+      Iw_g55[day-1] = Ipw_g[54]; Ipw_g[54]=0;
+      Iw_g56[day-1] = Ipw_g[55]; Ipw_g[55]=0;
+      Iw_g57[day-1] = Ipw_g[56]; Ipw_g[56]=0;
+      Iw_g58[day-1] = Ipw_g[57]; Ipw_g[57]=0;
+      Iw_g59[day-1] = Ipw_g[58]; Ipw_g[58]=0;
+      Iw_g60[day-1] = Ipw_g[59]; Ipw_g[59]=0;
+      Iw_g61[day-1] = Ipw_g[60]; Ipw_g[60]=0;
+      Iw_g62[day-1] = Ipw_g[61]; Ipw_g[61]=0;
+      Iw_g63[day-1] = Ipw_g[62]; Ipw_g[62]=0;
+      Iw_g64[day-1] = Ipw_g[63]; Ipw_g[63]=0;
+      Iw_g65[day-1] = Ipw_g[64]; Ipw_g[64]=0;
+      Iw_g66[day-1] = Ipw_g[65]; Ipw_g[65]=0;
+      Iw_g67[day-1] = Ipw_g[66]; Ipw_g[66]=0;
+      Iw_g68[day-1] = Ipw_g[67]; Ipw_g[67]=0;
+      Iw_g69[day-1] = Ipw_g[68]; Ipw_g[68]=0;
+      Iw_g70[day-1] = Ipw_g[69]; Ipw_g[69]=0;
+      Iw_g71[day-1] = Ipw_g[70]; Ipw_g[70]=0;
+      Iw_g72[day-1] = Ipw_g[71]; Ipw_g[71]=0;
+      Iw_g73[day-1] = Ipw_g[72]; Ipw_g[72]=0;
+      Iw_g74[day-1] = Ipw_g[73]; Ipw_g[73]=0;
+      Iw_g75[day-1] = Ipw_g[74]; Ipw_g[74]=0;
+      Iw_g76[day-1] = Ipw_g[75]; Ipw_g[75]=0;
+      Iw_g77[day-1] = Ipw_g[76]; Ipw_g[76]=0;
+      Iw_g78[day-1] = Ipw_g[77]; Ipw_g[77]=0;
+      Iw_g79[day-1] = Ipw_g[78]; Ipw_g[78]=0;
+      Iw_g80[day-1] = Ipw_g[79]; Ipw_g[79]=0;
     }
 
   }; //it //////////////////////////////////////////////////////////////////////
@@ -392,8 +557,90 @@ List model(List parscpp) {
     Named("Iw_a14") = Iw_a14,
     Named("Iw_a15") = Iw_a15,
     Named("Iw_a16") = Iw_a16);
-
-  return Rcpp::List::create(Rcpp::Named("byw") = byw, Rcpp::Named("byaw") = byaw);
+  Rcpp::DataFrame byall = Rcpp::DataFrame::create(
+    Named("iW")   = iW,
+    Named("time") = time[iW],
+    Named("Iw_g1") = Iw_g1,
+    Named("Iw_g2") = Iw_g2,
+    Named("Iw_g3") = Iw_g3,
+    Named("Iw_g4") = Iw_g4,
+    Named("Iw_g5") = Iw_g5,
+    Named("Iw_g6") = Iw_g6,
+    Named("Iw_g7") = Iw_g7,
+    Named("Iw_g8") = Iw_g8,
+    Named("Iw_g9") = Iw_g9,
+    Named("Iw_g10") = Iw_g10,
+    Named("Iw_g11") = Iw_g11,
+    Named("Iw_g12") = Iw_g12,
+    Named("Iw_g13") = Iw_g13,
+    Named("Iw_g14") = Iw_g14,
+    Named("Iw_g15") = Iw_g15,
+    Named("Iw_g16") = Iw_g16,
+    Named("Iw_g17") = Iw_g17,
+    Named("Iw_g18") = Iw_g18,
+    Named("Iw_g19") = Iw_g19,
+    Named("Iw_g20") = Iw_g20,
+    Named("Iw_g21") = Iw_g21,
+    Named("Iw_g22") = Iw_g22,
+    Named("Iw_g23") = Iw_g23,
+    Named("Iw_g24") = Iw_g24,
+    Named("Iw_g25") = Iw_g25,
+    Named("Iw_g26") = Iw_g26,
+    Named("Iw_g27") = Iw_g27,
+    Named("Iw_g28") = Iw_g28,
+    Named("Iw_g29") = Iw_g29,
+    Named("Iw_g30") = Iw_g30,
+    Named("Iw_g31") = Iw_g31,
+    Named("Iw_g32") = Iw_g32,
+    Named("Iw_g33") = Iw_g33,
+    Named("Iw_g34") = Iw_g34,
+    Named("Iw_g35") = Iw_g35,
+    Named("Iw_g36") = Iw_g36,
+    Named("Iw_g37") = Iw_g37,
+    Named("Iw_g38") = Iw_g38,
+    Named("Iw_g39") = Iw_g39,
+    Named("Iw_g40") = Iw_g40,
+    Named("Iw_g41") = Iw_g41,
+    Named("Iw_g42") = Iw_g42,
+    Named("Iw_g43") = Iw_g43,
+    Named("Iw_g44") = Iw_g44,
+    Named("Iw_g45") = Iw_g45,
+    Named("Iw_g46") = Iw_g46,
+    Named("Iw_g47") = Iw_g47,
+    Named("Iw_g48") = Iw_g48,
+    Named("Iw_g49") = Iw_g49,
+    Named("Iw_g50") = Iw_g50,
+    Named("Iw_g51") = Iw_g51,
+    Named("Iw_g52") = Iw_g52,
+    Named("Iw_g53") = Iw_g53,
+    Named("Iw_g54") = Iw_g54,
+    Named("Iw_g55") = Iw_g55,
+    Named("Iw_g56") = Iw_g56,
+    Named("Iw_g57") = Iw_g57,
+    Named("Iw_g58") = Iw_g58,
+    Named("Iw_g59") = Iw_g59,
+    Named("Iw_g60") = Iw_g60,
+    Named("Iw_g61") = Iw_g61,
+    Named("Iw_g62") = Iw_g62,
+    Named("Iw_g63") = Iw_g63,
+    Named("Iw_g64") = Iw_g64,
+    Named("Iw_g65") = Iw_g65,
+    Named("Iw_g66") = Iw_g66,
+    Named("Iw_g67") = Iw_g67,
+    Named("Iw_g68") = Iw_g68,
+    Named("Iw_g69") = Iw_g69,
+    Named("Iw_g70") = Iw_g70,
+    Named("Iw_g71") = Iw_g71,
+    Named("Iw_g72") = Iw_g72,
+    Named("Iw_g73") = Iw_g73,
+    Named("Iw_g74") = Iw_g74,
+    Named("Iw_g75") = Iw_g75,
+    Named("Iw_g76") = Iw_g76,
+    Named("Iw_g77") = Iw_g77,
+    Named("Iw_g78") = Iw_g78,
+    Named("Iw_g79") = Iw_g79,
+    Named("Iw_g80") = Iw_g80);
+  return Rcpp::List::create(Rcpp::Named("byw") = byw, Rcpp::Named("byaw") = byaw, Rcpp::Named("byall") = byall);
 }
   
   

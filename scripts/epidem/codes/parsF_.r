@@ -39,7 +39,7 @@ pars <- within(pars, {
     #Susceptibility - variant & age-adjusted Baguelin 2013, Fig 22, 36, S52-54 2007-08, H3N2 dominant over H1N1, B
     u   <- rep(0.5, na)
     #Critically infected fraction
-    y   <- rep(1, na)    # 0 for now
+    y   <- rep(1, na)    # 1 for now
     #Clinical fraction - by age and IMD group
     y45 <- rep(y,nimd)
     

@@ -9,6 +9,7 @@ require(Rcpp)
 require(tidyverse)
 require(data.table)
 require(patchwork)
+require(viridis)
 options(dplyr.summarise.inform = FALSE)
 
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
@@ -60,6 +61,7 @@ pa<-vector(); for (i in 1:na){pa[i]=sum(demog$Population[which(demog$Age==pars$a
 #  round(pa,4)          [1] 0.0573 0.0873 0.0693 0.1500 0.1337 0.1258 0.1351 0.1058 0.1358
 #  round(pars$ageons,4) [1] 0.0471 0.0882 0.0700 0.1516 0.1351 0.1272 0.1366 0.1069 0.1373
 
+if(grepl('14', demog$Age[2])){warning('Demog names wrong')}
 
 ## Initial state: S, E1:2, I1:2, U1:2, R, D
 oNg  <- 1/demog$Population;   # 1/Population
@@ -87,7 +89,8 @@ Sg0  = Sg0 - E1g0
 
 ## run model x1000
 n_bs <- max(cm1000$bootstrap_index)
-byw <- data.table(); byaw <- data.table(); betatrack <- rep(0, n_bs)
+byw <- data.table(); byaw <- data.table(); byall <- data.table()
+betatrack <- rep(0, n_bs)
 
 for(sim_num in 1:n_bs){
   
@@ -104,7 +107,7 @@ for(sim_num in 1:n_bs){
   if(grepl('14', pvec[2])){warning('CM names wrong')}
   cmdim1 = dim(cm)[1]
   
-  ## R0 and average contacts
+  ## R0, set new beta
   if(!pset$R0fixed){betanew <- pars$beta}else{
     source(paste0(source_dir,"/R0_.r"))      #outputs cav
     betanew = R0(pars, R0assumed = as.numeric(pars$R0), printout = 0) #default 2.5
@@ -133,19 +136,42 @@ for(sim_num in 1:n_bs){
   
   byw <- rbind(byw, 
                cbind(mas$byw, sim = sim_num))
+ 
   byaw <- rbind(byaw, 
-               cbind(mas$byaw, sim = sim_num))
+                cbind(mas$byaw, sim = sim_num))
+  
+  byall <- rbind(byall, 
+                 cbind(mas$byall, sim = sim_num))
   
   if(sim_num == 1){cat('Simulations: ')}
   if(sim_num %% 50 == 0){cat(paste0(sim_num, ', '))}
   
 }
 
+## save files
+write_rds(byw, here::here(output_dir,'data','epidem','byw.rds'))
+write_rds(byaw, here::here(output_dir,'data','epidem','byaw.rds'))
+write_rds(byall, here::here(output_dir,'data','epidem','byall.rds'))
+
 Iwpeakvalvec = byw[, c('sim','Iw')][, lapply(.SD, max), by = 'sim']
 cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
-           signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
-           ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
-cat("\n")
+                signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
+                ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
+cat('\n',paste0("Beta:  ", signif(mean(betatrack),digits=3)," (95% CI: ", 
+                signif(quantile(betatrack, 0.025),3),
+                ' - ', signif(quantile(betatrack, 0.975),3), ')'), sep = '')
+
+## imd check
+imd1 <- colSums(byw[, paste0('Iw_s', 1:5)])
+imd2raw <- colSums(byall[, paste0('Iw_g', 1:80)]); imd2 <- rep(0, nimd)
+for(imd_i in 1:nimd){imd2[imd_i] <- sum(imd2raw[16*(imd_i - 1) + (1:16)])}
+if(sum(abs(imd1 - imd2) < 1) != nimd){stop('IMD sums not aligning')}
+
+## age check
+age1 <- colSums(byaw[, paste0('Iw_a', 1:16)])
+age2raw <- colSums(byall[, paste0('Iw_g', 1:80)]); age2 <- rep(0, na)
+for(age_i in 1:na){age2[age_i] <- sum(age2raw[(age_i - 16) + 16*1:5])}
+if(sum(abs(age1 - age2) < 1) != na){stop('Age sums not aligning')}
 
 ## Figures
 if (pset$FIGURES==1){
@@ -153,7 +179,7 @@ if (pset$FIGURES==1){
 ar=1 #aspect ratio
 
 if(pars$Incidence=="Daily"){daily="daily_"} else {daily=""}
-filename=paste0(parsum$Disease,"_SEIRD_epidemic_",daily)
+filename=paste0(output_dir, '/data/', parsum$Disease,"_SEIRD_epidemic_",daily)
 
 l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
 
@@ -199,15 +225,15 @@ p1b <- ggplot(data, aes(x=time)) +
   labs(y = "Cumulative infections per 1000 population", x = "Day"); p1b
 
 ## fig 2 by imd
-data_imd1000 <- byw[, c('sim','time','Iw_s1','Iw_s2','Iw_s3','Iw_s4','Iw_s5')]
-for(a in 1:5){data_imd1000[, (paste0('Iw_s', a))] <- 1e3*data_imd1000[, get(paste0('Iw_s', a))]/Ns[a]}
+data_imd1000 <- byw[, c('sim','time','IUw_s1','IUw_s2','IUw_s3','IUw_s4','IUw_s5')]
+for(a in 1:5){data_imd1000[, (paste0('IUw_s', a))] <- 1e3*data_imd1000[, get(paste0('IUw_s', a))]/Ns[a]}
 data <- rbind(
   data_imd1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
   data_imd1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
   data_imd1000[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
 ); data[, sim := NULL]
 data <- melt.data.table(data, id.vars = c('time','meas'))
-data[, imd := substr(variable,5,5)]
+data[, imd := substr(variable,6,6)]
 data <- dcast.data.table(data, time + imd ~ meas, value.var = 'value')
 
 p2 <- ggplot(data, aes(x=time)) + 
@@ -238,8 +264,8 @@ p2facet <- ggplot(data, aes(x=time)) +
   labs(y = "Infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2facet
 
 ## fig 2b by imd
-data_imd1000 <- byw[, c('sim','time','Iw_s1','Iw_s2','Iw_s3','Iw_s4','Iw_s5')]
-for(a in 1:5){data_imd1000[, (paste0('Iw_s', a))] <- 1e3*data_imd1000[, get(paste0('Iw_s', a))]/Ns[a]}
+data_imd1000 <- byw[, c('sim','time','IUw_s1','IUw_s2','IUw_s3','IUw_s4','IUw_s5')]
+for(a in 1:5){data_imd1000[, (paste0('IUw_s', a))] <- 1e3*data_imd1000[, get(paste0('IUw_s', a))]/Ns[a]}
 data_imd1000cum <- data_imd1000[, lapply(.SD, cumsum), by = c('sim')][, time := data_imd1000$time]
 data <- rbind(
   data_imd1000cum[, lapply(.SD, median), by = 'time'][, meas := 'median'],
@@ -247,7 +273,7 @@ data <- rbind(
   data_imd1000cum[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
 ); data[, sim := NULL]
 data <- melt.data.table(data, id.vars = c('time','meas'))
-data[, imd := substr(variable,5,5)]
+data[, imd := substr(variable,6,6)]
 data <- dcast.data.table(data, time + imd ~ meas, value.var = 'value')
 
 p2b <- ggplot(data, aes(x=time)) + 
@@ -278,8 +304,8 @@ p2bfacet <- ggplot(data, aes(x=time)) +
   labs(y = "Cumulative infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2bfacet
 
 ## fig 3 by age
-data_age1000 <- byaw[, c('sim',paste0('Iw_a', 1:16))]
-for(a in 1:16){data_age1000[, (paste0('Iw_a', a))] <- 1e3*data_age1000[, get(paste0('Iw_a', a))]/Na[a]} 
+data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]
+for(a in 1:16){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]} 
 data_age1000[, time := rep(min(data$time):max(data$time), max(data_age1000$sim))]
 data <- rbind(
   data_age1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
@@ -319,8 +345,8 @@ p3facet <- ggplot(data, aes(x=time)) +
   labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age');p3facet
 
 ## fig 3b by age
-data_age1000 <- byaw[, c('sim',paste0('Iw_a', 1:16))]
-for(a in 1:16){data_age1000[, (paste0('Iw_a', a))] <- 1e3*data_age1000[, get(paste0('Iw_a', a))]/Na[a]}
+data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]
+for(a in 1:16){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]}
 data_age1000[, time := data_imd1000$time]
 data_age1000cum <- data_age1000[, lapply(.SD, cumsum), by = c('sim')][, time := data_age1000$time]
 data <- rbind(
@@ -360,6 +386,92 @@ ggsave(here::here('output','figures','epidem','time_series_imd_facet.png'), dpi=
 ggsave(plot = p3facet, here::here('output','figures','epidem','time_series_age_facet.png'), dpi=600, 
        device = "png", width = 12, height = 8)
 
+## across all groups
+data1000 <- copy(byall)
+for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
+data <- rbind(
+  data1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data1000[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL][, iW := NULL]
+data <- melt.data.table(data, id.vars = c('time','meas'))
+data[, age := rep(rep(pars$ages, each = pars$nd*n_distinct(data$meas)), nimd)]
+data[, imd := rep(1:nimd, each = na*pars$nd*n_distinct(data$meas))]
+data <- dcast.data.table(data, time + age + imd ~ meas, value.var = 'value')
+data$age <- factor(data$age, levels = pars$ages)
+
+all_time_s <- ggplot(data[time %in% 20:75], aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
+  geom_line(aes(y = median, col = age), lwd=0.8)  +
+  theme_bw() +
+  facet_grid(imd ~ .) + 
+  scale_color_manual(values = colors_p_age_group) + 
+  scale_fill_manual(values = colors_p_age_group) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); all_time_s
+
+# across all groups, cumulative
+data1000 <- copy(byall)
+for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
+data_1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time]
+data <- rbind(
+  data_1000cum[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data_1000cum[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data_1000cum[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL][, iW := NULL]
+data <- melt.data.table(data, id.vars = c('time','meas'))
+data[, age := rep(rep(pars$ages, each = pars$nd*n_distinct(data$meas)), nimd)]
+data[, imd := rep(1:nimd, each = na*pars$nd*n_distinct(data$meas))]
+data <- dcast.data.table(data, time + age + imd ~ meas, value.var = 'value')
+data$age <- factor(data$age, levels = pars$ages)
+
+all_time_s_cum <- ggplot(data[time %in% 20:75], aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
+  geom_line(aes(y = median, col = age), lwd=0.8)  +
+  theme_bw() +
+  facet_grid(imd ~ .) + 
+  scale_color_manual(values = colors_p_age_group) + 
+  scale_fill_manual(values = colors_p_age_group) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); all_time_s_cum
+
+all_time_s_cum_imd <- ggplot(data[time %in% 20:75], aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = as.factor(imd)), alpha=0.25)  +
+  geom_line(aes(y = median, col = as.factor(imd)), lwd=0.8)  +
+  theme_bw() +
+  facet_wrap(age ~ .) + 
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); all_time_s_cum_imd
+
+all_time_s_cum_hm <- ggplot(data[time == max(data$time)]) + 
+  geom_tile(aes(x = imd, y = age, fill = median)) +
+  theme_bw() +
+  scale_fill_viridis() + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Age group", x = "IMD quintile", color = "Attack rate /1000", fill = 'Attack rate /1000'); all_time_s_cum_hm
+
+all_time_s + all_time_s_cum + all_time_s_cum_hm + all_time_s_cum_imd + plot_layout(nrow = 2, guides = 'collect')
+ggsave(here::here('output','figures','epidem','patchwork.png'), dpi=600, 
+       device = "png", width = 14, height = 16)
+
 }
 
 ## Performance
@@ -369,7 +481,7 @@ if (pset$DIAGNOSTIC==1){
      niter= 100 #3000 #1000
      test <- bench::mark(model(parscpp), min_iterations = niter)
      #test <- bench::mark(mas, min_iterations = niter)
-     sink(file = paste0(output_dir,"/",filename,".txt"),append=FALSE,split=FALSE)
+     sink(file = paste0(filename,".txt"),append=FALSE,split=FALSE)
         cat(paste0("Iterations = ", niter),'\n')
         print(test[1:11]) #cut last 2 columns
      sink()

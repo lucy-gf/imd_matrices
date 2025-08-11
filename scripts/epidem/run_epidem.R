@@ -1,5 +1,5 @@
 
-## TODO - add these to Makefile
+## TODO - split modelrun.r into multiple scripts, add these to Makefile
 
 ### folders
 source_dir <- paste0(getwd(),"/scripts/epidem/codes")
