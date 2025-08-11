@@ -110,6 +110,13 @@ List model(List parscpp) {
   NumericVector Iw_a7(nd);
   NumericVector Iw_a8(nd);
   NumericVector Iw_a9(nd);
+  NumericVector Iw_a10(nd);
+  NumericVector Iw_a11(nd);
+  NumericVector Iw_a12(nd);
+  NumericVector Iw_a13(nd);
+  NumericVector Iw_a14(nd);
+  NumericVector Iw_a15(nd);
+  NumericVector Iw_a16(nd);
   NumericVector Uw_a1(nd);
   NumericVector Uw_a2(nd);
   NumericVector Uw_a3(nd);
@@ -119,6 +126,13 @@ List model(List parscpp) {
   NumericVector Uw_a7(nd);
   NumericVector Uw_a8(nd);
   NumericVector Uw_a9(nd);
+  NumericVector Uw_a10(nd);
+  NumericVector Uw_a11(nd);
+  NumericVector Uw_a12(nd);
+  NumericVector Uw_a13(nd);
+  NumericVector Uw_a14(nd);
+  NumericVector Uw_a15(nd);
+  NumericVector Uw_a16(nd);
   
   int ig;
   double Sig, E1ig, E2ig, I1ig, I2ig, U1ig, U2ig, Rig, Dig;
@@ -292,6 +306,13 @@ List model(List parscpp) {
       Iw_a7[day-1] = Ipw_a[6]; Ipw_a[6]=0;
       Iw_a8[day-1] = Ipw_a[7]; Ipw_a[7]=0;
       Iw_a9[day-1] = Ipw_a[8]; Ipw_a[8]=0;
+      Iw_a10[day-1] = Ipw_a[9]; Ipw_a[9]=0;
+      Iw_a11[day-1] = Ipw_a[10]; Ipw_a[10]=0;
+      Iw_a12[day-1] = Ipw_a[11]; Ipw_a[11]=0;
+      Iw_a13[day-1] = Ipw_a[12]; Ipw_a[12]=0;
+      Iw_a14[day-1] = Ipw_a[13]; Ipw_a[13]=0;
+      Iw_a15[day-1] = Ipw_a[14]; Ipw_a[14]=0;
+      Iw_a16[day-1] = Ipw_a[15]; Ipw_a[15]=0;
       Uw_a1[day-1] = Upw_a[0]; Upw_a[0]=0;
       Uw_a2[day-1] = Upw_a[1]; Upw_a[1]=0;
       Uw_a3[day-1] = Upw_a[2]; Upw_a[2]=0;
@@ -301,6 +322,13 @@ List model(List parscpp) {
       Uw_a7[day-1] = Upw_a[6]; Upw_a[6]=0;
       Uw_a8[day-1] = Upw_a[7]; Upw_a[7]=0;
       Uw_a9[day-1] = Upw_a[8]; Upw_a[8]=0;
+      Uw_a10[day-1] = Upw_a[9]; Upw_a[9]=0;
+      Uw_a11[day-1] = Upw_a[10]; Upw_a[10]=0;
+      Uw_a12[day-1] = Upw_a[11]; Upw_a[11]=0;
+      Uw_a13[day-1] = Upw_a[12]; Upw_a[12]=0;
+      Uw_a14[day-1] = Upw_a[13]; Upw_a[13]=0;
+      Uw_a15[day-1] = Upw_a[14]; Upw_a[14]=0;
+      Uw_a16[day-1] = Upw_a[15]; Upw_a[15]=0;
     }
 
   }; //it //////////////////////////////////////////////////////////////////////
@@ -341,6 +369,13 @@ List model(List parscpp) {
     Named("IUw_a7") = Uw_a7+Iw_a7,
     Named("IUw_a8") = Uw_a8+Iw_a8,
     Named("IUw_a9") = Uw_a9+Iw_a9,
+    Named("IUw_a10") = Uw_a10+Iw_a10,
+    Named("IUw_a11") = Uw_a11+Iw_a11,
+    Named("IUw_a12") = Uw_a12+Iw_a12,
+    Named("IUw_a13") = Uw_a13+Iw_a13,
+    Named("IUw_a14") = Uw_a14+Iw_a14,
+    Named("IUw_a15") = Uw_a15+Iw_a15,
+    Named("IUw_a16") = Uw_a16+Iw_a16,
     Named("Iw_a1") = Iw_a1,
     Named("Iw_a2") = Iw_a2,
     Named("Iw_a3") = Iw_a3,
@@ -349,7 +384,14 @@ List model(List parscpp) {
     Named("Iw_a6") = Iw_a6,
     Named("Iw_a7") = Iw_a7,
     Named("Iw_a8") = Iw_a8,
-    Named("Iw_a9") = Iw_a9);
+    Named("Iw_a9") = Iw_a9,
+    Named("Iw_a10") = Iw_a10,
+    Named("Iw_a11") = Iw_a11,
+    Named("Iw_a12") = Iw_a12,
+    Named("Iw_a13") = Iw_a13,
+    Named("Iw_a14") = Iw_a14,
+    Named("Iw_a15") = Iw_a15,
+    Named("Iw_a16") = Iw_a16);
 
   return Rcpp::List::create(Rcpp::Named("byw") = byw, Rcpp::Named("byaw") = byaw);
 }

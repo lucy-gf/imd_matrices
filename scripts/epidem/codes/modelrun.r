@@ -7,20 +7,23 @@ require(ggtext)
 require(gridExtra)
 require(Rcpp)
 require(tidyverse)
+require(data.table)
+require(patchwork)
+options(dplyr.summarise.inform = FALSE)
+
+source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
+source(here::here('scripts','setup','colors.R'))
+
+# set seed
+set.seed(120)
 
 ## Contact matrices
-# cm45<-(as.matrix(read.csv(paste0(input_dir,"/Mas45_urban.csv"),header=F))) # removes name of columns
-# cm45dim1 = dim(cm45)[1]
-
+if(!exists('cm1000')){
 cm1000 <- data.table(suppressWarnings(read_csv(here::here('output','data','cont_matrs','fitted_matrs.csv'), show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 cm1000 <- cm1000[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','n')][, lapply(.SD, sum), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q')]
+}
 cm1000$p_age_group <- factor(cm1000$p_age_group, levels = pars$ages); cm1000$c_age_group <- factor(cm1000$c_age_group, levels = pars$ages)
-cm <- cm1000[bootstrap_index==1,] %>% 
-  arrange(p_imd_q, p_age_group, c_imd_q, c_age_group) %>% 
-  mutate(p = paste0(p_imd_q, '_', p_age_group),
-         c = paste0(c_imd_q, '_', c_age_group)) %>% 
-  select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) %>% select(!p) %>% as.matrix()
-cmdim1 = dim(cm)[1]
+cm1000 <- cm1000[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
 
 ## Parameters
 if(pset$Vaccination==0){
@@ -41,6 +44,9 @@ demog <- read_csv("data/census/pcd1.csv", show_col_types = F) %>%
   group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
   group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
   mutate(Proportion = Population/tot_pop) %>% rename(Age = age_grp, IMD = imd_quintile) 
+demog$Age <- factor(demog$Age,
+                    levels = names(colors_age_grp))
+demog <- demog %>% arrange(IMD, Age)
 # number of age groups
 na   = pars$na
 # number of SES
@@ -79,34 +85,66 @@ Npop = sum(1/oNg);
 E1g0 = (1/oNg)*pars$pE1g0
 Sg0  = Sg0 - E1g0
 
-## R0 and average contacts
-source(paste0(source_dir,"/R0_.r"))      #outputs cav
-betanew = R0(pars,as.numeric(pars$R0),0) #default 2.5
-cat(paste0("Assuming R0 = ", pars$R0 ,", beta = ", round(betanew,4), "/day",'\n'))
+## run model x1000
+n_bs <- max(cm1000$bootstrap_index)
+byw <- data.table(); byaw <- data.table(); betatrack <- rep(0, n_bs)
 
-## Parameters
-parscpp = within(parscpp <- pars, {
-                 cm=as.vector(cm); cmdim1=cmdim1; mI=pars$m; beta=betanew;
-                 Sg0=Sg0; E1g0=E1g0; I1g0=I1g0; I2g0=I2g0; U1g0=U1g0; U2g0=U2g0; 
-                 Rg0=Rg0; Dg0=Dg0; oNg=oNg })
-#  for output
-parsum = parscpp;
-#  remove what's not needed for Rcpp
-parscpp <- parscpp %>% magrittr::inset(c('age', 'ages', 'ageons', 'm'), NULL)  #parscpp45[['age']] <- NULL; etc
+for(sim_num in 1:n_bs){
+  
+  cm <- cm1000[bootstrap_index == sim_num,] 
+  cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages); cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
+  cm <- cm[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
+  cm <- cm %>% 
+    mutate(p = paste0(p_imd_q, '_', p_age_group),
+           c = paste0(c_imd_q, '_', c_age_group)) %>% 
+    select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
+  pvec <- cm$p 
+  cm <- cm %>% select(!p) %>% as.matrix()
+  if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
+  if(grepl('14', pvec[2])){warning('CM names wrong')}
+  cmdim1 = dim(cm)[1]
+  
+  ## R0 and average contacts
+  if(!pset$R0fixed){betanew <- pars$beta}else{
+    source(paste0(source_dir,"/R0_.r"))      #outputs cav
+    betanew = R0(pars, R0assumed = as.numeric(pars$R0), printout = 0) #default 2.5
+    betatrack[sim_num] <- betanew
+    # cat(paste0("Assuming R0 = ", pars$R0 ,", beta = ", round(betanew,4), "/day",'\n'))
+  }
+  
+  parscpp = within(parscpp <- pars, {
+    cm=as.vector(cm); cmdim1=cmdim1; mI=pars$m; beta=betanew;
+    Sg0=Sg0; E1g0=E1g0; I1g0=I1g0; I2g0=I2g0; U1g0=U1g0; U2g0=U2g0; 
+    Rg0=Rg0; Dg0=Dg0; oNg=oNg })
+  #  for output
+  parsum = parscpp;
+  #  remove what's not needed for Rcpp
+  parscpp <- parscpp %>% magrittr::inset(c('age', 'ages', 'ageons', 'm'), NULL)  #parscpp45[['age']] <- NULL; etc
+  
+  ## Model output (for the proposed parameters)
+  if (pset$COMPILE==1 & pset$Vaccination==0) {
+    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDas_.cpp"))
+    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasday_.cpp")) }
+  if (pset$COMPILE==1 & pset$Vaccination==1) {
+    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDasvacc_.cpp"))
+    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasvaccday_.cpp")) }
+  
+  mas <- model(parscpp)
+  
+  byw <- rbind(byw, 
+               cbind(mas$byw, sim = sim_num))
+  byaw <- rbind(byaw, 
+               cbind(mas$byaw, sim = sim_num))
+  
+  if(sim_num == 1){cat('Simulations: ')}
+  if(sim_num %% 50 == 0){cat(paste0(sim_num, ', '))}
+  
+}
 
-
-## Model output (for the proposed parameters)
-if (pset$COMPILE==1 & pset$Vaccination==0) {
-                if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDas_.cpp"))
-                if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasday_.cpp")) }
-if (pset$COMPILE==1 & pset$Vaccination==1) {
-                if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDasvacc_.cpp"))
-                if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasvaccday_.cpp")) }
-
-mas <- model(parscpp)
-Iwpeakval = max(mas$byw$Iw)*10^(-6)
-Iwpeakloc = mas$byw$time[which(mas$byw$Iw==max(mas$byw$Iw))]
-cat(paste0("Peak:  ", round(Iwpeakval,3) ," million at ", Iwpeakloc, " days"))
+Iwpeakvalvec = byw[, c('sim','Iw')][, lapply(.SD, max), by = 'sim']
+cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
+           signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
+           ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
 cat("\n")
 
 ## Figures
@@ -115,84 +153,212 @@ if (pset$FIGURES==1){
 ar=1 #aspect ratio
 
 if(pars$Incidence=="Daily"){daily="daily_"} else {daily=""}
-filename=paste0(parsum$Disease,"_",area,"_SEIRD_epidemic_",daily,pset$Namevacc,TODAY)
-pdf(file=paste0(output_dir,"/",filename,".pdf"))
+filename=paste0(parsum$Disease,"_SEIRD_epidemic_",daily)
 
+l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
 
 ## fig 1 overall
-data <- data.frame(time=rep(mas$byw$time,2), IUw=10^5*c(mas$byw$Iw + mas$byw$Uw)/Npop)
+data1000 <- byw[, c('sim','time','Iw','Uw')][, Infe := 10^3*(Iw + Uw)/sum(Na)][, c('sim','time','Infe')]
+data <- rbind(
+  data1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data1000[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL]
+data <- dcast.data.table(data, time ~ meas, value.var = 'Infe')
 
 p1 <- ggplot(data, aes(x=time)) + 
-  geom_line(aes(y = IUw), lwd=0.8, col = 'darkgreen')  +
+  geom_ribbon(aes(ymin = l95, ymax = u95), alpha=0.25, fill = 'darkgreen')  +
+  geom_line(aes(y = median), lwd=0.8, col = 'darkgreen')  +
   theme_bw() +
   theme(text=element_text(size=10),
         legend.key.size = unit(2, 'mm'),
         plot.title = element_text(size = 12),
         axis.text.y = element_text(color=1),
         axis.text.x = element_text(color=1)) +
-  labs(y = "Infections /100k/week", x = "Day") 
+  labs(y = "Infections per 1000 population", x = "Day"); p1
 
-print(p1)
-if (pset$platform=="repo" & pars$Disease=="RSV-illness") p1R<-p1
-if (pset$platform=="repo" & pars$Disease=="Influenza")   p1F<-p1
-if (pset$platform=="repo" & pars$Disease=="COVID-19")    p1C<-p1
+## fig 1b cumulative
+data1000 <- byw[, c('sim','time','Iw','Uw')][, Infe := 10^3*(Iw + Uw)/sum(Na)][, c('sim','time','Infe')]
+data1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time]
+data <- rbind(
+  data1000cum[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data1000cum[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data1000cum[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL]
+data <- dcast.data.table(data, time ~ meas, value.var = 'Infe')
 
-
-## fig 2 by ses
-data <- data.frame(time=rep(mas$byw$time,5), 
-      IUw=10^5*c(mas$byw$IUw_s1/Ns[1], mas$byw$IUw_s2/Ns[2], mas$byw$IUw_s3/Ns[3], 
-                 mas$byw$IUw_s4/Ns[4], mas$byw$IUw_s5/Ns[5]),
-      Iw =10^5*c(mas$byw$Iw_s1/Ns[1],  mas$byw$Iw_s2/Ns[2],  mas$byw$Iw_s3/Ns[3],  
-                 mas$byw$Iw_s4/Ns[4],  mas$byw$Iw_s5/Ns[5]),
-      IMD=rep(1:5,each=length(mas$byw$time)))
-p2 <- ggplot(data, aes(x=time)) + 
-  geom_line(aes(y = Iw, group=IMD, color=IMD), lwd=0.8)  +
-  theme_bw() + 
+p1b <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95), alpha=0.25, fill = 'darkgreen')  +
+  geom_line(aes(y = median), lwd=0.8, col = 'darkgreen')  +
+  theme_bw() +
   theme(text=element_text(size=10),
         legend.key.size = unit(2, 'mm'),
         plot.title = element_text(size = 12),
         axis.text.y = element_text(color=1),
         axis.text.x = element_text(color=1)) +
-  labs(y = "Infections /100k/week", x = "Day", color = "IMD") #+ theme(aspect.ratio=ar)
+  labs(y = "Cumulative infections per 1000 population", x = "Day"); p1b
 
-print(p2)
-if (pset$platform=="repo" & pars$Disease=="RSV-illness") p2R<-p2
-if (pset$platform=="repo" & pars$Disease=="Influenza")   p2F<-p2
-if (pset$platform=="repo" & pars$Disease=="COVID-19")    p2C<-p2
+## fig 2 by imd
+data_imd1000 <- byw[, c('sim','time','Iw_s1','Iw_s2','Iw_s3','Iw_s4','Iw_s5')]
+for(a in 1:5){data_imd1000[, (paste0('Iw_s', a))] <- 1e3*data_imd1000[, get(paste0('Iw_s', a))]/Ns[a]}
+data <- rbind(
+  data_imd1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data_imd1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data_imd1000[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL]
+data <- melt.data.table(data, id.vars = c('time','meas'))
+data[, imd := substr(variable,5,5)]
+data <- dcast.data.table(data, time + imd ~ meas, value.var = 'value')
 
+p2 <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
+  geom_line(aes(y = median, col = imd), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2
+
+p2facet <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
+  geom_line(aes(y = median, col = imd), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  facet_grid(.~imd) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2facet
+
+## fig 2b by imd
+data_imd1000 <- byw[, c('sim','time','Iw_s1','Iw_s2','Iw_s3','Iw_s4','Iw_s5')]
+for(a in 1:5){data_imd1000[, (paste0('Iw_s', a))] <- 1e3*data_imd1000[, get(paste0('Iw_s', a))]/Ns[a]}
+data_imd1000cum <- data_imd1000[, lapply(.SD, cumsum), by = c('sim')][, time := data_imd1000$time]
+data <- rbind(
+  data_imd1000cum[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data_imd1000cum[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data_imd1000cum[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL]
+data <- melt.data.table(data, id.vars = c('time','meas'))
+data[, imd := substr(variable,5,5)]
+data <- dcast.data.table(data, time + imd ~ meas, value.var = 'value')
+
+p2b <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
+  geom_line(aes(y = median, col = imd), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Cumulative infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2b
+
+p2bfacet <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
+  geom_line(aes(y = median, col = imd), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  facet_grid(.~imd) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Cumulative infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2bfacet
 
 ## fig 3 by age
-data <- data.frame(time=rep(mas$byw$time,na), 
-       IUw=10^5*c(mas$byaw$IUw_a1/Na[1], mas$byaw$IUw_a2/Na[2], mas$byaw$IUw_a3/Na[3], mas$byaw$IUw_a4/Na[4], 
-                  mas$byaw$IUw_a5/Na[5], mas$byaw$IUw_a6/Na[6], mas$byaw$IUw_a7/Na[7], mas$byaw$IUw_a8/Na[8], 
-                  mas$byaw$IUw_a1/Na[9], mas$byaw$IUw_a2/Na[10], mas$byaw$IUw_a3/Na[11], mas$byaw$IUw_a4/Na[12], 
-                  mas$byaw$IUw_a5/Na[13], mas$byaw$IUw_a6/Na[14], mas$byaw$IUw_a7/Na[15], mas$byaw$IUw_a8/Na[16]),
-        Iw=10^5*c(mas$byaw$Iw_a1/Na[1],  mas$byaw$Iw_a2/Na[2],  mas$byaw$Iw_a3/Na[3],  mas$byaw$Iw_a4/Na[4],  
-                  mas$byaw$Iw_a5/Na[5],  mas$byaw$Iw_a6/Na[6],  mas$byaw$Iw_a7/Na[7],  mas$byaw$Iw_a8/Na[8],
-                  mas$byaw$Iw_a1/Na[9],  mas$byaw$Iw_a2/Na[10],  mas$byaw$Iw_a3/Na[11],  mas$byaw$Iw_a4/Na[12],  
-                  mas$byaw$Iw_a5/Na[13],  mas$byaw$Iw_a6/Na[14],  mas$byaw$Iw_a7/Na[15],  mas$byaw$Iw_a8/Na[16]),
-        AGE=rep(pars$ages,each=length(mas$byw$time)))
-data$AGE <- factor(data$AGE, levels = pars$ages)
+data_age1000 <- byaw[, c('sim',paste0('Iw_a', 1:16))]
+for(a in 1:16){data_age1000[, (paste0('Iw_a', a))] <- 1e3*data_age1000[, get(paste0('Iw_a', a))]/Na[a]} 
+data_age1000[, time := rep(min(data$time):max(data$time), max(data_age1000$sim))]
+data <- rbind(
+  data_age1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data_age1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data_age1000[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL]
+data <- melt.data.table(data, id.vars = c('time','meas'))
+data[, age := rep(pars$ages, each = nrow(data)/(length(pars$ages)))]
+data <- dcast.data.table(data, time + age ~ meas, value.var = 'value')
+data$age <- factor(data$age, levels = pars$ages)
+
 p3 <- ggplot(data, aes(x=time)) + 
-  geom_line(aes(y = Iw, group=AGE, color=AGE), lwd=0.8)  +
-  theme_bw() + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
+  geom_line(aes(y = median, col = age), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = colors_p_age_group) + 
+  scale_fill_manual(values = colors_p_age_group) + 
   theme(text=element_text(size=10),
         legend.key.size = unit(2, 'mm'),
         plot.title = element_text(size = 12),
         axis.text.y = element_text(color=1),
         axis.text.x = element_text(color=1)) +
-  labs(y = "Infections /100k/week", x = "Day", color = "Age")  #+ theme(aspect.ratio=ar)
+  labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age');p3
 
-print(p3)
-dev.off()
-if (pset$platform=="repo" & pars$Disease=="RSV-illness") p3R<-p3
-if (pset$platform=="repo" & pars$Disease=="Influenza")   p3F<-p3
-if (pset$platform=="repo" & pars$Disease=="COVID-19")    p3C<-p3
+p3facet <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
+  geom_line(aes(y = median, col = age), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = colors_p_age_group) + 
+  scale_fill_manual(values = colors_p_age_group) + 
+  facet_wrap(age ~ .) +
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age');p3facet
+
+## fig 3b by age
+data_age1000 <- byaw[, c('sim',paste0('Iw_a', 1:16))]
+for(a in 1:16){data_age1000[, (paste0('Iw_a', a))] <- 1e3*data_age1000[, get(paste0('Iw_a', a))]/Na[a]}
+data_age1000[, time := data_imd1000$time]
+data_age1000cum <- data_age1000[, lapply(.SD, cumsum), by = c('sim')][, time := data_age1000$time]
+data <- rbind(
+  data_age1000cum[, lapply(.SD, median), by = 'time'][, meas := 'median'],
+  data_age1000cum[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
+  data_age1000cum[, lapply(.SD, u95_func), by = 'time'][, meas := 'u95']
+); data[, sim := NULL]
+data <- melt.data.table(data, id.vars = c('time','meas'))
+data[, age := rep(pars$ages, each = nrow(data)/(length(pars$ages)))]
+data <- dcast.data.table(data, time + age ~ meas, value.var = 'value')
+data$age <- factor(data$age, levels = pars$ages)
+
+p3b <- ggplot(data, aes(x=time)) + 
+  geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
+  geom_line(aes(y = median, col = age), lwd=0.8)  +
+  theme_bw() +
+  scale_color_manual(values = colors_p_age_group) + 
+  scale_fill_manual(values = colors_p_age_group) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Cumulative infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); p3b
 
 ## save
-
+p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')
 ggsave(here::here('output','figures','epidem','time_series.png'), dpi=600, 
-       gridExtra::grid.arrange(p1F,p2F,p3F, nrow=3, ncol=1), device = "png")
+       device = "png", width = 12, height = 9)
+
+## save
+p2facet + p2bfacet + plot_layout(nrow = 2, guides = 'collect')
+ggsave(here::here('output','figures','epidem','time_series_imd_facet.png'), dpi=600, 
+       device = "png", width = 12, height = 8)
+
+## save
+ggsave(plot = p3facet, here::here('output','figures','epidem','time_series_age_facet.png'), dpi=600, 
+       device = "png", width = 12, height = 8)
 
 }
 
@@ -257,11 +423,12 @@ sink(file = here::here('output','figures','epidem','out.txt'),append=FALSE,split
 cat("\n")
 
 cat("\n Iw peak \n")
-print(paste0("Peak:  ", round(Iwpeakval,3) ," million at ", Iwpeakloc, " days"))
+print(paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
+                signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
+                ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'))
 
 cat("\n Study \n")
 print(paste0("Disease:    ", parsum$Disease))
-print(paste0("Area:       ", area))
 print(paste0("Population: ", Npop))
 print(paste0("Age groups: ", parsum$na))
 print(paste0("SE  groups: ", parsum$nimd))

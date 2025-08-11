@@ -7,7 +7,7 @@ pars <- within(pars, {
     
     #temporal
     dt     <- 0.1             #0.01 #time step (days) #smaller than Baguelin 2013 (0.25)
-    times  <- 0:180 #365      #days sequence
+    times  <- 0:90      #days sequence
     nt     <- (max(times)-min(times))/dt + 1       #no. time points, iterations
     nw     <- ceiling((max(times)-min(times))/7)   #weeks length of model run
     nd     <- ceiling((max(times)-min(times)))+1   #days length of model run
@@ -33,7 +33,7 @@ pars <- within(pars, {
 
     R0     <- 1.95            #variant adjusted from Baguelin 2013 Fig 22, 36, S52-54 2007-08
     f      <- 0 #0.5          #relative transmission of U group
-    beta   <- 0.16            #variant adjusted from Baguelin 2013 Fig 22, 36, S52-54 2007-08
+    beta   <- 0.23            #
     
     #Clinical responses
     #Susceptibility - variant & age-adjusted Baguelin 2013, Fig 22, 36, S52-54 2007-08, H3N2 dominant over H1N1, B

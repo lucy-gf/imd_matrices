@@ -16,7 +16,7 @@ pa0 <- demog$Population
 pa0 <- pa0/sum(pa0)
 
 cav = sum(pa0*cp)
-cat(paste0("Average daily contacts: ", round(cav,5)),'\n') #[1] 10.80047
+# cat(paste0("Average daily contacts: ", round(cav,5)),'\n') #[1] 10.80047
 
 ## R0 and beta #################################################################
 

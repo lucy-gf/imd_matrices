@@ -8,6 +8,7 @@ pset <- within(pset, {
     DailyIncidence <- 1 #0
     if(DailyIncidence==1){Incidence="Daily"}   else {Incidence="Weekly"}
     if(Vaccination==1)   {Namevacc="vaccine_"} else {Namevacc=""}
+    R0fixed        <- T
     
     DIAGNOSTIC   <- 1 #0
     ncomparisons <- 1
@@ -16,7 +17,7 @@ pset <- within(pset, {
     SUMMARY      <- 1 #0 #1
     
 	  COMPILE      <- 1
-	platform       <- "repo" # "pc"
+  	platform     <- "repo" # "pc"
 	
 	if(platform=="repo") TODAY=""
 })

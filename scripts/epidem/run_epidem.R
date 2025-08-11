@@ -1,4 +1,6 @@
 
+## TODO - add these to Makefile
+
 ### folders
 source_dir <- paste0(getwd(),"/scripts/epidem/codes")
 output_dir <- paste0(getwd(),"/output")
