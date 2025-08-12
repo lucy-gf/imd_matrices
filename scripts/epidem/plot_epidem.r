@@ -30,13 +30,13 @@ pset$Disease <- "Influenza"
 
 ## Parameters
 if(pset$Vaccination==0){
-  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsC_.r"))
-  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsF_.r"))
-  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsR_.r"))
+  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/pars/parsC_.r"))
+  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsF_.r"))
+  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsR_.r"))
 }else{
-  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsCv_.r"))
-  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsFv_.r"))
-  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsRv_.r"))
+  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/pars/parsCv_.r"))
+  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsFv_.r"))
+  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsRv_.r"))
 }
 
 # set seed

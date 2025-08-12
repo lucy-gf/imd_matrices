@@ -29,13 +29,13 @@ set.seed(120)
 
 ## Parameters
 if(pset$Vaccination==0){
-   if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsC_.r"))
-   if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsF_.r"))
-   if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsR_.r"))
+   if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/pars/parsC_.r"))
+   if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsF_.r"))
+   if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsR_.r"))
 }else{
-   if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsCv_.r"))
-   if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsFv_.r"))
-   if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsRv_.r"))
+   if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/pars/parsCv_.r"))
+   if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsFv_.r"))
+   if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsRv_.r"))
 }
 cat("Disease: ", pars$Disease,'; ', sep = '')
 cat("Vaccination: ", pars$Vaccination,'; ', sep = '')
@@ -135,11 +135,11 @@ for(sim_num in 1:n_bs){
   
   ## Model output (for the proposed parameters)
   if (pset$COMPILE==1 & pset$Vaccination==0) {
-    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDas_.cpp"))
-    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasday_.cpp")) }
+    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDas_.cpp"))
+    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasday_.cpp")) }
   if (pset$COMPILE==1 & pset$Vaccination==1) {
-    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDasvacc_.cpp"))
-    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasvaccday_.cpp")) }
+    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasvacc_.cpp"))
+    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasvaccday_.cpp")) }
   
   mas <- model(parscpp)
   
