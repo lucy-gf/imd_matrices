@@ -1,44 +1,61 @@
-#pipeline SEIRD Rcpp
+# epidemic output figures
 
-require(bench)
-require(magrittr)
-require(ggplot2)
-require(ggtext)
-require(gridExtra)
-require(Rcpp)
-require(tidyverse)
-require(data.table)
-require(patchwork)
-require(viridis)
+suppressPackageStartupMessages(require(bench))
+suppressPackageStartupMessages(require(magrittr))
+suppressPackageStartupMessages(require(ggplot2))
+suppressPackageStartupMessages(require(ggtext))
+suppressPackageStartupMessages(require(gridExtra))
+suppressPackageStartupMessages(require(Rcpp))
+suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(data.table))
+suppressPackageStartupMessages(require(patchwork))
+suppressPackageStartupMessages(require(viridis))
 options(dplyr.summarise.inform = FALSE)
 
+.args <- if (interactive()) c(
+  file.path("output", "data", "epidem","byall.rds"),
+  file.path('output','figures','epidem','attack_rates_bars.png')
+) else commandArgs(trailingOnly = TRUE)
+
+# source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
 source(here::here('scripts','setup','colors.R'))
+
+### Basic setting
+source_dir <- "scripts/epidem"
+source(here::here(source_dir,'setup.r')) #repo
+
+### Diseases cycle
+pset$Disease <- "Influenza"
+
+## Parameters
+if(pset$Vaccination==0){
+  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsC_.r"))
+  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsF_.r"))
+  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsR_.r"))
+}else{
+  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsCv_.r"))
+  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsFv_.r"))
+  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsRv_.r"))
+}
 
 # set seed
 set.seed(120)
 
-## Contact matrices
-if(!exists('cm1000')){
-cm1000 <- data.table(suppressWarnings(read_csv(here::here('output','data','cont_matrs','fitted_matrs.csv'), show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
-cm1000 <- cm1000[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','n')][, lapply(.SD, sum), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q')]
-}
-cm1000$p_age_group <- factor(cm1000$p_age_group, levels = pars$ages); cm1000$c_age_group <- factor(cm1000$c_age_group, levels = pars$ages)
-cm1000 <- cm1000[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-
-## Parameters
-if(pset$Vaccination==0){
-   if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsC_.r"))
-   if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsF_.r"))
-   if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsR_.r"))
-}else{
-   if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/parsCv_.r"))
-   if(pset$Disease=="Influenza")   source(paste0(source_dir,"/parsFv_.r"))
-   if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/parsRv_.r"))
-}
-cat(paste0("Disease: ", pars$Disease),'\n')
-cat(paste0("Vaccination: ", pars$Vaccination),'\n')
-cat(paste0("Incidence: ", pars$Incidence),'\n')
+## Demography
+demog <- read_csv("data/census/pcd1.csv", show_col_types = F) %>% 
+  group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
+  group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
+  mutate(Proportion = Population/tot_pop) %>% rename(Age = age_grp, IMD = imd_quintile) 
+demog$Age <- factor(demog$Age,
+                    levels = names(colors_age_grp))
+demog <- demog %>% arrange(IMD, Age)
+# number of age groups
+na   = pars$na
+# number of SES
+nimd = pars$nimd
+# number of groups
+ng   = na*nimd
 
 ## Demography
 demog <- read_csv("data/census/pcd1.csv", show_col_types = F) %>% 
@@ -79,107 +96,22 @@ Dg0  <- rep(0,ng);  # Dead
 Na<-rep(0,na)
 Ns<-rep(0,nimd)
 for (ia in 1:na) { for (is in 1:nimd) {
-    Na[ia] = Na[ia] + 1/oNg[(is-1)*na + ia] 
-    Ns[is] = Ns[is] + 1/oNg[(is-1)*na + ia] }}
+  Na[ia] = Na[ia] + 1/oNg[(is-1)*na + ia] 
+  Ns[is] = Ns[is] + 1/oNg[(is-1)*na + ia] }}
 Npop = sum(1/oNg);
 
 # pars: imd=1, age 30 to 39", 1/100,000 latent infections
 E1g0 = (1/oNg)*pars$pE1g0
 Sg0  = Sg0 - E1g0
 
-## run model x1000
-n_bs <- max(cm1000$bootstrap_index)
-byw <- data.table(); byaw <- data.table(); byall <- data.table()
-betatrack <- rep(0, n_bs)
-
-for(sim_num in 1:n_bs){
-  
-  cm <- cm1000[bootstrap_index == sim_num,] 
-  cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages); cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
-  cm <- cm[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-  cm <- cm %>% 
-    mutate(p = paste0(p_imd_q, '_', p_age_group),
-           c = paste0(c_imd_q, '_', c_age_group)) %>% 
-    select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
-  pvec <- cm$p 
-  cm <- cm %>% select(!p) %>% as.matrix()
-  if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
-  if(grepl('14', pvec[2])){warning('CM names wrong')}
-  cmdim1 = dim(cm)[1]
-  
-  ## R0, set new beta
-  if(!pset$R0fixed){betanew <- pars$beta}else{
-    source(paste0(source_dir,"/R0_.r"))      #outputs cav
-    betanew = R0(pars, R0assumed = as.numeric(pars$R0), printout = 0) #default 2.5
-    betatrack[sim_num] <- betanew
-    # cat(paste0("Assuming R0 = ", pars$R0 ,", beta = ", round(betanew,4), "/day",'\n'))
-  }
-  
-  parscpp = within(parscpp <- pars, {
-    cm=as.vector(cm); cmdim1=cmdim1; mI=pars$m; beta=betanew;
-    Sg0=Sg0; E1g0=E1g0; I1g0=I1g0; I2g0=I2g0; U1g0=U1g0; U2g0=U2g0; 
-    Rg0=Rg0; Dg0=Dg0; oNg=oNg })
-  #  for output
-  parsum = parscpp;
-  #  remove what's not needed for Rcpp
-  parscpp <- parscpp %>% magrittr::inset(c('age', 'ages', 'ageons', 'm'), NULL)  #parscpp45[['age']] <- NULL; etc
-  
-  ## Model output (for the proposed parameters)
-  if (pset$COMPILE==1 & pset$Vaccination==0) {
-    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDas_.cpp"))
-    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasday_.cpp")) }
-  if (pset$COMPILE==1 & pset$Vaccination==1) {
-    if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/","SEIRDasvacc_.cpp"))
-    if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/","SEIRDasvaccday_.cpp")) }
-  
-  mas <- model(parscpp)
-  
-  byw <- rbind(byw, 
-               cbind(mas$byw, sim = sim_num))
- 
-  byaw <- rbind(byaw, 
-                cbind(mas$byaw, sim = sim_num))
-  
-  byall <- rbind(byall, 
-                 cbind(mas$byall, sim = sim_num))
-  
-  if(sim_num == 1){cat('Simulations: ')}
-  if(sim_num %% 50 == 0){cat(paste0(sim_num, ', '))}
-  
-}
-
-## save files
-write_rds(byw, here::here(output_dir,'data','epidem','byw.rds'))
-write_rds(byaw, here::here(output_dir,'data','epidem','byaw.rds'))
-write_rds(byall, here::here(output_dir,'data','epidem','byall.rds'))
-
-Iwpeakvalvec = byw[, c('sim','Iw')][, lapply(.SD, max), by = 'sim']
-cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
-                signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
-                ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
-cat('\n',paste0("Beta:  ", signif(mean(betatrack),digits=3)," (95% CI: ", 
-                signif(quantile(betatrack, 0.025),3),
-                ' - ', signif(quantile(betatrack, 0.975),3), ')'), sep = '')
-
-## imd check
-imd1 <- colSums(byw[, paste0('Iw_s', 1:5)])
-imd2raw <- colSums(byall[, paste0('Iw_g', 1:80)]); imd2 <- rep(0, nimd)
-for(imd_i in 1:nimd){imd2[imd_i] <- sum(imd2raw[16*(imd_i - 1) + (1:16)])}
-if(sum(abs(imd1 - imd2) < 1) != nimd){stop('IMD sums not aligning')}
-
-## age check
-age1 <- colSums(byaw[, paste0('Iw_a', 1:16)])
-age2raw <- colSums(byall[, paste0('Iw_g', 1:80)]); age2 <- rep(0, na)
-for(age_i in 1:na){age2[age_i] <- sum(age2raw[(age_i - 16) + 16*1:5])}
-if(sum(abs(age1 - age2) < 1) != na){stop('Age sums not aligning')}
+## read files
+byw <- readRDS(gsub('all','w',.args[1]))
+byaw <- readRDS(gsub('all','aw',.args[1]))
+byall <- readRDS(.args[1])
 
 ## Figures
-if (pset$FIGURES==1){
   
 ar=1 #aspect ratio
-
-if(pars$Incidence=="Daily"){daily="daily_"} else {daily=""}
-filename=paste0(output_dir, '/data/', parsum$Disease,"_SEIRD_epidemic_",daily)
 
 l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
 
@@ -457,6 +389,23 @@ all_time_s_cum_imd <- ggplot(data[time %in% 20:75], aes(x=time)) +
         axis.text.x = element_text(color=1)) +
   labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); all_time_s_cum_imd
 
+age_spec_ar <- ggplot(data[time == max(data$time)]) + 
+  # geom_ribbon(aes(x = age, ymin = l95, ymax = u95, fill = as.factor(imd), group = imd), alpha = 0.25) +
+  geom_bar(aes(x = age, y = median, fill = as.factor(imd)),
+           stat = 'identity', position = 'dodge') +
+  geom_errorbar(aes(x = age, ymin = l95, ymax = u95, 
+                    group = as.factor(imd)), 
+                width = 0.4, position = position_dodge(width = 0.9), alpha= 0.75) +
+  theme_bw() +
+  scale_fill_manual(values = imd_quintile_colors) + 
+  # scale_color_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size=10),
+        legend.key.size = unit(2, 'mm'),
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Attack rate /1000", x = "Age group", color = "IMD quintile", fill = 'IMD quintile'); age_spec_ar
+
 all_time_s_cum_hm <- ggplot(data[time == max(data$time)]) + 
   geom_tile(aes(x = imd, y = age, fill = median)) +
   theme_bw() +
@@ -468,132 +417,32 @@ all_time_s_cum_hm <- ggplot(data[time == max(data$time)]) +
         axis.text.x = element_text(color=1)) +
   labs(y = "Age group", x = "IMD quintile", color = "Attack rate /1000", fill = 'Attack rate /1000'); all_time_s_cum_hm
 
-all_time_s + all_time_s_cum + all_time_s_cum_hm + all_time_s_cum_imd + plot_layout(nrow = 2, guides = 'collect')
+layout <- '
+AAAABBBB
+AAAABBBB
+AAAABBBB
+AAAABBBB
+AAAABBBB
+CCCDDDDD
+CCCDDDDD
+CCCDDDDD
+'
+
+all_time_s + all_time_s_cum + all_time_s_cum_hm + age_spec_ar + plot_layout(nrow = 2, guides = 'collect', design = layout)
 ggsave(here::here('output','figures','epidem','patchwork.png'), dpi=600, 
        device = "png", width = 14, height = 16)
 
-}
+all_time_s + all_time_s_cum + plot_layout(nrow = 1, guides = 'collect')
+ggsave(here::here('output','figures','epidem','age_x_imd.png'), dpi=600, 
+       device = "png", width = 10, height = 8)
 
-## Performance
+ggsave(plot = all_time_s_cum_imd, 
+       here::here('output','figures','epidem','age_x_imd_cumulative.png'), dpi=600, 
+       device = "png", width = 10, height = 10)
 
-if (pset$DIAGNOSTIC==1){
-   if(pset$ncomparisons==1){  #1 #2
-     niter= 100 #3000 #1000
-     test <- bench::mark(model(parscpp), min_iterations = niter)
-     #test <- bench::mark(mas, min_iterations = niter)
-     sink(file = paste0(filename,".txt"),append=FALSE,split=FALSE)
-        cat(paste0("Iterations = ", niter),'\n')
-        print(test[1:11]) #cut last 2 columns
-     sink()
-     pdf(file=here::here('output','figures','epidem','performance.pdf'))
-        print(plot(test))
-        ## plot time vs memory allocation
-        #  https://bench.r-lib.org/
-        #  library(tidyr)
-        print(test %>% unnest(c(time, gc)) %>%
-                 filter(gc == "none") %>%
-                 mutate(expression = as.character(expression)) %>%
-                 ggplot(aes(x = mem_alloc, y = time, color = expression)) + geom_point())
-     dev.off()
-     
-     } else { #For comparisons
-     #sourceCpp(file = paste0(source_dir,"/","SEIURDasv_.cpp"))
-     niter= 3000 #1000
-     test <- bench::mark(model(parscpp), model2(parscpp), min_iterations = 3000) #1000)
-     sink(file = paste0(output_dir,"/",filename,".txt"),append=FALSE,split=FALSE)
-        cat(paste0("Iterations = ", niter),'\n')
-        summary(test, relative = TRUE)
-        summary(test, relative = FALSE)
-     sink()
-     pdf(file=paste0(output_dir,"/",filename,".pdf"))
-        plot(test)
-        ## plot time vs memory allocation
-        test %>% unnest(c(time, gc)) %>%
-                 filter(gc == "none") %>%
-                 mutate(expression = as.character(expression)) %>%
-                ggplot(aes(x = mem_alloc, y = time, color = expression)) + geom_point()
-     dev.off()
-     
-  }#comparisons
-  
-  ##Profiling
-  #sourceCpp(file = paste0(source_dir,"/","SEIRDa.cpp"))
-  #profvis::profvis(SEIRDa(parscpp))
-  #=> "Error in parse_rprof_lines(lines, expr_source) : 
-  #    No parsing data available. Maybe your function was too fast?"
-  
-}#Diagnostic
-
-
-
-## Text summary
-
-if (pset$SUMMARY==1){
-
-sink(file = here::here('output','figures','epidem','out.txt'),append=FALSE,split=FALSE)
-
-cat("\n")
-
-cat("\n Iw peak \n")
-print(paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
-                signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
-                ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'))
-
-cat("\n Study \n")
-print(paste0("Disease:    ", parsum$Disease))
-print(paste0("Population: ", Npop))
-print(paste0("Age groups: ", parsum$na))
-print(paste0("SE  groups: ", parsum$nimd))
-print(paste0("All groups: ", parsum$na*parsum$nimd))
-print(paste0("Age distribution: ")); print(pa*Npop)
-print(paste0("Age proportions:  ")); print(round(pa,4))
-print(paste0("Ages:             ")); print(parsum$ages)
-print(paste0("Age (median):     ")); print(parsum$age)
-print(paste0("Reporting rate:   ")); print(parsum$rrep)
-
-cat("\n Natural history \n")
-print(paste0("Assuming R0 = ", parsum$R0))
-print(paste0("  then beta = (1/day) ", round(betanew,4) ))
-print(paste0("latent period (tEI, tEU),   days:    ", 1/parsum$rEI))
-print(paste0("infectious period (rIR),    days:    ", 1/parsum$rIR))
-print(paste0("infectious period (rUR),    days:    ", 1/parsum$rUR))
-print(paste0("infectious preclin (rI1I2), days:    ", 1/parsum$rI1I2))
-print(paste0("infectious clinical (rI2R), days:    ", 1/parsum$rI2R))
-print(paste0("relative subclinical infectiousness: ", parsum$f))
-print(paste0("susceptibility by age     : ")); print(parsum$u)
-print(paste0("clinical  fraction by age : ")); print(parsum$y)
-print(paste0("mortality fraction by age : ")); print(parsum$mI)
-
-cat("\n Initial condition \n");
-print(paste0("Initial latent proportion pE1g0: ")); print(as.numeric(parsum$pE1g0))
-print(paste0("Initial latent infections  E1g0: ")); print(as.numeric(parsum$pE1g0*(1/oNg)))
-print(paste0("Initial susceptible         Sg0: ")); print(Sg0)
-
-cat("\n Temporal \n")
-print(paste0("Time range:       ", range(pars$times)))
-print(paste0("Number of weeks:  ", pars$nw))
-print(paste0("Number of points: ", pars$nt))
-print(paste0("dt:               ", pars$dt))
-
-cat("\n Contacts \n")
-print(paste0("Contact data: Polymod 2005"))
-print(paste0("Average contact rate of cm45: ", round(cav,3)))
-print(paste0("Contact matrix: ", parsum$cmdim1, " x ", parsum$cmdim1))
-print(paste0("Contact matrix: ")); #cm
-
-if (pset$Vaccination==1){
-cat("\n Vaccination \n")
-print(paste0("Coverage:         ")); print(parsum$vcov)
-print(paste0("Efficacy:         ")); print(parsum$veff)
-print(paste0("Vaccination rate: ", round(parsum$rV,5)))
-print(paste0("Reduce clin frac: ", round(parsum$vcln,5))) }
-
-
-cat("\n")
-sink()
-
-cat("\n")
-
-}##SUMMARY
+ggsave(plot = age_spec_ar, 
+       .args[2],
+       dpi=600, 
+       device = "png", width = 10, height = 7)
 
 

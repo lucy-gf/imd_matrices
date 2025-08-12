@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allassignplots allmatrsplots 
+localdef: allassignplots allmatrsplots allepidplots
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -27,6 +27,9 @@ DATDIR ?= ${OUTDIR}/data
 CONTCODE ?= ${CODEDIR}/run_cont_matrs
 CONTDATA ?= ${DATDIR}/cont_matrs
 CONTFIG ?= ${FIGDIR}/cont_matrs
+EPIDCODE ?= ${CODEDIR}/epidem
+EPIDDATA ?= ${DATDIR}/epidem
+EPIDFIG ?= ${FIGDIR}/epidem
 
 # figure extension filetype
 FIGEXT ?= png
@@ -274,22 +277,22 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 
 ##### Make contact matrices ########## 
 
-${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
-	$(call R, $*)
+#${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
+#	$(call R, $*)
 
-${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
-	$(call R, $*)
+#${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
+#	$(call R, $*)
 
-${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds
-	$(call R, $*)
+#${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds
+#	$(call R, $*)
 	
-${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
-	$(call R, $*)
+#${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
+#	$(call R, $*)
 	
-${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
-	$(call R, $(firstword $(subst _, ,$*)))
+#${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
+#	$(call R, $(firstword $(subst _, ,$*)))
 	
-allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
+#allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
 
 # merge
 
@@ -304,8 +307,25 @@ ${CONTFIG}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_ma
 ${CONTFIG}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/fitted_matrs.csv
 	$(call R, $*)
 	
-allmatrixplots: ${CONTFIG}/fitted_matrs.png ${CONTFIG}/fitted_matrs_locn.png
+allmatrsplots: ${CONTFIG}/fitted_matrs.png ${CONTFIG}/fitted_matrs_locn.png
 
-##### Needed outputs: ##########################################################
 
-allmatrsplots: allmatrixplots
+################################################################################
+
+##### Epidemic simulations ########## 
+
+${EPIDDATA}/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/fitted_matrs.csv 
+	$(call R, $*)
+
+${EPIDFIG}/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/byall.rds
+	$(call R, $*)
+	
+allepidplots: ${EPIDFIG}/attack_rate_bars.png
+
+
+
+
+
+
+
+

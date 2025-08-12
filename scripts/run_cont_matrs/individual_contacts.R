@@ -11,11 +11,11 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "contact_matrs","participants.rds"),
+  file.path("output", "data", "cont_matrs","participants.rds"),
   file.path("data", "connect", "connect_contacts.rds"),
   file.path("data", "census", "utlaageethn.csv"),
   file.path("data", "census", "utlaethnnssec.csv"),
-  file.path("output", "data", "contact_matrs","indiv_contacts.rds")
+  file.path("output", "data", "cont_matrs","indiv_contacts.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
