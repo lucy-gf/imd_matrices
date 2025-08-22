@@ -37,9 +37,22 @@ if(pset$Vaccination==0){
    if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsFv_.r"))
    if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsRv_.r"))
 }
-cat("Disease: ", pars$Disease,'; ', sep = '')
-cat("Vaccination: ", pars$Vaccination,'; ', sep = '')
-cat("Incidence: ", pars$Incidence,'\n', sep = '')
+cat("Disease: ", pars$Disease,' --- ', sep = '')
+cat("Vaccination: ", pars$Vaccination,' --- ', sep = '')
+cat("Incidence: ", pars$Incidence,' --- ', sep = '')
+if(!pset$R0fixed){cat("R0 not fixed, beta: ", pars$beta,'\n', sep = '')}else{
+  cat("R0: ", pars$R0,'\n', sep = '')
+}
+
+## If R0 low, make runtime longer
+if(pset$R0fixed & (pars$R0 < 1.1)){ 
+  
+  pars$times  <- 0:1000     #days sequence
+  pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+  pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+  pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+  
+}
 
 ## Contact matrices
 if(!exists('cm1000')){
@@ -161,9 +174,11 @@ Iwpeakvalvec = byw[, c('sim','Iw')][, lapply(.SD, max), by = 'sim']
 cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
                 signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
                 ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
-cat('\n',paste0("Beta:  ", signif(mean(betatrack),digits=3)," (95% CI: ", 
-                signif(quantile(betatrack, 0.025),3),
-                ' - ', signif(quantile(betatrack, 0.975),3), ')'), sep = '')
+if(pset$R0fixed){
+  cat('\n',paste0("Beta:  ", signif(mean(betatrack),digits=3)," (95% CI: ", 
+                  signif(quantile(betatrack, 0.025),3),
+                  ' - ', signif(quantile(betatrack, 0.975),3), ')'), sep = '')
+}
 
 ## imd check
 imd1 <- colSums(byw[, paste0('Iw_s', 1:5)])

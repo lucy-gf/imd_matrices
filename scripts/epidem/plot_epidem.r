@@ -109,6 +109,16 @@ byw <- readRDS(gsub('all','w',.args[1]))
 byaw <- readRDS(gsub('all','aw',.args[1]))
 byall <- readRDS(.args[1])
 
+## If R0 low, make runtime longer
+if(pset$R0fixed & (pars$R0 < 1.1)){
+  
+  pars$times  <- 0:1000     #days sequence
+  pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+  pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+  pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+  
+}
+
 ## Figures
   
 ar=1 #aspect ratio
@@ -318,7 +328,74 @@ ggsave(here::here('output','figures','epidem','time_series_imd_facet.png'), dpi=
 ggsave(plot = p3facet, here::here('output','figures','epidem','time_series_age_facet.png'), dpi=600, 
        device = "png", width = 12, height = 8)
 
-## across all groups
+# ARRs
+data1000 <- copy(byall)
+for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
+data_1000ar <- data1000[, lapply(.SD, sum), by = c('sim')][, iW := NULL][, time := NULL]
+data_melt <- melt.data.table(data_1000ar, id.vars = c('sim'))
+data_melt[, age := rep(rep(pars$ages, each = n_distinct(data_melt$sim)), nimd)]
+data_melt[, imd := rep(1:nimd, each = na*n_distinct(data_melt$sim))]
+data_imd1 <- data_melt[imd == 1][, imd_1_value := value]
+data <- data_melt[data_imd1[, c('sim','age','imd_1_value')], on = c('sim','age')]
+data[, arr := value/imd_1_value]
+data_min <- data[, c('age','imd','arr')]
+data_agg <- rbind(
+  data_min[, lapply(.SD, median), by = c('age','imd')][, meas := 'median'],
+  data_min[, lapply(.SD, l95_func), by = c('age','imd')][, meas := 'l95'],
+  data_min[, lapply(.SD, u95_func), by = c('age','imd')][, meas := 'u95']
+)
+data <- dcast.data.table(data_agg, age + imd ~ meas, value.var = 'arr')
+data$age <- factor(data$age, levels = pars$ages)
+
+arr_plot <- ggplot(data, aes(x=imd)) + 
+  geom_hline(yintercept = 1, lty = 2, alpha = 0.5) + 
+  geom_errorbar(aes(ymin = l95, ymax = u95, col = as.factor(imd), group = as.factor(imd)), 
+                width = 0.4, lwd = 0.8)  +
+  geom_point(aes(y = median, col = as.factor(imd), group = as.factor(imd)),
+             size = 3)  +
+  theme_minimal() +
+  facet_grid(. ~ age, switch = 'x') + 
+  scale_color_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size=12),
+        # axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "Relative attack rate", x = 'Age group', color = "IMD", fill = 'IMD'); arr_plot
+ggsave(here::here('output','figures','epidem','rel_attack_rates_by_imd.png'), dpi=600, 
+       bg = 'white',
+       device = "png", width = 16, height = 8)
+
+data_age3034 <- data_melt[age == '30-34'][, age_3034_value := value]
+data <- data_melt[data_age3034[, c('sim','imd','age_3034_value')], on = c('sim','imd')]
+data[, arr := value/age_3034_value]
+data_min <- data[, c('age','imd','arr')]
+data_agg <- rbind(
+  data_min[, lapply(.SD, median), by = c('age','imd')][, meas := 'median'],
+  data_min[, lapply(.SD, l95_func), by = c('age','imd')][, meas := 'l95'],
+  data_min[, lapply(.SD, u95_func), by = c('age','imd')][, meas := 'u95']
+)
+data <- dcast.data.table(data_agg, age + imd ~ meas, value.var = 'arr')
+data$age <- factor(data$age, levels = pars$ages)
+
+arr_plot_age <- ggplot(data, aes(x=age)) + 
+  geom_hline(yintercept = 1, lty = 2, alpha = 0.5) + 
+  geom_errorbar(aes(ymin = l95, ymax = u95, col = as.factor(age), group = as.factor(age)), 
+                width = 0.4, lwd = 0.8)  +
+  geom_point(aes(y = median, col = as.factor(age), group = as.factor(age)),
+             size = 3)  +
+  theme_minimal() +
+  facet_grid(. ~ imd, switch = 'x') + 
+  scale_color_manual(values = colors_p_age_group) + 
+  theme(text=element_text(size=12),
+        # axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "Relative attack rate", x = 'IMD quintile', color = "Age", fill = 'Age'); arr_plot_age
+ggsave(here::here('output','figures','epidem','rel_attack_rates_by_age.png'), dpi=600, 
+       bg = 'white',
+       device = "png", width = 16, height = 8)
+
+  ## across all groups
 data1000 <- copy(byall)
 for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
 data <- rbind(
@@ -332,7 +409,7 @@ data[, imd := rep(1:nimd, each = na*pars$nd*n_distinct(data$meas))]
 data <- dcast.data.table(data, time + age + imd ~ meas, value.var = 'value')
 data$age <- factor(data$age, levels = pars$ages)
 
-all_time_s <- ggplot(data[time %in% 20:75], aes(x=time)) + 
+all_time_s <- ggplot(data, aes(x=time)) + 
   geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
   geom_line(aes(y = median, col = age), lwd=0.8)  +
   theme_bw() +
@@ -361,7 +438,7 @@ data[, imd := rep(1:nimd, each = na*pars$nd*n_distinct(data$meas))]
 data <- dcast.data.table(data, time + age + imd ~ meas, value.var = 'value')
 data$age <- factor(data$age, levels = pars$ages)
 
-all_time_s_cum <- ggplot(data[time %in% 20:75], aes(x=time)) + 
+all_time_s_cum <- ggplot(data, aes(x=time)) + 
   geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
   geom_line(aes(y = median, col = age), lwd=0.8)  +
   theme_bw() +
@@ -375,7 +452,7 @@ all_time_s_cum <- ggplot(data[time %in% 20:75], aes(x=time)) +
         axis.text.x = element_text(color=1)) +
   labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); all_time_s_cum
 
-all_time_s_cum_imd <- ggplot(data[time %in% 20:75], aes(x=time)) + 
+all_time_s_cum_imd <- ggplot(data, aes(x=time)) + 
   geom_ribbon(aes(ymin = l95, ymax = u95, fill = as.factor(imd)), alpha=0.25)  +
   geom_line(aes(y = median, col = as.factor(imd)), lwd=0.8)  +
   theme_bw() +
@@ -443,6 +520,12 @@ ggsave(plot = all_time_s_cum_imd,
 ggsave(plot = age_spec_ar, 
        .args[2],
        dpi=600, 
-       device = "png", width = 10, height = 7)
+       device = "png", width = 12, height = 6)
+
+
+
+
+
+
 
 

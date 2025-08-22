@@ -676,16 +676,44 @@ fit_matr <- function(
   
   all_merged <- data.table(all_merged)
   
-  ## fit - using mean for now
-  # TODO change to negative binomial estimation
-
+  ## fit
   out_df <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location', 'n')]
-  out_df <- out_df[, lapply(.SD, mean), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location')]
+  # out_df_mean <- out_df[, lapply(.SD, mean), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location')]
+  out_df_final <- out_df[, lapply(.SD, neg_bin_fcn), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location')]
   
-  out_df
+  out_df_final[, k := as.numeric(sub("^[^_]*_", "", n))]
+  out_df_final[, n := as.numeric(sub("(.*)_.*", "\\1", n))]
+  
+  out_df_final
   
 }
 
+# fitting negative binomial pars
+neg_bin_fcn <- function(vec){
+  
+  # calc. mean and variance, used for initial values
+  m <- mean(vec)
+  v <- var(vec)
+  
+  if(sum(vec != 0)){
+    outs = optim(c(mu = m, k = (v - m)/m^2), lower = c(mu = 1e-5, k = 1e-5), nb_loglik, x = vec, method = "L-BFGS-B")
+    ret <- as.numeric(outs$par)
+  } else{
+    ret <- c(0,0)
+  }
+  
+  paste(ret, collapse = '_')
+  
+}
+
+# Log-likelihood function for negative binomial
+nb_loglik <- function(x, par) {
+  k <- par[["k"]]
+  mean <- par[["mu"]]
+  ll <- rep(NA_real_, length(x))
+  ll <- dnbinom(x, mu = mean, size = 1/k, log = TRUE)
+  return(-sum(ll))
+}
 
 ## VECTORISED FUNCTION TO ADD LARGE_N
 

@@ -31,7 +31,7 @@ pars <- within(pars, {
     #rHD    <-                #death rate in hospital
     #rC     <-                #rate of loss of positivity
 
-    R0     <- 1.95            #variant adjusted from Baguelin 2013 Fig 22, 36, S52-54 2007-08
+    R0     <- 1.5 #1.95            #variant adjusted from Baguelin 2013 Fig 22, 36, S52-54 2007-08
     f      <- 0 #0.5          #relative transmission of U group
     beta   <- 0.23            #
     

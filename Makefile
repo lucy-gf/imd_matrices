@@ -289,10 +289,10 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 #${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
 #	$(call R, $*)
 	
-#${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
-#	$(call R, $(firstword $(subst _, ,$*)))
+${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
+	$(call R, $(firstword $(subst _, ,$*)))
 	
-#allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
+allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
 
 # merge
 

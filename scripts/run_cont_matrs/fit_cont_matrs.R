@@ -58,7 +58,7 @@ fit_matr_parallel <- function(imd){
                            distr_filt = cont_imd_distr %>% filter(p_imd_q == imd,
                                                              p_age_group == age_in),
                            p_weights_filt = poly_weights %>% filter(p_age_group == age_in)
-  )
+  ) 
   
   out
   
