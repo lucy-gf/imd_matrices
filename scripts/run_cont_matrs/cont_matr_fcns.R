@@ -587,6 +587,17 @@ fit_matr <- function(
   distr_dt[, c_location := tolower(c_location)]
   distr_dt_w <- dcast.data.table(distr_dt, p_age_group + c_age_group + c_location + p_imd_q ~ c_imd_q, value.var = 'prop')
   
+  # if no occurrences (rowsum(distr_dt_w) == 0) then randomly sample (0.2, 0.2, 0.2, 0.2, 0.2)
+  num_cols <- as.character(1:5)
+  for(distr_i in 1:nrow(distr_dt_w)){
+    if(sum(distr_dt_w[distr_i, ..num_cols]) == 0){
+      distr_dt_w[distr_i, '1' := 1/5]
+      distr_dt_w[distr_i, '2' := 1/5]
+      distr_dt_w[distr_i, '3' := 1/5]
+      distr_dt_w[distr_i, '4' := 1/5]
+      distr_dt_w[distr_i, '5' := 1/5]
+    }}
+  
   part_l <- part_l[distr_dt_w, on = c('p_age_group','c_age_group','c_location','p_imd_q')]
   part_l <- part_l[!is.na(row_id)] # remove rows of distr_dt_w which don't occur in part_l
   part_l <- part_l[n != 0] # remove rows with no occurrences
