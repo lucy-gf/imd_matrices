@@ -687,9 +687,13 @@ fit_matr <- function(
   
   all_merged <- data.table(all_merged)
   
-  ## fit
+  ## add 'total' location contacts
   out_df <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location', 'n')]
-  # out_df_mean <- out_df[, lapply(.SD, mean), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location')]
+  out_tot <- out_df[, lapply(.SD, sum), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q')]
+  out_tot[, c_location := 'total']
+  out_df <- rbind(out_df, out_tot)
+  
+  ## fit
   out_df_final <- out_df[, lapply(.SD, neg_bin_fcn), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location')]
   
   out_df_final[, k := as.numeric(sub("^[^_]*_", "", n))]

@@ -52,6 +52,15 @@ if(pset$R0fixed & (pars$R0 < 1.1)){
   pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
   pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
   
+}else{
+  if(pset$R0fixed & (pars$R0 < 1.65)){ 
+    
+    pars$times  <- 0:130     #days sequence
+    pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+    pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+    pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+    
+  }
 }
 
 ## Contact matrices
@@ -177,7 +186,7 @@ cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," mill
 if(pset$R0fixed){
   cat('\n',paste0("Beta:  ", signif(mean(betatrack),digits=3)," (95% CI: ", 
                   signif(quantile(betatrack, 0.025),3),
-                  ' - ', signif(quantile(betatrack, 0.975),3), ')'), sep = '')
+                  ' - ', signif(quantile(betatrack, 0.975),3), ')\n'), sep = '')
 }
 
 ## imd check

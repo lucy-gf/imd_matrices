@@ -14,7 +14,7 @@ options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
   file.path("output", "data", "epidem","byall.rds"),
-  file.path('output','figures','epidem','attack_rates_bars.png')
+  file.path('output','figures','epidem','attack_rate_bars.png')
 ) else commandArgs(trailingOnly = TRUE)
 
 # source colors etc.
@@ -117,6 +117,15 @@ if(pset$R0fixed & (pars$R0 < 1.1)){
   pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
   pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
   
+}else{
+  if(pset$R0fixed & (pars$R0 < 1.65)){ 
+    
+    pars$times  <- 0:130     #days sequence
+    pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+    pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+    pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+    
+  }
 }
 
 ## Figures

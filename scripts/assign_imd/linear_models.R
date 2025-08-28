@@ -39,11 +39,7 @@ connect_part <- connect_part %>%
   left_join(prop_u18, by ='p_id') %>% 
   mutate(n_u18 = case_when(is.na(n_u18) ~ 0, T ~ n_u18)) %>% 
   mutate(total_n_u18 = (n_u18 + add_u18_school + add_u18_work + add_u18_other)) %>% 
-  mutate(prop_u18 = (n_u18 + add_u18_school + add_u18_work + add_u18_other)/(n_contacts + large_n)) #%>% 
-  # mutate(p_sec_input = case_when(
-  #   p_sec_input %in% as.character(1:7) ~ p_sec_input,
-  #   T ~ 'NONE'
-  # )) # only interested in the influence of NS-SEC 1:7
+  mutate(prop_u18 = (n_u18 + add_u18_school + add_u18_work + add_u18_other)/(n_contacts + large_n)) 
 
 # run models
 

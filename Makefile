@@ -48,7 +48,7 @@ ${RENV}: install.R
 
 # scenarios for IMD assignment
 RUNVAR ?= engreg pcd1 pcd1age pcd1ageethn utlaageethn ageethn pcd1agehiqualnssec pcd1household pcd1ethntenure pcd1ethnhiqual pcd1agenssec pcd1ethn pcd1agehiqual pcd1hhsize pcd1hhtenure pcd1ethnnssec utlaethnnssec ethnnssec
-ANALYSEVAR ?= pcd1 pcd1age pcd1ageethn pcd1agehiqualnssec pcd1household pcd1ethnhiqual pcd1agenssec pcd1ethn pcd1agehiqual pcd1ethnnssec pcd1ageethnnssec utlaageethnnssec
+ANALYSEVAR ?= pcd1 pcd1age pcd1ethn pcd1ageethn pcd1agehiqualnssec pcd1ethnhiqual pcd1ethnnssec pcd1household pcd1ageethnnssec utlaageethnnssec
 
 # methods for IMD assignment
 ASSIGNMETHOD ?= prob det
@@ -289,8 +289,8 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 #${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
 #	$(call R, $*)
 	
-${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
-	$(call R, $(firstword $(subst _, ,$*)))
+#${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
+#	$(call R, $(firstword $(subst _, ,$*)))
 	
 allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
 
