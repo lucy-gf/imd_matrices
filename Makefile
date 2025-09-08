@@ -301,7 +301,10 @@ ${CONTDATA}/fitted_matrs.csv: $(patsubst %,${CONTDATA}/fitted_matrs_%.csv, ${ALL
 
 allmatrmerged: ${CONTDATA}/fitted_matrs.csv
 
-${CONTFIG}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs.csv
+${CONTDATA}/fitted_matrs_balanced.csv: ${CONTCODE}/balance_matrs.R ${CONTDATA}/fitted_matrs.csv
+	$(call R, $*)
+
+${CONTFIG}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs_balanced.csv
 	$(call R, $*)
 	
 ${CONTFIG}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/fitted_matrs.csv
@@ -309,12 +312,11 @@ ${CONTFIG}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}
 	
 allmatrsplots: ${CONTFIG}/fitted_matrs.png ${CONTFIG}/fitted_matrs_locn.png
 
-
 ################################################################################
 
 ##### Epidemic simulations ########## 
 
-${EPIDDATA}/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/fitted_matrs.csv 
+${EPIDDATA}/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/fitted_matrs_balanced.csv 
 	$(call R, $*)
 
 ${EPIDFIG}/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/byall.rds

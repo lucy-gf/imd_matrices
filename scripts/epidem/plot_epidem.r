@@ -495,7 +495,7 @@ age_spec_ar <- ggplot(data[time == max(data$time)]) +
 all_time_s_cum_hm <- ggplot(data[time == max(data$time)]) + 
   geom_tile(aes(x = imd, y = age, fill = median)) +
   theme_bw() +
-  scale_fill_viridis() + 
+  scale_fill_viridis(option='A') + 
   theme(text=element_text(size=10),
         legend.key.size = unit(2, 'mm'),
         plot.title = element_text(size = 12),

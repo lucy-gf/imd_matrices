@@ -9,7 +9,7 @@ suppressPackageStartupMessages(require(data.table))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs.csv"),
+  file.path("output", "data", "cont_matrs","fitted_matrs_balanced.csv"),
   file.path("output", "data", "epidem","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
 

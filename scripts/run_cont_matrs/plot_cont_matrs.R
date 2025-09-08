@@ -15,7 +15,7 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs.csv"),
+  file.path("output", "data", "cont_matrs","fitted_matrs_balanced.csv"),
   file.path("data", "census","imd_age.csv"),
   file.path("output", "figures", "cont_matrs","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
@@ -24,7 +24,9 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 #### READ IN DATA ####
 
-fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
+balanced_matr <- data.table(read_csv(.args[1], show_col_types = F))
+
+fitted <- data.table(read_csv(gsub('_balanced.csv','.csv',.args[1]), show_col_types = F))
 
 imd_age <- data.table(read_csv(.args[2], show_col_types = F))
 imd_age$age <- gsub('.{1}$','',gsub('----','-',gsub('-----','',gsub("\\D", "-", imd_age$age))))
@@ -38,13 +40,6 @@ imd_age <- imd_age %>%
          prop_imd = population/tot_pop_imd,
          prop = population/tot_pop)
 imd_age$age <- factor(imd_age$age, levels = age_labels)
-
-#### BALANCE ####
-
-balanced_matr <- balancing_fcn(
-  data = fitted,
-  age_structure = imd_age
-)
 
 #### SUMMARISE ####
 
@@ -184,7 +179,7 @@ ggsave(gsub('.png','_var.png',.args[3]), width = 16, height = 14)
 
 gen_pop <- balanced_matr %>% 
   group_by(p_age_group, c_age_group) %>% 
-  summarise(med_n_gp = median(n)) 
+  summarise(med_n_gp = mean(n)) 
 
 diff <- agg %>% 
   left_join(gen_pop, by = c('p_age_group','c_age_group')) %>% 
@@ -228,7 +223,77 @@ diff %>%
 
 ggsave(gsub('.png','_diff.png',.args[3]), width = 14, height = 14)
 
+# ## IMD 1-1 vs IMD5-5
+# imd11 <- balanced_matr %>%
+#   filter(p_imd_q == 1, c_imd_q == 1) %>% 
+#   group_by(p_age_group, c_age_group) %>% 
+#   summarise(med_n_11 = mean(n)) 
+# imd55 <- balanced_matr %>%
+#   filter(p_imd_q == 5, c_imd_q == 5) %>% 
+#   group_by(p_age_group, c_age_group) %>% 
+#   summarise(med_n_55 = mean(n)) 
+# 
+# diff <- imd11 %>% 
+#   left_join(imd55, by = c('p_age_group','c_age_group')) %>% 
+#   mutate(diff = med_n_11 - med_n_55)
+# 
+# diff <- diff %>% mutate(diff = case_when(p_age_group==c_age_group ~ NA, T ~ diff))
+# 
+# diff$p_age_group <- factor(diff$p_age_group,
+#                            levels = age_labels)
+# diff$c_age_group <- factor(diff$c_age_group,
+#                            levels = age_labels)
+# 
+# colorscale <- c('#045a8d', '#bdc9e1','#f1eef6','white','#fef0d9','#fdcc8a','#b30000')
+# breaks <- round(unname(sort(c(0, quantile(diff$diff, c(0.75, 0.9, 0.99), na.rm=T), 
+#                  -quantile(diff$diff, c(0.75, 0.9, 0.99), na.rm = T)))), 3)
+# max_stat <- max(diff$diff)
+# 
+# diff %>% 
+#   ggplot() + 
+#   geom_tile(aes(x = p_age_group, y = c_age_group, fill = diff)) +
+#   theme_bw() + 
+#   # facet_grid(c_imd_q ~ p_imd_q, switch="both") +
+#   scale_fill_gradientn(colors = colorscale, 
+#                        # values = scales::rescale(breaks),
+#                        breaks = breaks,
+#                        na.value = "#e5e5e5", 
+#                        limits = c(- max_stat, max_stat),
+#                        trans = 'pseudo_log') +
+#   labs(
+#     x = 'Participant age group',
+#     y = 'Contact age group',
+#     fill = 'Difference'
+#   ) + 
+#   ggtitle('IMD 1-1 vs. IMD 5-5\nRed = more contacts in IMD 1-1') +
+#   theme(strip.background = element_blank(),
+#         strip.placement = "outside",
+#         text = element_text(size = 14),
+#         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+#         legend.position = 'none')
+
 #### MEAN CONTACTS ####
+
+# with the age diagonal removed
+cm_limited <- agg %>% 
+  mutate(med_n = case_when(p_age_group == c_age_group ~ NA,
+                           T ~ med_n)) %>% 
+  ggplot() + 
+  geom_tile(aes(x = p_age_group, y = c_age_group, fill = med_n)) +
+  theme_bw() + 
+  facet_grid(c_imd_q ~ p_imd_q, switch="both") +
+  scale_fill_viridis(na.value = "grey10") +
+  labs(
+    x = 'Participant IMD, age group',
+    y = 'Contact IMD, age group',
+    fill = 'Mean daily\ncontacts'
+  ) + 
+  theme(strip.background = element_blank(),
+        strip.placement = "outside",
+        text = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); cm_limited
+ggsave(gsub('.png','_limited.png',.args[3]), width = 16, height = 14)
+
 
 # age distribution plots
 
@@ -302,6 +367,12 @@ patchwork::wrap_plots(c(imd_ages, imd_ages_flip)) + cm + plot_layout(design = la
 #### SAVE PNG ####
 
 ggsave(.args[3], width = 16, height = 14)
+
+
+
+
+
+
 
 
 
