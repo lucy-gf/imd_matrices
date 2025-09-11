@@ -14,11 +14,14 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs.csv"),
-  file.path("output", "figures", "cont_matrs","location","fitted_matrs_locn.png")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
+  "base",
+  file.path("output", "figures", "cont_matrs","base","location","fitted_matrs_locn.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
+
+if(!file.exists(gsub('/fitted_matrs_locn.png','',.args[3]))){dir.create(gsub('/fitted_matrs_locn.png','',.args[3]))}
 
 #### READ IN FITTED DATA ####
 

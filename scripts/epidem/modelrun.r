@@ -9,9 +9,11 @@ suppressPackageStartupMessages(require(data.table))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs_balanced.csv"),
-  file.path("output", "data", "epidem","byall.rds")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
+  file.path("output", "data", "epidem","base","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
+
+if(!file.exists(gsub('/byall.rds','',.args[2]))){dir.create(gsub('/byall.rds','',.args[2]))}
 
 # source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))

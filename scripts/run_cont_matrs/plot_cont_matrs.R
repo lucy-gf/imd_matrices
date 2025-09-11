@@ -15,12 +15,15 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs_balanced.csv"),
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
   file.path("data", "census","imd_age.csv"),
-  file.path("output", "figures", "cont_matrs","fitted_matrs.png")
+  "base",
+  file.path("output", "figures", "cont_matrs","base","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
+
+if(!file.exists(gsub('/fitted_matrs.png','',.args[4]))){dir.create(gsub('/fitted_matrs.png','',.args[4]))}
 
 #### READ IN DATA ####
 
@@ -88,7 +91,7 @@ imd_mix_unb %>%
         strip.placement = "outside",
         text = element_text(size = 14)) 
 
-ggsave(gsub('.png','_imd_mix_unbalanced.png',.args[3]), width = 12, height = 10)
+ggsave(gsub('.png','_imd_mix_unbalanced.png',.args[4]), width = 12, height = 10)
 
 ## balanced
 
@@ -117,7 +120,7 @@ imd_mix %>%
         strip.placement = "outside",
         text = element_text(size = 14)) 
 
-ggsave(gsub('.png','_imd_mix.png',.args[3]), width = 12, height = 10)
+ggsave(gsub('.png','_imd_mix.png',.args[4]), width = 12, height = 10)
 
 ## balanced without home
 
@@ -151,7 +154,7 @@ imd_mix_nh %>%
         strip.placement = "outside",
         text = element_text(size = 14)) 
 
-ggsave(gsub('.png','_imd_mix_no_home.png',.args[3]), width = 12, height = 10)
+ggsave(gsub('.png','_imd_mix_no_home.png',.args[4]), width = 12, height = 10)
 
 #### VARIATION ####
 
@@ -173,7 +176,7 @@ agg %>%
 
 #### SAVE PNG ####
 
-ggsave(gsub('.png','_var.png',.args[3]), width = 16, height = 14)
+ggsave(gsub('.png','_var.png',.args[4]), width = 16, height = 14)
 
 #### IMD DIFFS ####
 
@@ -221,7 +224,7 @@ diff %>%
 
 #### SAVE PNG ####
 
-ggsave(gsub('.png','_diff.png',.args[3]), width = 14, height = 14)
+ggsave(gsub('.png','_diff.png',.args[4]), width = 14, height = 14)
 
 # ## IMD 1-1 vs IMD5-5
 # imd11 <- balanced_matr %>%
@@ -292,7 +295,7 @@ cm_limited <- agg %>%
         strip.placement = "outside",
         text = element_text(size = 14),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); cm_limited
-ggsave(gsub('.png','_limited.png',.args[3]), width = 16, height = 14)
+ggsave(gsub('.png','_limited.png',.args[4]), width = 16, height = 14)
 
 
 # age distribution plots
@@ -366,7 +369,7 @@ patchwork::wrap_plots(c(imd_ages, imd_ages_flip)) + cm + plot_layout(design = la
 
 #### SAVE PNG ####
 
-ggsave(.args[3], width = 16, height = 14)
+ggsave(.args[4], width = 16, height = 14)
 
 
 

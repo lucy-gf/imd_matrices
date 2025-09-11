@@ -3,7 +3,8 @@
 
 default: localdef
 
-localdef: allassignplots allmatrsplots allepidplots
+localdef: allbalanced
+# allassignplots allmatrsplots allepidplots
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -66,16 +67,18 @@ makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.$
 # ages for fitting contact matrices
 ALLAGES ?= 0-4 5-9 10-14 15-19 20-24 25-29 30-34 35-39 40-44 45-49 50-54 55-59 60-64 65-69 70-74 75+
 
+# assignment sensitivity analyses
+A_SENS_ANALYSES ?= base regional
+
+# matrix fitting sensitivity analyses
+M_SENS_ANALYSES ?= ${A_SENS_ANALYSES} large_n_age no_cap_100
+
+# epidemic sensitivity analyses
+E_SENS_ANALYSES ?= ${M_SENS_ANALYSES} balance_sett_spec
+
 # functions to make into assigned .rds
 makeagesuffix = $(addprefix ${CONTDATA}/fitted_matrs_,$(patsubst %,%.${DATAEXT},$(1))) 
 
-# TODO add back in later? 
-#clean:
-#	rm -rf ${RENV}
-#	rm -rf ${DATDIR}
-#	rm -rf ${OUTDIR}
-#	rm -rf ${FIGDIR}
-#	rm -rf renv/library
 clean:
 	rm ${DATDIR}/assignment/mse/merged_scores.csv
 	rm ${DATDIR}/assignment/wis/merged_scores.csv
@@ -100,61 +103,12 @@ ${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTD
 
 allassignmentdet: $(call makeassigndet, ${RUNVAR})
 
-##### Probabilistic - running one by one to avoid reruns ########## 
+##### Probabilistic ########## 
 
-#${DATDIR}/assignment/connect_prob_engreg.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/engreg.csv
-#	$(call R, engreg)
+${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/%.csv
+	$(call R,$(firstword $(subst _, ,$*)))
 
-#${DATDIR}/assignment/connect_prob_pcd1.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1.csv
-#	$(call R, pcd1)
-
-#${DATDIR}/assignment/connect_prob_pcd1age.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1age.csv
-#	$(call R, pcd1age)
-
-#${DATDIR}/assignment/connect_prob_ageethn.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/ageethn.csv
-#	$(call R, ageethn)
-
-#${DATDIR}/assignment/connect_prob_pcd1ageethn.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ageethn.csv
-#	$(call R, pcd1ageethn)
-
-#${DATDIR}/assignment/connect_prob_pcd1agehiqualnssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1agehiqualnssec.csv
-#	$(call R, pcd1agehiqualnssec)
-
-#${DATDIR}/assignment/connect_prob_pcd1household.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1household.csv
-#	$(call R, pcd1household)
-
-#${DATDIR}/assignment/connect_prob_pcd1ethntenure.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethntenure.csv
-#	$(call R, pcd1ethntenure)
-
-#${DATDIR}/assignment/connect_prob_pcd1ethnhiqual.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethnhiqual.csv
-#	$(call R, pcd1ethnhiqual)
-
-#${DATDIR}/assignment/connect_prob_pcd1agenssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1agenssec.csv
-#	$(call R, pcd1agenssec)
-
-#${DATDIR}/assignment/connect_prob_pcd1ethn.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethn.csv
-#	$(call R, pcd1ethn)
-
-#${DATDIR}/assignment/connect_prob_pcd1agehiqual.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1agehiqual.csv
-#	$(call R, pcd1agehiqual)
-
-#${DATDIR}/assignment/connect_prob_pcd1hhsize.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1hhsize.csv
-#	$(call R, pcd1hhsize)
-
-#${DATDIR}/assignment/connect_prob_pcd1hhtenure.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1hhtenure.csv
-#	$(call R, pcd1hhtenure)
-
-#${DATDIR}/assignment/connect_prob_ethnnssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/ethnnssec.csv
-#	$(call R, ethnnssec)
-
-#${DATDIR}/assignment/connect_prob_pcd1ethnnssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/pcd1ethnnssec.csv
-#	$(call R, pcd1ethnnssec)
-
-#${DATDIR}/assignment/connect_prob_utlaageethn.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/utlaageethn.csv
-#	$(call R, utlaageethn)
-
-#${DATDIR}/assignment/connect_prob_utlaethnnssec.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/utlaethnnssec.csv
-#	$(call R, utlaethnnssec)
+allassignmentprob: $(call makeassignprob, ${RUNVAR})
 
 ##### Make merged age/ethnicity/nssec datasets ########## 
 
@@ -214,7 +168,7 @@ allmse: $(patsubst %,${DATDIR}/assignment/mse/%_scores.csv, ${ALLSCN})
 
 # WIS 
 
-${DATDIR}/assignment/wis/%_scores.csv: ${ASSIGNDIR}/make_WIS_error_scores.R ${DATDIR}/assignment/connect_%.rds
+${DATDIR}/assignment/wis/%_scores.csv: ${ASSIGNDIR}/make_WIS_error_scores.R ${DATDIR}/assignment/connect_%.rds 
 	$(call R, $*)
 
 allwis: $(patsubst %,${DATDIR}/assignment/wis/%_scores.csv, ${ALLSCN})
@@ -238,7 +192,7 @@ ${DATDIR}/assignment/wis/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/wi
 
 allwismerged: ${DATDIR}/assignment/wis/merged_scores.csv
 
-${DATDIR}/assignment/crps/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/crps/%_scores.csv,${ALLSCN})
+${DATDIR}/assignment/crps/merged_scores.csv: $(patsubst %,${DATDIR}/assignment/crps/%_scores.csv,${ALLSCN}) 
 	cat $^> $@
 
 allwismerged: ${DATDIR}/assignment/crps/merged_scores.csv
@@ -272,57 +226,105 @@ allerrorplots: allscatterplots allheatplots
 
 allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplots alllmplots
 
-
 ################################################################################
 
 ##### Make contact matrices ########## 
 
-#${CONTDATA}/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
-#	$(call R, $*)
-
-#${CONTDATA}/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
-#	$(call R, $*)
-
-#${CONTDATA}/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/indiv_contacts.rds
-#	$(call R, $*)
+${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
+	$(call R, $*)
 	
-#${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
-#	$(call R, $*)
-	
-#${CONTDATA}/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/participants.rds ${CONTDATA}/indiv_contacts.rds ${CONTDATA}/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds
-#	$(call R, $(firstword $(subst _, ,$*)))
-	
-allagematrs: $(patsubst %,${CONTDAT}/fitted_matrs_%.csv, ${ALLAGES})
+allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES})
 
-# merge
+${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
+	$(call R, $*)
+	
+allsampledcont: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, ${A_SENS_ANALYSES})
 
-${CONTDATA}/fitted_matrs.csv: $(patsubst %,${CONTDATA}/fitted_matrs_%.csv, ${ALLAGES})
+${CONTDATA}/%/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/%/indiv_contacts.rds 
+	$(call R, $*)
+	
+allcontdistr: $(patsubst %,${CONTDATA}/%/cont_imd_distr.rds, ${A_SENS_ANALYSES})
+	
+${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
+	$(call R, $*)
+	
+${CONTDATA}/reconnect_weights.rds: ${CONTCODE}/reconnect_weights.R ${ONSDIR}/age_ethn_sex.xlsx
+	$(call R, $*)
+	
+${CONTDATA}/base/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+	$(call R, base $*)
+	
+allagematrs_base: $(patsubst %,${CONTDATA}/base/fitted_matrs_%.csv, ${ALLAGES})
+
+${CONTDATA}/regional/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/regional/participants.rds ${CONTDATA}/regional/indiv_contacts.rds ${CONTDATA}/regional/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+	$(call R, regional $*)
+	
+allagematrs_regional: $(patsubst %,${CONTDATA}/regional/fitted_matrs_%.csv, ${ALLAGES})
+
+${CONTDATA}/no_cap_100/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+	$(call R, no_cap_100 $*)
+	
+allagematrs_no_cap_100: $(patsubst %,${CONTDATA}/no_cap_100/fitted_matrs_%.csv, ${ALLAGES})
+
+${CONTDATA}/large_n_age/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+	$(call R, large_n_age $*)
+	
+allagematrs_large_n_age: $(patsubst %,${CONTDATA}/large_n_age/fitted_matrs_%.csv, ${ALLAGES})
+
+allagematrs: allagematrs_base allagematrs_regional allagematrs_no_cap_100 allagematrs_large_n_age
+
+# merge for each sensitivity analysis
+
+${CONTDATA}/base/fitted_matrs.csv: $(patsubst %,${CONTDATA}/base/fitted_matrs_%.csv, ${ALLAGES})
+	cat $^> $@
+	
+${CONTDATA}/regional/fitted_matrs.csv: $(patsubst %,${CONTDATA}/regional/fitted_matrs_%.csv, ${ALLAGES})
 	cat $^> $@
 
-allmatrmerged: ${CONTDATA}/fitted_matrs.csv
-
-${CONTDATA}/fitted_matrs_balanced.csv: ${CONTCODE}/balance_matrs.R ${CONTDATA}/fitted_matrs.csv
-	$(call R, $*)
-
-${CONTFIG}/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/fitted_matrs_balanced.csv
-	$(call R, $*)
+${CONTDATA}/no_cap_100/fitted_matrs.csv: $(patsubst %,${CONTDATA}/no_cap_100/fitted_matrs_%.csv, ${ALLAGES})
+	cat $^> $@
 	
-${CONTFIG}/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/fitted_matrs.csv
-	$(call R, $*)
+${CONTDATA}/large_n_age/fitted_matrs.csv: $(patsubst %,${CONTDATA}/large_n_age/fitted_matrs_%.csv, ${ALLAGES})
+	cat $^> $@
 	
-allmatrsplots: ${CONTFIG}/fitted_matrs.png ${CONTFIG}/fitted_matrs_locn.png
+allmergedmatrs: $(patsubst %,${CONTDATA}/%/fitted_matrs.csv, ${M_SENS_ANALYSES}) 
+
+# balance
+
+${CONTDATA}/%/fitted_matrs_balanced.csv: ${CONTCODE}/balance_matrs.R ${CONTDATA}/%/fitted_matrs.csv
+	$(call R, $(firstword $(subst _, ,$*)))
+	
+${CONTDATA}/balance_sett_spec/fitted_matrs_balanced.csv: ${CONTCODE}/balance_matrs_sett_spec.R ${CONTDATA}/base/fitted_matrs.csv
+	$(call R, $*)
+
+allbalanced: $(patsubst %,${CONTDATA}/%/fitted_matrs_balanced.csv, ${E_SENS_ANALYSES}) 
+
+# plot 
+# TODO Make this work for regional analyses
+
+${CONTFIG}/%/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/%/fitted_matrs_balanced.csv
+	$(call R, $(firstword $(subst _, ,$*)))
+	
+allmatrsplots_agg: $(patsubst %,${CONTFIG}/%/fitted_matrs.png, ${E_SENS_ANALYSES}) 
+	
+${CONTFIG}/%/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/%/fitted_matrs.csv
+	$(call R, $(firstword $(subst _, ,$*)))
+
+allmatrsplots_locn: $(patsubst %,${CONTFIG}/%/fitted_matrs_locn.png, ${M_SENS_ANALYSES}) 
+
+allmatrsplots: allmatrsplots_agg allmatrsplots_locn
 
 ################################################################################
 
 ##### Epidemic simulations ########## 
 
-${EPIDDATA}/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/fitted_matrs_balanced.csv 
+${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balanced.csv 
 	$(call R, $*)
 
-${EPIDFIG}/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/byall.rds
+${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/%/byall.rds
 	$(call R, $*)
 	
-allepidplots: ${EPIDFIG}/attack_rate_bars.png
+allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
 
 
 

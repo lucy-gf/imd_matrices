@@ -13,9 +13,12 @@ suppressPackageStartupMessages(require(viridis))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "epidem","byall.rds"),
-  file.path('output','figures','epidem','attack_rate_bars.png')
+  file.path("output", "data", "epidem","base","byall.rds"),
+  "base",
+  file.path('output','figures','epidem','base','attack_rate_bars.png')
 ) else commandArgs(trailingOnly = TRUE)
+
+if(!file.exists(gsub('/attack_rate_bars.png','',.args[3]))){dir.create(gsub('/attack_rate_bars.png','',.args[3]))}
 
 # source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
@@ -527,7 +530,7 @@ ggsave(plot = all_time_s_cum_imd,
        device = "png", width = 10, height = 10)
 
 ggsave(plot = age_spec_ar, 
-       .args[2],
+       .args[3],
        dpi=600, 
        device = "png", width = 12, height = 6)
 

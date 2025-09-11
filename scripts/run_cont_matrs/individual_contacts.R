@@ -11,11 +11,12 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","participants.rds"),
+  file.path("output", "data", "cont_matrs","base","participants.rds"),
   file.path("data", "connect", "connect_contacts.rds"),
   file.path("data", "census", "utlaageethn.csv"),
   file.path("data", "census", "utlaethnnssec.csv"),
-  file.path("output", "data", "cont_matrs","indiv_contacts.rds")
+  "base",
+  file.path("output", "data", "cont_matrs","base","indiv_contacts.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -94,21 +95,5 @@ sampled_imd <- rbind(
 
 #### SAVE RDS ####
 
-write_rds(sampled_imd, .args[5])
+write_rds(sampled_imd, .args[6])
 
-
-
-# sampled_imd$p_age_group <- factor(sampled_imd$p_age_group,
-#                                   levels = age_labels)
-# 
-# sampled_imd %>% 
-#      group_by(p_age_group, p_imd_q) %>% 
-#      mutate(n_tot = n()) %>% 
-#      group_by(p_age_group, c_age_group, p_imd_q, c_imd_q, n_tot) %>% 
-#      summarise(n = n()) %>% 
-#      mutate(cont = n/n_tot) %>% 
-#      ggplot() + 
-#      geom_tile(aes(x = p_age_group, y = c_age_group,
-#                    fill = cont)) + 
-#      facet_grid(p_imd_q ~ c_imd_q) +
-#      theme_bw() 

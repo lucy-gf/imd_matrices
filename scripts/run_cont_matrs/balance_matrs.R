@@ -1,5 +1,5 @@
 
-## PLOT CONTACT MATRICES ##
+## BALANCE CONTACT MATRICES ##
 
 # load packages
 library(data.table)
@@ -11,8 +11,9 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","fitted_matrs.csv"),
-  file.path("output", "data", "cont_matrs","fitted_matrs_balanced.csv")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
+  "base",
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -21,18 +22,46 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 
-imd_age <- data.table(read_csv(.args[2], show_col_types = F))
-imd_age$age <- gsub('.{1}$','',gsub('----','-',gsub('-----','',gsub("\\D", "-", imd_age$age))))
-imd_age <- imd_age %>% 
-  mutate(age = case_when(age == '4' ~ '0-4',
-                         age == '75' ~ '75+',
-                         T ~ age)) %>% 
-  group_by(imd_q) %>% mutate(tot_pop_imd = sum(population)) %>% 
-  ungroup() %>% 
-  mutate(tot_pop = sum(population),
-         prop_imd = population/tot_pop_imd,
-         prop = population/tot_pop)
-imd_age$age <- factor(imd_age$age, levels = age_labels)
+if(.args[2] == 'regional'){
+  
+  imd_age_raw <- data.table(read_csv(file.path("data", "census","pcd1age.csv"), show_col_types = F))
+  
+  imd_age <- imd_age_raw %>% 
+    mutate(age = case_when(
+      grepl('Aged 4 years', age_grp) ~ '0-4',
+      grepl('75|80|85', age_grp) ~ '75+',
+      T ~ gsub('Aged ', '', gsub(' to ', '-', gsub(' years', '', age_grp)))
+    )) %>% 
+    mutate(p_engreg = case_when(
+      grepl('London',eng_reg) ~ 'Greater London',
+      grepl('Yorkshire',eng_reg) ~ 'Yorkshire and the Humber',
+      T ~ eng_reg
+    ),
+    imd_q = imd_quintile) %>% 
+    select(p_engreg, imd_q, age, population) %>% 
+    group_by(p_engreg, imd_q, age) %>% 
+    summarise(population = sum(population)) %>% ungroup() %>% 
+    group_by(p_engreg, imd_q) %>% 
+    mutate(tot_pop_imd = sum(population)) %>% 
+    ungroup() %>% 
+    group_by(p_engreg) %>% mutate(tot_pop = sum(population)) %>% ungroup() %>% 
+    mutate(prop_imd = population/tot_pop_imd,
+           prop = population/tot_pop)
+  
+}else{
+  imd_age <- data.table(read_csv(file.path("data", "census","imd_age.csv"), show_col_types = F))
+  imd_age$age <- gsub('.{1}$','',gsub('----','-',gsub('-----','',gsub("\\D", "-", imd_age$age))))
+  imd_age <- imd_age %>% 
+    mutate(age = case_when(age == '4' ~ '0-4',
+                           age == '75' ~ '75+',
+                           T ~ age)) %>% 
+    group_by(imd_q) %>% mutate(tot_pop_imd = sum(population)) %>% 
+    ungroup() %>% 
+    mutate(tot_pop = sum(population),
+           prop_imd = population/tot_pop_imd,
+           prop = population/tot_pop)
+  imd_age$age <- factor(imd_age$age, levels = age_labels)
+}
 
 #### BALANCE ####
 
@@ -41,7 +70,7 @@ balanced_matr <- balancing_fcn(
   age_structure = imd_age
 )
 
-write_csv(balanced_matr, .args[2])
+write_csv(balanced_matr, .args[3])
 
 
 

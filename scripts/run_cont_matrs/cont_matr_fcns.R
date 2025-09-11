@@ -19,6 +19,10 @@ weight_participants <- function(participant_input = part,
                                 truncation_percentile = c(0.05,0.95) # c(0,1)
 ){
   
+  if('p_engreg' %notin% colnames(eth_age_sex_structure) & 'p_engreg' %in% group_vars){
+    stop('Region not in age structure column names.')
+  }
+  
   # align p_gender case
   participant_input <- participant_input %>% mutate(p_gender = tolower(p_gender)) 
   eth_age_sex_structure <- eth_age_sex_structure %>% mutate(p_gender = tolower(p_gender)) %>% select(!value)
@@ -131,7 +135,7 @@ weight_participants <- function(participant_input = part,
   }
   
   if('day_week' %in% weighting){
-    weighted_data <- weighted_data %>% left_join(day_week_structure %>% left_join(part %>% group_by(day_week, !!!syms(group_vars)) %>% 
+    weighted_data <- weighted_data %>% left_join(day_week_structure %>% left_join(participant_input %>% group_by(day_week, !!!syms(group_vars)) %>% 
                                                                                     summarise(sample_tot = n()) %>% ungroup() %>% 
                                                                                     group_by(!!!syms(group_vars)) %>% mutate(pop = sum(sample_tot)) %>% 
                                                                                     mutate(sample_proportion = sample_tot/pop) %>% ungroup(),
@@ -183,6 +187,41 @@ fcn_sample_participants <- function(
   
 }
 
+# FUNCTION TO SAMPLE PARTICIPANTS BY REGION ##
+
+fcn_sample_participants_regional <- function(
+    age
+){
+  
+  selections <- part %>% filter(p_age_group == age) %>% 
+    select(p_id, p_engreg, post_strat_weight)
+  
+  selected_df <- data.frame()
+  
+  for(reg in unique(selections$p_engreg)){
+    
+    selections_reg <- selections %>% 
+      filter(p_engreg == reg)
+    
+    selected_ids <- sample(x = selections_reg$p_id,
+                           size = nrow(selections_reg)*n_bootstraps,
+                           prob = selections_reg$post_strat_weight,
+                           replace = T)
+    
+    selected_df <- rbind(
+      selected_df,
+      data.frame(p_id = selected_ids,
+                 p_age_group = age,
+                 p_engreg = reg,
+                 bootstrap_index = rep(1:n_bootstraps,
+                                       each = nrow(selections_reg))
+    ))
+    
+  }
+  
+  selected_df
+  
+}
 
 ## FUNCTION TO SAMPLE PARTICIPANT IMD ##
 
@@ -460,6 +499,131 @@ polymod_weights <- function(
   
 }
 
+## Function to get weights for large_n contacts from Reconnect setting-specific matrices
+reconnect_weights_fcn <- function(
+    data,
+    broad_ages = c(18,65),
+    fine_ages = age_vals,
+    age_struc = age_structure_fine,
+    locations = c('total','work','school','other')
+){
+  
+  # add 0 to lower bounds if not there, same with 18
+  fine_ages <- sort(unique(c(0, fine_ages)))
+  age_labels <- c(paste0(c(fine_ages[1:length(fine_ages)-1]), '-', c(fine_ages[2:length(fine_ages)]-1)), paste0(fine_ages[length(fine_ages)], '+'))
+  
+  # broad ages labels 
+  broad_ages <- sort(unique(c(0, broad_ages)))
+  broad_age_labels <- c(paste0(c(broad_ages[1:length(broad_ages)-1]), '-', c(broad_ages[2:length(broad_ages)]-1)), paste0(broad_ages[length(broad_ages)], '+'))
+  
+  # overlaps between fine and broad age groups 
+  overlaps <- CJ(age_labels, broad_age_labels, overlap = F)
+  for(i in 1:nrow(overlaps)){
+    broad_vec <- suppressWarnings(case_when(grepl('[+]', overlaps[i, broad_age_labels]) ~ 
+                                              c(as.numeric(gsub('[+]','',overlaps[i, broad_age_labels])), 120),
+                                            T ~ as.numeric(unlist(strsplit(overlaps[i, broad_age_labels],'-')))))
+    c_vec <- suppressWarnings(case_when(grepl('[+]', overlaps[i, age_labels]) ~ 
+                                          c(as.numeric(gsub('[+]','',overlaps[i, age_labels])), 120),
+                                        T ~ as.numeric(unlist(strsplit(overlaps[i, age_labels],'-')))))
+    
+    if(length(intersect(c(broad_vec[1]:broad_vec[2]), c(c_vec[1]:c_vec[2]))) > 0){
+      overlaps[i, overlap := T]
+    }
+  }
+  
+  # switch between age label styles (ukscs vs polymod)
+  age_to_pm_lab <- function(chars){
+    out <- c()
+    for(char in chars){
+      if(char == paste0(max(fine_ages), '+')){
+        out <- c(out, char)
+      }else{
+        vals <- as.numeric(unlist(strsplit(char, '-')))
+        val <- paste0('[',vals[1], ',', vals[2] + 1,')')
+        out <- c(out, val)
+      }
+    }
+    out
+  }
+  
+  # contact matrices list
+  matrices <- list()
+  
+  data$p_var <- factor(age_to_pm_lab(data$p_var), levels = age_to_pm_lab(age_labels))
+  data$c_var <- factor(age_to_pm_lab(data$c_var), levels = age_to_pm_lab(age_labels))
+  
+  # per capita location-specific contact matrix, scaled up to 2025 population
+  for(i in 1:length(locations)){
+    location <- locations[i]
+    filter_locn <- list(a = 1)
+    names(filter_locn) <- paste0('cnt_', location)
+    
+    out <- data %>% filter(c_location == location) %>% 
+      ungroup() %>% 
+      arrange(p_var, c_var) %>% 
+      select(p_var, c_var, mean_mu) %>% 
+      pivot_wider(names_from = c_var, values_from = mean_mu)
+    
+    matrices[[i]] <- out
+  }
+  
+  names(matrices) <- locations
+  
+  # polymod weights for each p_age_group, c_age_group, c_location
+  pmw <- data.table(CJ(p_age_group = age_labels, c_age_group = age_labels, 
+                       broad_age_group = broad_age_labels, c_location = locations, prob = -8, sorted=F))
+  
+  for(i in 1:nrow(pmw)){
+    # if no overlap, prob = 0
+    if(overlaps[age_labels == pmw[i, c_age_group] & broad_age_labels == pmw[i, broad_age_group], overlap] == F){
+      pmw[i, prob := 0]
+    }else{
+      matr <- data.table(matrices[[pmw[i, c_location]]]) # location-specific matrix
+      row <- matr[which(age_labels == pmw[i, p_age_group]), ] # participant's age row
+      ages_to_subset <- overlaps[broad_age_labels == pmw[i, broad_age_group] & overlap == T, age_labels]
+      ages_to_subset_pm <- age_to_pm_lab(ages_to_subset)
+      subset_row <- row[,..ages_to_subset_pm] # contacts with feasible ages
+      if(rowSums(subset_row) == 0){ # if all 0, allocated according to population size 2025
+        filt_age <- data.table(age_struc[age_struc$p_age_group %in% ages_to_subset, ])
+        # scale 15-19 value by 60% if broad age group is 0-17
+        if(pmw[i, broad_age_group] == '0-17'){
+          filt_age[p_age_group == '15-19', n := 0.6*n]
+          pmw[i, prob := filt_age[p_age_group == pmw[i, c_age_group], n]/sum(filt_age$n)]  
+        }else{
+          # scale 15-19 value by 40% if broad age group is 18-64
+          if(pmw[i, broad_age_group] == '18-64'){
+            filt_age[p_age_group == '15-19', n := 0.4*n]
+            pmw[i, prob := filt_age[p_age_group == pmw[i, c_age_group], n]/sum(filt_age$n)]  
+          }else{
+            pmw[i, prob := filt_age[p_age_group == pmw[i, c_age_group], n]/sum(filt_age$n)]  
+          }
+        }
+      }else{
+        col <- age_to_pm_lab(pmw[i, c_age_group])
+        # scale 15-19 value by 60% if broad age group is 0-17
+        if(pmw[i, broad_age_group] == '0-17'){
+          subset_row[, '[15,20)'] <- 0.6*subset_row[, '[15,20)']
+          suppressWarnings(pmw[i, prob := subset_row[,..col]/rowSums(subset_row)])
+        }else{
+          # scale 15-19 value by 40% if broad age group is 18-64
+          if(pmw[i, broad_age_group] == '18-64'){
+            subset_row[, '[15,20)'] <- 0.4*subset_row[, '[15,20)']
+            suppressWarnings(pmw[i, prob := subset_row[,..col]/rowSums(subset_row)])
+          }else{
+            suppressWarnings(pmw[i, prob := subset_row[,..col]/rowSums(subset_row)])
+          }
+        }
+      }
+    }
+  }
+  
+  # check all appropriate sums are 1
+  test <- pmw %>% group_by(p_age_group, broad_age_group, c_location) %>% summarise(s=sum(prob)) 
+  if(!all.equal(test$s, rep(1,nrow(test)))){warning('Some sums not 1')}
+  
+  pmw
+  
+}
 
 ## FUNCTION TO FILTER PARTICIPANT AGE GROUP ##
 
@@ -788,35 +952,69 @@ max_large_n_fcn <- function(x){ifelse(x > max_large_n, max_large_n, x)}
 
 balancing_fcn <- function(
     data,
-    age_structure
+    age_structure,
+    setting_specific = F
 ){
   
   data <- data.table(data)
   
+  regional_analysis <- 'p_engreg' %in% colnames(age_structure)
+  
+  key_vec <- c('bootstrap_index','p_age_group', 'p_imd_q', 'c_age_group', 'c_imd_q')
+  if(regional_analysis){key_vec <- c(key_vec, 'p_engreg')}
+  
   # aggregate over contact settings
-  if('c_location' %in% colnames(data)){
+  if('c_location' %in% colnames(data) & setting_specific == F){
     data[, c_location := NULL]
-    data <- data[, lapply(.SD, sum), by = c('bootstrap_index','p_age_group', 'p_imd_q', 'c_age_group', 'c_imd_q')] 
+    data <- data[, lapply(.SD, sum), by = key_vec] 
   }
   
   data <- data %>% ungroup()
   
   # select relevant population structure columns
-  population_dt <- age_structure %>% select(age, imd_q, prop_imd)
-  colnames(population_dt) <- c('p_age_group','p_imd_q','proportion')
+  pop_vec <- c('age', 'imd_q', 'prop_imd')
+  pop_vec_names <- c('p_age_group','p_imd_q','proportion')
+  if(regional_analysis){
+    pop_vec <- c(pop_vec, 'p_engreg')
+    pop_vec_names <- c(pop_vec_names, 'p_engreg')
+    }
+  
+  population_dt <- age_structure %>% select(!!!syms(pop_vec))
+  colnames(population_dt) <- pop_vec_names
+  
+  join_vec_1 <- c('p_age_group', 'p_imd_q')
+  if(regional_analysis){join_vec_1 <- c(join_vec_1, 'p_engreg')}
   
   scaled_matrix_1 <- data %>% arrange(bootstrap_index, p_age_group, p_imd_q) %>% 
-    left_join(population_dt, by=c('p_age_group','p_imd_q')) %>% mutate(scaled_mu = n*proportion) 
+    left_join(population_dt, by=join_vec_1) %>% mutate(scaled_mu = n*proportion) 
+  
+  select_cols <- c('bootstrap_index', 'p_age_group', 'p_imd_q', 'c_age_group', 'c_imd_q')
+  
+  if(setting_specific){
+    select_cols <- c(select_cols, 'c_location')
+    col_label <- 'c_location'
+    }
+  if(regional_analysis){
+    select_cols <- c(select_cols, 'p_engreg')
+    col_label <- 'p_engreg'
+    }
+  
+  select_cols_mu <- c(select_cols, 'scaled_mu')
+  select_cols_umu <- c(select_cols, 'unscaled_mean_scaled_mu')
   
   transposed_scaled_matrix_1 <- scaled_matrix_1 %>% 
-    select(bootstrap_index, p_age_group, p_imd_q, c_age_group, c_imd_q, scaled_mu)
-  colnames(transposed_scaled_matrix_1) <- c('bootstrap_index', 'c_age_group', 'c_imd_q', 'p_age_group', 'p_imd_q', 'scaled_mu_t')
+    select(!!!syms(select_cols_mu))
+  colnames(transposed_scaled_matrix_1) <- if(setting_specific + regional_analysis){
+    c('bootstrap_index', 'c_age_group', 'c_imd_q', 'p_age_group', 'p_imd_q', col_label, 'scaled_mu_t')
+  }else{
+    c('bootstrap_index', 'c_age_group', 'c_imd_q', 'p_age_group', 'p_imd_q', 'scaled_mu_t')
+  }
   
   scaled_matrix_2 <- scaled_matrix_1 %>% 
-    left_join(transposed_scaled_matrix_1, by=c('bootstrap_index', 'c_age_group', 'c_imd_q', 'p_age_group', 'p_imd_q')) %>% 
+    left_join(transposed_scaled_matrix_1, by = select_cols) %>% 
     mutate(mean_scaled_mu = (scaled_mu + scaled_mu_t)/2) %>% mutate(unscaled_mean_scaled_mu = mean_scaled_mu/proportion)
   
-  matrix_out <- scaled_matrix_2 %>% select(bootstrap_index, p_age_group, p_imd_q, c_age_group, c_imd_q, unscaled_mean_scaled_mu) %>% 
+  matrix_out <- scaled_matrix_2 %>% select(!!!syms(select_cols_umu)) %>% 
     setnames('unscaled_mean_scaled_mu', 'n')
   
   matrix_out
