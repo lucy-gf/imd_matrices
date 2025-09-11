@@ -20,6 +20,8 @@ options(dplyr.summarise.inform = FALSE)
 
 if(!file.exists(gsub('/attack_rate_bars.png','',.args[3]))){dir.create(gsub('/attack_rate_bars.png','',.args[3]))}
 
+sens_analysis <- .args[2]
+
 # source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
 source(here::here('scripts','setup','colors.R'))
@@ -32,15 +34,7 @@ source(here::here(source_dir,'setup.r')) #repo
 pset$Disease <- "Influenza"
 
 ## Parameters
-if(pset$Vaccination==0){
-  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/pars/parsC_.r"))
-  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsF_.r"))
-  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsR_.r"))
-}else{
-  if(pset$Disease=="COVID-19")    source(paste0(source_dir,"/pars/parsCv_.r"))
-  if(pset$Disease=="Influenza")   source(paste0(source_dir,"/pars/parsFv_.r"))
-  if(pset$Disease=="RSV-illness") source(paste0(source_dir,"/pars/parsRv_.r"))
-}
+source(paste0(source_dir,"/parsF_.r"))
 
 # set seed
 set.seed(120)
@@ -328,16 +322,16 @@ p3b <- ggplot(data, aes(x=time)) +
 
 ## save
 p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')
-ggsave(here::here('output','figures','epidem','time_series.png'), dpi=600, 
+ggsave(here::here('output','figures','epidem',sens_analysis,'time_series.png'), dpi=600, 
        device = "png", width = 12, height = 9)
 
 ## save
 p2facet + p2bfacet + plot_layout(nrow = 2, guides = 'collect')
-ggsave(here::here('output','figures','epidem','time_series_imd_facet.png'), dpi=600, 
+ggsave(here::here('output','figures','epidem',sens_analysis,'time_series_imd_facet.png'), dpi=600, 
        device = "png", width = 12, height = 8)
 
 ## save
-ggsave(plot = p3facet, here::here('output','figures','epidem','time_series_age_facet.png'), dpi=600, 
+ggsave(plot = p3facet, here::here('output','figures','epidem',sens_analysis,'time_series_age_facet.png'), dpi=600, 
        device = "png", width = 12, height = 8)
 
 # ARRs
@@ -373,7 +367,7 @@ arr_plot <- ggplot(data, aes(x=imd)) +
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) +
   labs(y = "Relative attack rate", x = 'Age group', color = "IMD", fill = 'IMD'); arr_plot
-ggsave(here::here('output','figures','epidem','rel_attack_rates_by_imd.png'), dpi=600, 
+ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by_imd.png'), dpi=600, 
        bg = 'white',
        device = "png", width = 16, height = 8)
 
@@ -403,7 +397,7 @@ arr_plot_age <- ggplot(data, aes(x=age)) +
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) +
   labs(y = "Relative attack rate", x = 'IMD quintile', color = "Age", fill = 'Age'); arr_plot_age
-ggsave(here::here('output','figures','epidem','rel_attack_rates_by_age.png'), dpi=600, 
+ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by_age.png'), dpi=600, 
        bg = 'white',
        device = "png", width = 16, height = 8)
 
@@ -518,15 +512,15 @@ CCCDDDDD
 '
 
 all_time_s + all_time_s_cum + all_time_s_cum_hm + age_spec_ar + plot_layout(nrow = 2, guides = 'collect', design = layout)
-ggsave(here::here('output','figures','epidem','patchwork.png'), dpi=600, 
+ggsave(here::here('output','figures','epidem',sens_analysis,'patchwork.png'), dpi=600, 
        device = "png", width = 14, height = 16)
 
 all_time_s + all_time_s_cum + plot_layout(nrow = 1, guides = 'collect')
-ggsave(here::here('output','figures','epidem','age_x_imd.png'), dpi=600, 
+ggsave(here::here('output','figures','epidem',sens_analysis,'age_x_imd.png'), dpi=600, 
        device = "png", width = 10, height = 8)
 
 ggsave(plot = all_time_s_cum_imd, 
-       here::here('output','figures','epidem','age_x_imd_cumulative.png'), dpi=600, 
+       here::here('output','figures','epidem',sens_analysis,'age_x_imd_cumulative.png'), dpi=600, 
        device = "png", width = 10, height = 10)
 
 ggsave(plot = age_spec_ar, 
