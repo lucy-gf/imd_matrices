@@ -396,7 +396,7 @@ arr_plot_age <- ggplot(data, aes(x=age)) +
   geom_point(aes(y = median, col = as.factor(age), group = as.factor(age)),
              size = 3)  +
   theme_minimal() +
-  facet_grid(. ~ imd, switch = 'x') + 
+  facet_grid(imd~., switch = 'x') + 
   scale_color_manual(values = colors_p_age_group) + 
   theme(text=element_text(size=12),
         # axis.title.x=element_blank(),
