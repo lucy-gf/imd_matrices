@@ -25,7 +25,8 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 indiv_contacts <- readRDS(.args[1])
 
-sens_analysis <- ''
+## set sensitivity analysis ##
+sens_analysis <- .args[2]
 
 #### TURN INTO DISTRIBUTION ####
 
@@ -88,7 +89,7 @@ plot_imd_proportions <- function(filter_value,
 
 plots <- map(
   .x = if(sens_analysis == 'regional'){unique(indiv_contacts_imd_props$p_engreg)}else{unique(indiv_contacts_imd_props$c_location)},
-  .f = plot_imd_proportions
+  .f = ~plot_imd_proportions(.x, sens_analysis)
   )
 
 patchwork::wrap_plots(plots, nrow = 2,

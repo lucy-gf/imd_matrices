@@ -109,16 +109,20 @@ for (ia in 1:na) { for (is in 1:nimd) {
     Ns[is] = Ns[is] + 1/oNg[(is-1)*na + ia] }}
 Npop = sum(1/oNg);
 
-# pars: imd=1, age 30 to 39", 1/100,000 latent infections
-E1g0 = (1/oNg)*pars$pE1g0
-Sg0  = Sg0 - E1g0
-
 ## run model x1000
 n_bs <- max(cm1000$bootstrap_index)
 byw <- data.table(); byaw <- data.table(); byall <- data.table()
 betatrack <- rep(0, n_bs)
 
 for(sim_num in 1:n_bs){
+  
+  # randomly seed the initial (1/100,000) latent infections
+  random_demographic <- sample(1:length(pars$pE1g0), 1)
+  pars$pE1g0 <- rep(0, length(pars$pE1g0))
+  pars$pE1g0[random_demographic] <- (1/10^5)   
+  
+  E1g0 = (1/oNg)*pars$pE1g0
+  Sg0  = Sg0 - E1g0
   
   cm <- cm1000[bootstrap_index == sim_num,] 
   cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages); cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)

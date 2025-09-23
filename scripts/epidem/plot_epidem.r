@@ -36,6 +36,10 @@ pset$Disease <- "Influenza"
 ## Parameters
 source(paste0(source_dir,"/parsF_.r"))
 
+## Set base levels for IMD and age
+base_imd_arr <- 3
+base_age_arr <- '35-39'
+
 # set seed
 set.seed(120)
 
@@ -335,15 +339,16 @@ ggsave(plot = p3facet, here::here('output','figures','epidem',sens_analysis,'tim
        device = "png", width = 12, height = 8)
 
 # ARRs
+X <- base_imd_arr
 data1000 <- copy(byall)
 for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
 data_1000ar <- data1000[, lapply(.SD, sum), by = c('sim')][, iW := NULL][, time := NULL]
 data_melt <- melt.data.table(data_1000ar, id.vars = c('sim'))
 data_melt[, age := rep(rep(pars$ages, each = n_distinct(data_melt$sim)), nimd)]
 data_melt[, imd := rep(1:nimd, each = na*n_distinct(data_melt$sim))]
-data_imd1 <- data_melt[imd == 1][, imd_1_value := value]
-data <- data_melt[data_imd1[, c('sim','age','imd_1_value')], on = c('sim','age')]
-data[, arr := value/imd_1_value]
+data_imdX <- data_melt[imd == X][, imd_X_value := value]
+data <- data_melt[data_imdX[, c('sim','age','imd_X_value')], on = c('sim','age')]
+data[, arr := value/imd_X_value]
 data_min <- data[, c('age','imd','arr')]
 data_agg <- rbind(
   data_min[, lapply(.SD, median), by = c('age','imd')][, meas := 'median'],
@@ -371,9 +376,10 @@ ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by
        bg = 'white',
        device = "png", width = 16, height = 8)
 
-data_age3034 <- data_melt[age == '30-34'][, age_3034_value := value]
-data <- data_melt[data_age3034[, c('sim','imd','age_3034_value')], on = c('sim','imd')]
-data[, arr := value/age_3034_value]
+Xage <- base_age_arr
+data_ageX <- data_melt[age == Xage][, age_X_value := value]
+data <- data_melt[data_ageX[, c('sim','imd','age_X_value')], on = c('sim','imd')]
+data[, arr := value/age_X_value]
 data_min <- data[, c('age','imd','arr')]
 data_agg <- rbind(
   data_min[, lapply(.SD, median), by = c('age','imd')][, meas := 'median'],

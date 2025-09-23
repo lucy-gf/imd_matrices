@@ -296,10 +296,13 @@ fcn_assign_imd_cm <- function(
       if(i_row == 100){
         n <- (nrow(probs_unique)/100)
         cat('\nExpected time: ', 
-            floor(n*difftime(Sys.time(), time, units = 'secs')[[1]]/60), ' mins ',
-            round(n*difftime(Sys.time(), time, units = 'secs')[[1]] - 
-                    60*floor(n*difftime(Sys.time(), time, units = 'secs')[[1]]/60)), ' secs',
+            floor(n*2*difftime(Sys.time(), time, units = 'secs')[[1]]/60), ' mins',
             sep = '')
+        # cat('\nExpected time: ', 
+        #     floor(n*difftime(Sys.time(), time, units = 'secs')[[1]]/60), ' mins ',
+        #     round(n*difftime(Sys.time(), time, units = 'secs')[[1]] - 
+        #             60*floor(n*difftime(Sys.time(), time, units = 'secs')[[1]]/60)), ' secs',
+        #     sep = '')
       }
       if(i_row %% 200 == 0){
         cat('\nRows done = ', i_row, '/', nrow(probs_unique), sep = '')
@@ -339,7 +342,7 @@ fcn_assign_imd_cm <- function(
   cat('\nTime taken: ', 
       floor(difftime(Sys.time(), time, units = 'secs')[[1]]/60), ' mins ',
       round(difftime(Sys.time(), time, units = 'secs')[[1]] - 
-              60*floor(difftime(Sys.time(), time, units = 'secs')[[1]]/60)), ' secs',
+              60*floor(difftime(Sys.time(), time, units = 'secs')[[1]]/60)), ' secs\n',
       sep = '')
   
   out
