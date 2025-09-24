@@ -37,7 +37,7 @@ pset$Disease <- "Influenza"
 source(paste0(source_dir,"/parsF_.r"))
 
 ## Set base levels for IMD and age
-base_imd_arr <- 3
+base_imd_arr <- 5
 base_age_arr <- '35-39'
 
 # set seed
@@ -241,6 +241,22 @@ p2b <- ggplot(data, aes(x=time)) +
         axis.text.x = element_text(color=1)) +
   labs(y = "Cumulative infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2b
 
+imd_final_size <- data %>% 
+  filter(time == max(time)) %>% 
+  ggplot(aes(x=imd)) + 
+  geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.4)  +
+  geom_point(aes(y = median, col = imd), size = 3)  +
+  theme_bw() +
+  scale_color_manual(values = imd_quintile_colors) + 
+  # scale_fill_manual(values = imd_quintile_colors) + 
+  ylim(c(0,800)) + 
+  theme(text=element_text(size=14),
+        legend.position = 'none',
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Final size per 1000 population", x = "", color = "IMD", fill = 'IMD'); imd_final_size
+
 p2bfacet <- ggplot(data, aes(x=time)) + 
   geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
   geom_line(aes(y = median, col = imd), lwd=0.8)  +
@@ -255,10 +271,48 @@ p2bfacet <- ggplot(data, aes(x=time)) +
         axis.text.x = element_text(color=1)) +
   labs(y = "Cumulative infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2bfacet
 
+data_imd1000 <- byw[, c('sim','time','IUw_s1','IUw_s2','IUw_s3','IUw_s4','IUw_s5')]
+for(a in 1:5){data_imd1000[, (paste0('IUw_s', a))] <- 1e3*data_imd1000[, get(paste0('IUw_s', a))]/Ns[a]}
+data_imd1000sum <- data_imd1000[, lapply(.SD, sum), by = c('sim')][, time := NULL]
+X <- 5#base_imd_arr
+data_melt <- melt.data.table(data_imd1000sum, id.vars = c('sim'))
+data_melt[, imd := substr(variable, 6, 6)][, variable := NULL]
+data_imdX <- data_melt[imd == X][, imd_X_value := value]
+data <- data_melt[data_imdX[, c('sim','imd_X_value')], on = c('sim')]
+data[, arr := value/imd_X_value]
+data_min <- data[, c('imd','arr')]
+data_agg <- rbind(
+  data_min[, lapply(.SD, median), by = c('imd')][, meas := 'median'],
+  data_min[, lapply(.SD, l95_func), by = c('imd')][, meas := 'l95'],
+  data_min[, lapply(.SD, u95_func), by = c('imd')][, meas := 'u95']
+)
+data <- dcast.data.table(data_agg, imd ~ meas, value.var = 'arr')
+
+imd_final_size_arr <- data %>% 
+  ggplot(aes(x=imd)) + 
+  geom_hline(col = 1, lty = 2, alpha = 0.3, yintercept = 1) +
+  geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.4)  +
+  geom_point(aes(y = median, col = imd), size = 3)  +
+  theme_bw() +
+  ylim(c(0.8, 1.2)) +
+  scale_color_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size=14),
+        legend.position = 'none',
+        plot.title = element_text(size = 12),
+        axis.text.y = element_text(color=1),
+        axis.text.x = element_text(color=1)) +
+  labs(y = "Relative final size", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_arr
+
+imd_final_size + imd_final_size_arr + plot_layout(nrow = 2) 
+
+## save
+ggsave(here::here('output','figures','epidem',sens_analysis,'final_size_imd.png'), dpi=600, 
+       device = "png", width = 10, height = 8)
+
 ## fig 3 by age
 data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]
 for(a in 1:16){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]} 
-data_age1000[, time := rep(min(data$time):max(data$time), max(data_age1000$sim))]
+data_age1000[, time := rep(min(byw$time):max(byw$time), max(data_age1000$sim))]
 data <- rbind(
   data_age1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
   data_age1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
@@ -364,8 +418,9 @@ arr_plot <- ggplot(data, aes(x=imd)) +
                 width = 0.4, lwd = 0.8)  +
   geom_point(aes(y = median, col = as.factor(imd), group = as.factor(imd)),
              size = 3)  +
-  theme_minimal() +
-  facet_grid(. ~ age, switch = 'x') + 
+  theme_bw() +
+  # facet_grid(. ~ age, switch = 'x') + 
+  facet_wrap(age ~ .) + 
   scale_color_manual(values = imd_quintile_colors) + 
   theme(text=element_text(size=12),
         # axis.title.x=element_blank(),
@@ -374,7 +429,7 @@ arr_plot <- ggplot(data, aes(x=imd)) +
   labs(y = "Relative attack rate", x = 'Age group', color = "IMD", fill = 'IMD'); arr_plot
 ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by_imd.png'), dpi=600, 
        bg = 'white',
-       device = "png", width = 16, height = 8)
+       device = "png", width = 12, height = 12)
 
 Xage <- base_age_arr
 data_ageX <- data_melt[age == Xage][, age_X_value := value]
@@ -405,7 +460,7 @@ arr_plot_age <- ggplot(data, aes(x=age)) +
   labs(y = "Relative attack rate", x = 'IMD quintile', color = "Age", fill = 'Age'); arr_plot_age
 ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by_age.png'), dpi=600, 
        bg = 'white',
-       device = "png", width = 16, height = 8)
+       device = "png", width = 10, height = 10)
 
   ## across all groups
 data1000 <- copy(byall)
