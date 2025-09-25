@@ -855,8 +855,9 @@ fit_matr <- function(
   all_merged <- data.table(all_merged)
   
   ## add 'total' location contacts
-  out_df <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location', 'n')]
-  out_tot <- out_df[, lapply(.SD, sum), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q')]
+  out_df <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location','n')]
+  out_df_no_locn <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','n')]
+  out_tot <- out_df_no_locn[, lapply(.SD, sum), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q')]
   out_tot[, c_location := 'total']
   out_df <- rbind(out_df, out_tot)
   
@@ -876,12 +877,17 @@ neg_bin_fcn <- function(vec){
   # calc. mean and variance, used for initial values
   m <- mean(vec)
   v <- var(vec)
+  # cat('Mean = ', m, ', Var = ', v, ' Vec = ', vec, ' -- ', sep = '')
   
-  if(sum(vec != 0)){
-    outs = optim(c(mu = m, k = (v - m)/m^2), lower = c(mu = 1e-5, k = 1e-5), nb_loglik, x = vec, method = "L-BFGS-B")
-    ret <- as.numeric(outs$par)
-  } else{
-    ret <- c(0,0)
+  if(length(vec) > 1){
+    if(sum(vec != 0)){
+      outs = optim(c(mu = m, k = (v - m)/m^2), lower = c(mu = 1e-5, k = 1e-5), nb_loglik, x = vec, method = "L-BFGS-B")
+      ret <- as.numeric(outs$par)
+    } else{
+      ret <- c(0,0)
+    }
+  }else{
+    if(length(vec) == 1){ret <- c(vec, 0)}
   }
   
   paste(ret, collapse = '_')
