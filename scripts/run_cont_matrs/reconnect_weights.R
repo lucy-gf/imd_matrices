@@ -62,8 +62,8 @@ age_structure_fine <- age_ethn_sex_raw %>%
 
 #### MAKE RECONNECT DATA ####
 
-reconnect_part <- readRDS(file.path("data", "connect","connect_part.rds"))
-reconnect_contact <- readRDS(file.path("data", "connect","connect_contacts.rds"))
+reconnect_part <- readRDS(file.path("data", "reconnect","reconnect_part.rds"))
+reconnect_contact <- readRDS(file.path("data", "reconnect","reconnect_contacts.rds"))
 
 # merge
 rc <- reconnect_contact %>% select(p_id, c_id, c_age_group, c_location) %>% 
@@ -142,6 +142,30 @@ r_weights <- reconnect_weights_fcn(
 #### SAVE RDS ####
 
 write_rds(r_weights, .args[2])
+
+#### plot difference between Reconnect and Polymod ####
+
+p_weights <- readRDS(file.path("data", "ons","polymod_weights.rds"))
+r_weights
+
+dat <- rbind(p_weights %>% mutate(study = 'Polymod'),
+             r_weights %>% mutate(study = 'Reconnect'))
+dat$p_age_group <- factor(dat$p_age_group, levels = unique(dat$p_age_group))
+dat$c_age_group <- factor(dat$c_age_group, levels = unique(dat$c_age_group))
+
+dat %>% 
+  ggplot() + 
+  geom_line(aes(x = c_age_group, y = prob, col = study, lty = broad_age_group, 
+                group = interaction(study, c_location, broad_age_group))) +
+  facet_grid(p_age_group ~ c_location, switch = 'y') +
+  scale_linetype_manual(values = c(1,2,4)) + 
+  theme_bw() +
+  labs(col = 'Study', lty = 'Broad age group', x = 'Contact age group', y = 'Participant age group') +
+  theme(text = element_text(size = 14),
+        axis.text.y=element_blank(),axis.ticks.y=element_blank(),
+        axis.text.x=element_text(angle = 90, hjust = 1, vjust = 0.5))
+ggsave(file.path('output','figures','cont_matrs','large_n_age','age_distr_diff.png'),
+       height = 12, width = 10)
 
 
 

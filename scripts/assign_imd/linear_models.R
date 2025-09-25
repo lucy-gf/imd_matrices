@@ -15,8 +15,8 @@ suppressPackageStartupMessages(library(purrr))
 
 # set arguments 
 .args <- if (interactive()) c(
-  file.path("data", "connect", "connect_part.rds"),
-  file.path("data", "connect", "connect_contacts.rds")
+  file.path("data", "reconnect", "reconnect_part.rds"),
+  file.path("data", "reconnect", "reconnect_contacts.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 # source functions

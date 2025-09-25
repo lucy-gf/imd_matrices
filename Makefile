@@ -19,7 +19,7 @@ CODEDIR ?= scripts
 ASSIGNDIR ?= ${CODEDIR}/assign_imd
 SETUP ?= setup
 INPUTDIR ?= data
-CONNECTDIR ?= ${INPUTDIR}/connect
+CONNECTDIR ?= ${INPUTDIR}/reconnect
 CENSUSDIR ?= ${INPUTDIR}/census
 ONSDIR ?= ${INPUTDIR}/ons
 OUTDIR ?= output
@@ -91,21 +91,21 @@ clean:
 
 ##### Polymod-weighted large group contacts ########## 
 
-${CONNECTDIR}/connect_contacts_formatted.rds: ${ASSIGNDIR}/polymod_weights.R ${CONNECTDIR}/connect_part.rds ${CONNECTDIR}/connect_contacts.rds ${ONSDIR}/ons_2022_age_structure.xlsx
+${CONNECTDIR}/connect_contacts_formatted.rds: ${ASSIGNDIR}/polymod_weights.R ${CONNECTDIR}/reconnect_part.rds ${CONNECTDIR}/reconnect_contacts.rds ${ONSDIR}/ons_2022_age_structure.xlsx
 	$(call R)
 
 ##### Assign IMD for each scenario ########## 
 
 ##### Deterministic ########## 
 
-${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/%.csv
+${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
 	$(call R,$(firstword $(subst _, ,$*)))
 
 allassignmentdet: $(call makeassigndet, ${RUNVAR})
 
 ##### Probabilistic ########## 
 
-${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/connect_part.rds ${CENSUSDIR}/%.csv
+${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
 	$(call R,$(firstword $(subst _, ,$*)))
 
 allassignmentprob: $(call makeassignprob, ${RUNVAR})
@@ -131,7 +131,7 @@ allmerged: $(patsubst %,${DATDIR}/assignment/connect_%_utlaageethnnssec.rds, ${A
 
 ##### Linear model coefficient plots ########## 
 
-${FIGDIR}/assignment/values_lm.png: ${ASSIGNDIR}/linear_models.R ${CONNECTDIR}/connect_part.rds ${CONNECTDIR}/connect_contacts.rds
+${FIGDIR}/assignment/values_lm.png: ${ASSIGNDIR}/linear_models.R ${CONNECTDIR}/reconnect_part.rds ${CONNECTDIR}/reconnect_contacts.rds
 	$(call R)
 	
 alllmplots: ${FIGDIR}/assignment/values_lm.png
@@ -145,7 +145,7 @@ alltruedistplots: $(patsubst %,${FIGDIR}/assignment/%/true_distrs.png, ${ALLSCN}
 
 ##### Age-specific mean contact and proportion u18 plots ########## 
 
-${FIGDIR}/assignment/%/mean_age_contacts.png: ${ASSIGNDIR}/age_contact_plots.R ${DATDIR}/assignment/connect_%.rds ${CONNECTDIR}/connect_contacts.rds
+${FIGDIR}/assignment/%/mean_age_contacts.png: ${ASSIGNDIR}/age_contact_plots.R ${DATDIR}/assignment/connect_%.rds ${CONNECTDIR}/reconnect_contacts.rds
 	$(call R, $*)
 
 allageplots: $(patsubst %,${FIGDIR}/assignment/%/mean_age_contacts.png, ${ALLSCN})
@@ -230,12 +230,12 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 
 ##### Make contact matrices ########## 
 
-${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/connect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
+${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/reconnect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
 	$(call R, $*)
 	
 allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES})
 
-${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/connect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
+${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
 	$(call R, $*)
 	
 allsampledcont: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, ${A_SENS_ANALYSES})

@@ -12,9 +12,9 @@ library(patchwork, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","participants.rds"),
-  file.path("output", "data", "cont_matrs","indiv_contacts.rds"),
-  file.path("output", "data", "cont_matrs","cont_imd_distr.rds"),
+  file.path("output", "data", "cont_matrs","base","participants.rds"),
+  file.path("output", "data", "cont_matrs","base","indiv_contacts.rds"),
+  file.path("output", "data", "cont_matrs","base","cont_imd_distr.rds"),
   file.path("data", "ons","polymod_weights.rds"),
   file.path("output", "data","cont_matrs","reconnect_weights.rds"),
   "base",
