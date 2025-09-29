@@ -28,6 +28,9 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 set.seed(70)
 
+## set start time
+start_time <- Sys.time()
+
 #### READ IN DATA ####
 
 participants <- readRDS(.args[1]) %>% 
@@ -48,6 +51,9 @@ if(!file.exists(file.path("output", "data", "cont_matrs", sens_analysis))){dir.c
 
 ## set age group ##
 age_in <- .args[7]
+
+## create temp file path ##
+tmp_file <- paste0(.args[8], ".tmp")
 
 #### RUN NEGATIVE BINOMIAL FITTING ####
 ## parallelised across p_imd_quintile
@@ -123,7 +129,23 @@ fitted_list <- map(
 
 fitted <- rbindlist(fitted_list)
 
+# Print data
+cat('\nAge group: ', age_in, sep='')
+cat('\nTime taken: ', floor(difftime(Sys.time(), start_time, units = 'secs')[[1]]/60), ' mins ',
+        round(difftime(Sys.time(), start_time, units = 'secs')[[1]] -
+                60*floor(difftime(Sys.time(), start_time, units = 'secs')[[1]]/60)), ' secs',
+        sep = '')
+mem <- memory.profile()
+cat("\nPeak memory used (R side): ", round(sum(mem) / 1024 / 1024, 2), "GB\n", sep = '')
+
+
 #### SAVE CSV ####
 
-write_csv(fitted, .args[8])
+# write to the temp file
+write.csv(fitted, tmp_file)
+
+# rename to final file (only if write was successful)
+file.rename(tmp_file, .args[8])
+
+# write_csv(fitted, .args[8])
 

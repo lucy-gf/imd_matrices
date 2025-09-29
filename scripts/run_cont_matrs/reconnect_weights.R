@@ -158,7 +158,7 @@ dat %>%
   geom_line(aes(x = c_age_group, y = prob, col = study, lty = broad_age_group, 
                 group = interaction(study, c_location, broad_age_group))) +
   facet_grid(p_age_group ~ c_location, switch = 'y') +
-  scale_linetype_manual(values = c(1,2,4)) + 
+  scale_linetype_manual(values = c(2,1,4)) + 
   theme_bw() +
   labs(col = 'Study', lty = 'Broad age group', x = 'Contact age group', y = 'Participant age group') +
   theme(text = element_text(size = 14),
