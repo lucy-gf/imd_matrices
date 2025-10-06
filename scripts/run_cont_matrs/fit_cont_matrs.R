@@ -98,7 +98,11 @@ fit_matr_parallel_regional <- function(imd){
   
   for(reg in unique(participants$p_engreg)){
     
-    print(reg)
+    reg <- gsub('\n','', reg)
+    
+    if(nrow(participants %>% filter(p_imd_q == imd,
+                                    p_age_group == age_in,
+                                    p_engreg == reg)) == 0){warning('No participants in region')}
     
     out <- fit_matr(part_filt = participants %>% filter(p_imd_q == imd,
                                                         p_age_group == age_in,

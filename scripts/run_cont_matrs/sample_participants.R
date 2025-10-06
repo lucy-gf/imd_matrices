@@ -11,7 +11,7 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("data", "connect", "connect_part.rds"),
+  file.path("data", "reconnect", "reconnect_part.rds"),
   file.path("data", "ons", "age_ethn_sex.xlsx"),
   file.path("data", "census", "pcd1ageethn.csv"),
   file.path("data", "census", "pcd1ethnnssec.csv"),
@@ -56,6 +56,7 @@ pcd1ethnnssec <- readr::read_csv(.args[4], show_col_types = F)
 
 ## if in regional sensitivity analysis, use region-specific age distr ##
 if(sens_analysis == 'regional'){
+  
   age_ethn_sex_raw <- data.frame(read_xlsx(file.path("data", "census", "region_age_ethn_sex.xlsx")))
   colnames(age_ethn_sex_raw) <- c('region_code','p_engreg','eg_c','p_ethnicity','age_c','p_age_group','sex_c','p_gender','observation')
   age_ethn_sex <- age_ethn_sex_raw %>% 
@@ -157,11 +158,29 @@ sampled <- rbindlist(sampled_list) %>%
 
 # pcd1, age, ethnic group
 
-sampled_imd_age_ethn <- fcn_assign_imd_cm(
-  data_input = sampled %>% filter(p_age < 18 | p_age >= 65),
-  census_data = pcd1ageethn,
-  variables = c('pcd1','p_age_group','p_ethnicity')
+# sampled_imd_age_ethn <- fcn_assign_imd_cm(
+#   data_input = sampled %>% filter(p_age < 18 | p_age >= 65),
+#   census_data = pcd1ageethn,
+#   variables = c('pcd1','p_age_group','p_ethnicity')
+# )
+
+parallelised_fcn_assign_imd_cm <- function(ethn){
+  
+  fcn_assign_imd_cm(
+    data_input = sampled %>% filter(p_age < 18 | p_age >= 65,
+                                    p_ethnicity == ethn),
+    census_data = pcd1ageethn %>% filter(p_ethnicity == ethn),
+    variables = c('pcd1','p_age_group','p_ethnicity')
   )
+  
+}
+
+sampled_imd_age_ethn_list <- map(
+  .x = unique(sampled$p_ethnicity),
+  .f = parallelised_fcn_assign_imd_cm
+)
+
+sampled_imd_age_ethn <- rbindlist(sampled_imd_age_ethn_list)
 
 # pcd1, ethnic group, NS-SEC code
 
@@ -175,7 +194,7 @@ sampled_imd <- rbind(sampled_imd_age_ethn,
                      sampled_imd_ethn_nssec)
 
 sampled_imd <- sampled_imd %>% 
-  mutate(row_id = paste0(p_id, '_', bootstrap_index, '_', 1:nrow(sampled_imd)))
+  mutate(row_id = paste0(p_id, '_', bootstrap_index, '_', 1:nrow(sampled_imd))) 
 
 #### SAVE RDS ####
 

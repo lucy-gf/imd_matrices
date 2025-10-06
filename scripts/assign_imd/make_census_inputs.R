@@ -14,6 +14,7 @@ library(tidyr)
 library(dplyr)
 library(here)
 library(readxl)
+library(ggplot2)
 
 here::here()
 
@@ -674,10 +675,10 @@ write_csv(tenure_nssec_pcd1, here::here('data','census','pcd1tenurenssec.csv'))
 ####################################
 ####################################
 
-connect_part <- readRDS(here::here('data','connect','connect_part.rds'))
+reconnect_part <- readRDS(here::here('data','reconnect','reconnect_part.rds'))
 
-if('age_lower' %notin% colnames(connect_part)){
-  connect_part <- connect_part %>% 
+if('age_lower' %notin% colnames(reconnect_part)){
+  reconnect_part <- reconnect_part %>% 
     mutate(p_age_group_2 = case_when(
       p_age_group %like% '75+' ~ '75+-',
       T ~ p_age_group
@@ -687,7 +688,7 @@ if('age_lower' %notin% colnames(connect_part)){
 }
 
 
-connect_input <- connect_part %>% 
+reconnect_input <- reconnect_part %>% 
   mutate(utla = case_when(
     p_la == 'City of Bristol' ~ 'Bristol',
     p_la == 'City of Kingston upon Hull' ~ 'Kingston upon Hull',
@@ -767,7 +768,7 @@ connect_input <- connect_part %>%
     T ~ p_sec_input
   ))
 
-write_rds(connect_input, here::here('data','connect','connect_part.rds'))
+write_rds(reconnect_input, here::here('data','reconnect','reconnect_part.rds'))
 
 cat('Time taken: ', 
     floor(difftime(Sys.time(), time, units = 'secs')[[1]]/60), ' mins ',

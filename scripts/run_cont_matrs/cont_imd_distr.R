@@ -30,7 +30,7 @@ sens_analysis <- .args[2]
 
 #### TURN INTO DISTRIBUTION ####
 
-indiv_contacts_imd_props <- if(sens_analysis == 'regional'){
+indiv_contacts_imd_props_empirical <- if(sens_analysis == 'regional'){
   indiv_contacts %>% 
     group_by(p_engreg, p_age_group, c_age_group, c_location, p_imd_q, c_imd_q) %>% 
     summarise(n_imd_p_c = n()) %>% 
@@ -53,6 +53,41 @@ indiv_contacts_imd_props <- if(sens_analysis == 'regional'){
     complete(p_age_group, c_age_group, c_location, p_imd_q, c_imd_q,
              fill = list(prop = 0))
 }
+
+## Add school distributions
+
+year <- "24" # TODO Change to "25" when possible
+
+dfe_distr <- if(sens_analysis == 'regional'){
+  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_AgeRegion_class.csv"), show_col_types = F)) %>% 
+    rename(p_engreg = Region) %>% 
+    mutate(p_engreg = case_when(grepl('London', p_engreg) ~ 'Greater London',
+                                grepl('Yorkshire', p_engreg) ~ 'Yorkshire and the Humber',
+                                T ~ p_engreg))
+}else{
+  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_Age_class.csv"), show_col_types = F))
+} 
+
+dfe_distr <- dfe_distr %>% 
+  mutate(p_age_group = paste0(gsub(",.*$", "", gsub('\\[','',Agp)),
+                              '-',
+                              as.numeric(gsub(".*,\\s*", "", gsub(')','',Agp))) - 1),
+         c_age_group = p_age_group) %>% 
+  select(!c(Agp, n_attr_tot)) %>% 
+  rename(p_imd_q = imd_five,
+         c_imd_q = imd_five_c,
+         prop = value) %>% 
+  mutate(c_location = 'School') 
+
+indiv_contacts_imd_props_no_school <- indiv_contacts_imd_props_empirical %>% 
+  filter(! (c_location == 'School' & 
+              p_age_group == c_age_group & 
+              p_age_group %in% c('0-4','5-9','10-14','15-19'))) 
+
+indiv_contacts_imd_props <- rbind(indiv_contacts_imd_props_no_school,
+                                  dfe_distr)
+
+## plot
 
 indiv_contacts_imd_props$p_age_group <- factor(indiv_contacts_imd_props$p_age_group,
                                                levels = rev(age_labels))

@@ -244,7 +244,7 @@ p2b <- ggplot(data, aes(x=time)) +
 imd_final_size <- data %>% 
   filter(time == max(time)) %>% 
   ggplot(aes(x=imd)) + 
-  geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.4)  +
+  geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.2)  +
   geom_point(aes(y = median, col = imd), size = 3)  +
   theme_bw() +
   scale_color_manual(values = imd_quintile_colors) + 
@@ -291,7 +291,7 @@ data <- dcast.data.table(data_agg, imd ~ meas, value.var = 'arr')
 imd_final_size_arr <- data %>% 
   ggplot(aes(x=imd)) + 
   geom_hline(col = 1, lty = 2, alpha = 0.3, yintercept = 1) +
-  geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.4)  +
+  geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.2)  +
   geom_point(aes(y = median, col = imd), size = 3)  +
   theme_bw() +
   ylim(c(0.8, 1.2)) +

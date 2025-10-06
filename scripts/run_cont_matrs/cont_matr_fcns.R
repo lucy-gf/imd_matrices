@@ -349,6 +349,66 @@ fcn_assign_imd_cm <- function(
   
 }
 
+## Function to assign IMD from DfE data
+
+fcn_assign_imd_dfe <- function(
+    data_input,
+    dfe_data,
+    regional = F
+){
+  
+  data <- data.table(data_input)
+  dfe_data <- data.table(dfe_data)
+  
+  variables <- c('p_age_group','c_age_group','imd_quintile')
+  
+  if(regional){
+    variables <- c(variables, 'p_engreg') 
+  }
+  
+  data_reps <- data.table()
+  
+  dt <- unique(dfe_data[, ..variables])
+  
+  for(i_row in 1:nrow(dt)){
+    
+    # find all matching participants
+    dfe_filt <- data.table(dfe_data)
+    participants_filt <- data.table(data)
+    for(var in variables){
+      dfe_filt <-  dfe_filt[get(var) == unlist(unname(dt[i_row, ..var])), ]
+      participants_filt <- participants_filt[get(var) == unlist(unname(dt[i_row, ..var])), ]
+    }
+    
+    n_participants_filt <- nrow(participants_filt)
+    
+    # sample (or assign) IMD quintiles if any participants in category
+    if(n_participants_filt > 0){
+      if(nrow(dt) > 1){
+        sampled_imd <- sample(dfe_filt$imd_quintile_c, 
+                              n_participants_filt, 
+                              replace = T, prob = dfe_filt$probability)
+      }else{
+        if(nrow(dt) == 1){
+          sampled_imd <- rep(dfe_filt$imd_quintile_c, n_participants_filt)
+        }else{
+          sampled_imd <- rep(0, n_participants_filt)
+        }
+      }
+      
+      data_reps <- rbind(data_reps,
+                         participants_filt %>% 
+                           mutate(imd_quintile_c = sampled_imd))
+    }
+    
+  }
+  
+  out <- data_reps[imd_quintile != 0,]
+  
+  out
+  
+}
+
 
 ## Function to get weights for large_n contacts from Polymod setting-specific matrices
 polymod_weights <- function(
@@ -697,6 +757,8 @@ fit_matr <- function(
   
   large_contacts <- data.table(large_contacts)
   
+  if(nrow(large_contacts) >= 1){
+    
   # transpose so that can be vectorised
   large_contacts_flip <- dcast.data.table(melt.data.table(large_contacts, 
                                                           id.vars = c('context')),
@@ -800,6 +862,7 @@ fit_matr <- function(
                                                       
   large_contacts_imd_sampled_long <- large_contacts_imd_sampled_long[variable != 'large_n']
   setnames(large_contacts_imd_sampled_long, 'variable','c_imd_q')
+  }
   
   ## merge individual and large contacts
   
@@ -816,6 +879,7 @@ fit_matr <- function(
   c_f_agg[, c_imd_q := as.factor(c_imd_q)]
   c_f_agg[, context := paste0(context, '_', c_imd_q)]
   
+  if(nrow(large_contacts) >= 1){
   # group contacts, adding in participants with no large n in specific age/location/c_imd_q
   large_contacts_imd_sampled_long[, context := paste0(context, '_', c_imd_q)]
   large_c <- large_contacts_imd_sampled_long[, c('context','value')]
@@ -838,10 +902,26 @@ fit_matr <- function(
   large_c_rbind[, c_imd_q := c_imd_q_vec]
   
   contacts_merged <- c_f_agg[large_c_rbind, on = c('row_id','context','c_imd_q')]
+  
   contacts_merged[is.na(n), n := 0]
   contacts_merged[, n := n + value]
   contacts_merged[, value := NULL]
   contacts_merged[, context := NULL]
+  
+  }else{
+    
+    contacts_merged <- copy(c_f_agg)
+    contacts_merged[grepl('home', context), c_location := 'home']
+    contacts_merged[grepl('work', context), c_location := 'work']
+    contacts_merged[grepl('school', context), c_location := 'school']
+    contacts_merged[grepl('other', context), c_location := 'other']
+    
+    age_vec <- unlist(strsplit(contacts_merged$context, '_'))[6*(1:nrow(contacts_merged)) - 1]
+    
+    contacts_merged[, c_age_group := age_vec]
+    contacts_merged[, context := NULL]
+    
+  }
   
   ## filling in participants with 0 contacts
   all_merged <- contacts_merged %>% 
@@ -974,8 +1054,12 @@ balancing_fcn <- function(
   
   # aggregate over contact settings
   if('c_location' %in% colnames(data) & setting_specific == F){
-    data[, c_location := NULL]
-    data <- data[, lapply(.SD, sum), by = key_vec] 
+    if('total' %in% tolower(unique(data$c_location))){
+      data <- data[tolower(c_location) == 'total', ][, c_location := NULL]
+    }else{
+      data[, c_location := NULL]
+      data <- data[, lapply(.SD, sum), by = key_vec]
+    }
   }
   
   data <- data %>% ungroup()

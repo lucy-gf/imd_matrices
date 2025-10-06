@@ -12,6 +12,7 @@ library(patchwork, warn.conflicts = FALSE)
 library(ggplot2)
 library(viridis)
 library(stringr)
+library(RColorBrewer)
 
 ## read in data ##
 
@@ -74,7 +75,7 @@ fcn_scale <- function(data_raw, dat_name = ''){
   group_cols <- cols[cols %notin% c('value','n_attr_tot')]
   group_cols <- group_cols[str_sub(group_cols, -2, -1) != '_c']
   
-  y_var <- col_names[str_sub(col_names, -2, -1) == '_c']
+  y_var <- cols[str_sub(cols, -2, -1) == '_c']
   x_var <- gsub('_c','', y_var)
   group_cols_cont <- gsub(x_var, y_var, group_cols)
   
@@ -244,26 +245,36 @@ plot_dfe_data_per_capita <- function(dat_raw, dat_name = ''){
     mutate(tot_attr_tot = sum(n_attr_tot_c)) %>% 
     ungroup() %>% 
     mutate(prop_contacts = n_attr_tot_c/tot_attr_tot,
-           rel_rate_contacts = value/prop_contacts,
-           above_1 = case_when(rel_rate_contacts >= 1 ~ 1,
-                               T ~ -1),
-           abs_rel_rate = case_when(rel_rate_contacts >= 1 ~ 1 - 1/rel_rate_contacts,
-                                    T ~ rel_rate_contacts - 1))
+           rel_rate_contacts = (value - prop_contacts)/prop_contacts) %>% 
+    drop_na()
   
-  colorscale <- (c('royalblue4', 'lightblue','gray80','salmon','firebrick4'))
-  breaks <- c(min(dat_pc$abs_rel_rate), -0.01, 0, 0.01, max(dat_pc$abs_rel_rate)) #c(0, 0.99, 1, 1.01, max(dat_pc$rel_rate_contacts))
+  # scaling the legend
+  vec <- c(-1, -0.8, -0.6, -0.4, -0.1, 0.1, 0.5, 1, 2, 3)
+  break_vector <- sort(c(vec, -Inf, Inf))
+  
+  dat_pc <- dat_pc %>% 
+    mutate(discrete_abs_rel_rate = cut(rel_rate_contacts, breaks = break_vector))
+  
+  values_brewer <- cut(sort(c(vec + 0.01, -1e6)), breaks = break_vector)
+  
+  missing_levels <- setdiff(values_brewer, dat_pc$discrete_abs_rel_rate)
+  
+  dat_pc <- dat_pc %>% 
+    drop_na() %>%
+    mutate(discrete_abs_rel_rate = factor(discrete_abs_rel_rate, levels = values_brewer))
+  
+  cols <- brewer.pal(brewer.pal.info['PiYG', "maxcolors"], 'PiYG')
+  names(cols) <- values_brewer
   
   plot <- dat_pc %>% 
-    drop_na() %>% 
     ggplot() + 
-    geom_tile(aes(x = !!sym(x_var), y = !!sym(y_var), fill = abs_rel_rate)) + 
+    geom_tile(aes(x = !!sym(x_var), y = !!sym(y_var), fill = discrete_abs_rel_rate)) + 
     theme_bw() +
-    scale_fill_gradientn(colors = colorscale, values = scales::rescale(breaks),
-                         na.value = "#e5e5e5") +
-    # scale_fill_viridis(trans = 'pseudo_log', option = 'A', breaks = c(0,1,3,6,12)) +
+    scale_fill_manual(values = cols,
+                      guide = guide_legend(reverse = T)) +
     labs(x = format_colname(x_var), y = format_colname(y_var), fill = '') +
     ggtitle(paste0(dat_name, ', relative to random mixing')) +
-    theme(text = element_text(size = 14))
+    theme(text = element_text(size = 14)); plot
   
   if(strata_exist){
     if(length(strata) == 1){
@@ -281,14 +292,13 @@ plot_dfe_data_per_capita <- function(dat_raw, dat_name = ''){
     }
   }
   
-  plot
+  plot 
   
 }
 
 ## function to inspect and plot ##
 
-inspect_and_plot <- function(data_list, name, folder,
-                             balance = F){
+inspect_and_plot <- function(data_list, name, folder){
   
   if(name == 'Counts'){return()}
   
@@ -305,6 +315,9 @@ inspect_and_plot <- function(data_list, name, folder,
   
   # remove NAs and rescale probabilities
   data <- fcn_scale(data, name)
+  
+  # balance UNLESS stratified by urban/rural
+  balance <- grepl('_UR_', name)
   
   # balance the matrices
   if(balance){

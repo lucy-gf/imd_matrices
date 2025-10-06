@@ -112,12 +112,14 @@ Npop = sum(1/oNg);
 ## run model x1000
 n_bs <- max(cm1000$bootstrap_index)
 byw <- data.table(); byaw <- data.table(); byall <- data.table()
-betatrack <- rep(0, n_bs)
+BETATRACK <- rep(0, n_bs)
+SEEDTRACK <- rep(0, n_bs)
 
 for(sim_num in 1:n_bs){
   
   # randomly seed the initial (1/100,000) latent infections
   random_demographic <- sample(1:length(pars$pE1g0), 1)
+  SEEDTRACK[sim_num] <- random_demographic
   pars$pE1g0 <- rep(0, length(pars$pE1g0))
   pars$pE1g0[random_demographic] <- (1/10^5)   
   
@@ -141,7 +143,7 @@ for(sim_num in 1:n_bs){
   if(!pset$R0fixed){betanew <- pars$beta}else{
     source(paste0(source_dir,"/R0_.r"))      #outputs cav
     betanew = R0(pars, R0assumed = as.numeric(pars$R0), printout = 0) #default 2.5
-    betatrack[sim_num] <- betanew
+    BETATRACK[sim_num] <- betanew
     # cat(paste0("Assuming R0 = ", pars$R0 ,", beta = ", round(betanew,4), "/day",'\n'))
   }
   
@@ -183,9 +185,9 @@ cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," mill
                 signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
                 ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
 if(pset$R0fixed){
-  cat('\n',paste0("Beta:  ", signif(mean(betatrack),digits=3)," (95% CI: ", 
-                  signif(quantile(betatrack, 0.025),3),
-                  ' - ', signif(quantile(betatrack, 0.975),3), ')\n'), sep = '')
+  cat('\n',paste0("Beta:  ", signif(mean(BETATRACK),digits=3)," (95% CI: ", 
+                  signif(quantile(BETATRACK, 0.025),3),
+                  ' - ', signif(quantile(BETATRACK, 0.975),3), ')\n'), sep = '')
 }
 
 ## imd check

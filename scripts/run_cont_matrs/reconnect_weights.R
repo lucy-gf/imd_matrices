@@ -4,6 +4,7 @@
 # load packages
 library(data.table)
 library(readr)
+library(ggplot2)
 library(stats)
 library(readxl)
 library(MASS, warn.conflicts = FALSE)
@@ -144,6 +145,10 @@ r_weights <- reconnect_weights_fcn(
 write_rds(r_weights, .args[2])
 
 #### plot difference between Reconnect and Polymod ####
+
+if(!file.exists(file.path('output','figures','cont_matrs','large_n_age'))){
+  dir.create(file.path('output','figures','cont_matrs','large_n_age'))
+}
 
 p_weights <- readRDS(file.path("data", "ons","polymod_weights.rds"))
 r_weights
