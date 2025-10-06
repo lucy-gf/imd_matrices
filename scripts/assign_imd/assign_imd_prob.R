@@ -11,7 +11,7 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 
 # set arguments 
 .args <- if (interactive()) c(
-  file.path("data", "connect", "connect_part.rds"),
+  file.path("data", "reconnect", "reconnect_part.rds"),
   file.path("data", "census", "pcd1agehiqualnssec.csv"),
   "pcd1agehiqualnssec",
   file.path("output", "data", "assignment","connect_prob_pcd1agehiqualnssec.rds")

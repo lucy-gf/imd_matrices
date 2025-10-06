@@ -10,8 +10,8 @@ library(tidyr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("data", "connect","connect_part.rds"),
-  file.path("data", "connect","connect_contacts.rds"),
+  file.path("data", "reconnect","reconnect_part.rds"),
+  file.path("data", "reconnect","reconnect_contacts.rds"),
   file.path("data", "ons","ons_2022_age_structure.xlsx"),
   file.path("data", "connect","connect_contacts_formatted.rds")
 ) else commandArgs(trailingOnly = TRUE)
