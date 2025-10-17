@@ -97,7 +97,9 @@ plot_imd_proportions <- function(filter_value,
   
   filt <- if(sens_analysis == 'regional'){
     indiv_contacts_imd_props %>% 
-      filter(p_engreg == filter_value) 
+      filter(p_engreg == filter_value) %>% 
+      group_by(p_engreg, p_age_group, c_age_group, p_imd_q, c_imd_q) %>% 
+      summarise(prop = mean(prop))
   }else{
     indiv_contacts_imd_props %>% 
       filter(c_location == filter_value) 
@@ -127,7 +129,7 @@ plots <- map(
   .f = ~plot_imd_proportions(.x, sens_analysis)
   )
 
-patchwork::wrap_plots(plots, nrow = 2,
+patchwork::wrap_plots(plots, nrow = ifelse(sens_analysis == 'regional',3,2),
                       guides = 'collect')
 
 

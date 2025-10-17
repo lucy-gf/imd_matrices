@@ -101,7 +101,7 @@ suppressWarnings(patchwork::wrap_plots(diff_plots, nrow = 2))
 
 #### SAVE PNG ####
 
-suppressWarnings(ggsave(gsub('.png','_diff.png',.args[2]), width = 18, height = 18))
+suppressWarnings(ggsave(gsub('.png','_diff.png',.args[3]), width = 18, height = 18))
 
 #### PLOT MEAN CONTACTS ####
 
@@ -136,7 +136,7 @@ patchwork::wrap_plots(plots, nrow = 2)
 
 #### SAVE PNG ####
 
-ggsave(.args[2], width = 24, height = 22)
+ggsave(.args[3], width = 24, height = 22)
 
 
 

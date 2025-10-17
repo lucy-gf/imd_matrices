@@ -27,7 +27,7 @@ cm_24 <- cms
 check_sums <- function(dat, dat_name = ''){
   
   cols <- colnames(dat)
-  group_cols <- cols[cols %notin% c('value','n_attr_tot')]
+  group_cols <- cols[cols %notin% c('value','n_attr_tot','contact')]
   group_cols <- group_cols[str_sub(group_cols, -2, -1) != '_c']
   
   test <- dat %>% group_by(!!!syms(group_cols)) %>% 
@@ -72,7 +72,7 @@ fcn_scale <- function(data_raw, dat_name = ''){
   
   # grouping columns
   cols <- colnames(dat)
-  group_cols <- cols[cols %notin% c('value','n_attr_tot')]
+  group_cols <- cols[cols %notin% c('value','n_attr_tot','contact')]
   group_cols <- group_cols[str_sub(group_cols, -2, -1) != '_c']
   
   y_var <- cols[str_sub(cols, -2, -1) == '_c']
@@ -104,7 +104,7 @@ fcn_balance <- function(data_raw, dat_name = ''){
   
   # grouping columns
   cols <- colnames(dat)
-  group_cols <- cols[cols %notin% c('value','n_attr_tot')]
+  group_cols <- cols[cols %notin% c('value','n_attr_tot','contact')]
   group_cols <- group_cols[str_sub(group_cols, -2, -1) != '_c']
   
   y_var <- cols[str_sub(cols, -2, -1) == '_c']
@@ -317,7 +317,7 @@ inspect_and_plot <- function(data_list, name, folder){
   data <- fcn_scale(data, name)
   
   # balance UNLESS stratified by urban/rural
-  balance <- grepl('_UR_', name)
+  balance <- !grepl('_UR_', name)
   
   # balance the matrices
   if(balance){

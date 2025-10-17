@@ -19,9 +19,7 @@ library(purrr, warn.conflicts = FALSE)
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 #### READ IN DATA ####
-
-fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
-
+ 
 if(.args[2] == 'regional'){
   
   imd_age_raw <- data.table(read_csv(file.path("data", "census","pcd1age.csv"), show_col_types = F))
@@ -65,12 +63,40 @@ if(.args[2] == 'regional'){
 
 #### BALANCE ####
 
-balanced_matr <- balancing_fcn(
-  data = fitted,
-  age_structure = imd_age
-)
+if(.args[2] == 'regional'){
+  
+  balanced_matr <- data.table()
+  
+  for(reg in unique(imd_age$p_engreg)){
+    
+    fitted <- data.table(suppressWarnings(read_csv(gsub('.csv',paste0('_', reg, '.csv'), .args[1]), show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
+    
+    balanced_matr_r <- balancing_fcn(
+      data = fitted,
+      age_structure = imd_age %>% filter(p_engreg==reg)
+    )
+    
+    if(nrow(balanced_matr_r[is.na(n)]) > 0){warning(paste0('Some n = NA in ', reg))}
+    
+    balanced_matr <- rbind(balanced_matr, balanced_matr_r)
+
+  }
+  
+}else{
+  
+  fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
+  
+  balanced_matr <- balancing_fcn(
+    data = fitted,
+    age_structure = imd_age
+  )
+  
+}
 
 write_csv(balanced_matr, .args[3])
+
+
+
 
 
 

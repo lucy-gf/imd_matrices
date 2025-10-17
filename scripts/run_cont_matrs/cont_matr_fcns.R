@@ -936,9 +936,9 @@ fit_matr <- function(
   
   ## add 'total' location contacts
   out_df <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','c_location','n')]
-  out_df_no_locn <- all_merged[, c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q','n')]
-  out_tot <- out_df_no_locn[, lapply(.SD, sum), by = c('bootstrap_index','p_age_group','p_imd_q','c_age_group','c_imd_q')]
-  out_tot[, c_location := 'total']
+  out_df_no_locn <- all_merged[, c('bootstrap_index','row_id','p_age_group','p_imd_q','c_age_group','c_imd_q','n')]
+  out_tot <- out_df_no_locn[, lapply(.SD, sum), by = c('bootstrap_index','row_id','p_age_group','p_imd_q','c_age_group','c_imd_q')]
+  out_tot[, c_location := 'total'][, row_id := NULL]
   out_df <- rbind(out_df, out_tot)
   
   ## fit
@@ -1042,7 +1042,8 @@ max_large_n_fcn <- function(x){ifelse(x > max_large_n, max_large_n, x)}
 balancing_fcn <- function(
     data,
     age_structure,
-    setting_specific = F
+    setting_specific = F,
+    use_total = T
 ){
   
   data <- data.table(data)
@@ -1054,15 +1055,22 @@ balancing_fcn <- function(
   
   # aggregate over contact settings
   if('c_location' %in% colnames(data) & setting_specific == F){
-    if('total' %in% tolower(unique(data$c_location))){
+    if('total' %in% tolower(unique(data$c_location)) & use_total == T){
       data <- data[tolower(c_location) == 'total', ][, c_location := NULL]
     }else{
+      data[c_location != 'total']
       data[, c_location := NULL]
       data <- data[, lapply(.SD, sum), by = key_vec]
     }
   }
+  # remove 'total' location if setting-specific
+  if(setting_specific == T){
+    data <- data[tolower(c_location) != 'total', ]
+  }
   
-  data <- data %>% ungroup()
+  data <- data %>% ungroup() %>% 
+    complete(!!!syms(key_vec), 
+             fill = list(n = 0, k = 0))
   
   # select relevant population structure columns
   pop_vec <- c('age', 'imd_q', 'prop_imd')
@@ -1070,7 +1078,7 @@ balancing_fcn <- function(
   if(regional_analysis){
     pop_vec <- c(pop_vec, 'p_engreg')
     pop_vec_names <- c(pop_vec_names, 'p_engreg')
-    }
+  }
   
   population_dt <- age_structure %>% select(!!!syms(pop_vec))
   colnames(population_dt) <- pop_vec_names
@@ -1086,11 +1094,11 @@ balancing_fcn <- function(
   if(setting_specific){
     select_cols <- c(select_cols, 'c_location')
     col_label <- 'c_location'
-    }
+  }
   if(regional_analysis){
     select_cols <- c(select_cols, 'p_engreg')
     col_label <- 'p_engreg'
-    }
+  }
   
   select_cols_mu <- c(select_cols, 'scaled_mu')
   select_cols_umu <- c(select_cols, 'unscaled_mean_scaled_mu')
@@ -1110,7 +1118,7 @@ balancing_fcn <- function(
   matrix_out <- scaled_matrix_2 %>% select(!!!syms(select_cols_umu)) %>% 
     setnames('unscaled_mean_scaled_mu', 'n')
   
-  matrix_out
+  data.table(matrix_out)
   
 }
 

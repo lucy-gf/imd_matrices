@@ -180,7 +180,7 @@ fcn_barplot_imd <- function(
       theme_bw() + labs(fill = 'IMD quintile', x = '', y = '') + 
       ggtitle(format_legend(var)) + 
       scale_fill_manual(values = imd_quintile_colors) +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
             legend.position = 'none')
     
   }
@@ -444,7 +444,7 @@ fcn_rev_errorbarplot_imd <- function(
                        color = !!sym(var), group = !!sym(var)),
                    size = 2, position = position_dodge(width = 0.9)) + 
         theme_bw() + labs(col = format_legend(var), fill = format_legend(var), 
-                          x = 'IMD quintile', y = 'Proportion') + 
+                          x = 'IMD quintile', y = 'Ratio') + 
         ggtitle(paste0(format_legend(var), ', ', 100*ci_width, '% CI')) + 
         ylim(c(0,NA)) + scale_color_brewer(palette = 'Set2'); p
     }else{
@@ -530,16 +530,16 @@ fcn_rev_errorbarplot_imd <- function(
                        size = 2, position = position_dodge(width = 0.9)) +
             geom_point(aes(x = !!sym(var), y = true_var_imd_prop/general_imd_prop),
                        size = 3, position = position_dodge(width = 0.9), shape = 4) + 
-            theme_bw() + labs(col = '', x = '', y = 'Proportion') +
+            theme_bw() + labs(col = format_legend(var), x = '', y = 'Ratio') +
             geom_hline(yintercept = 1, lty = 2, alpha = 0.4) + 
             ylim(c(0,NA)) + facet_grid(imd_quintile~.) + 
             theme(axis.text.x=element_blank(),
                   axis.ticks.x=element_blank()) + 
             scale_color_manual(values = get(paste0('colors_', var))) +
-            ggtitle(paste0(format_legend(var), ', ', 100*ci_width, '% CI,\nPredictors = ', 
+            ggtitle(paste0(format_legend(var), ', ', 100*ci_width, '% CI,\nPredictors = ',
                            paste(unname(unlist(lapply(variables_input, FUN = format_legend))),
-                                 collapse = ', '), ',\nMethod = ', 
-                           ifelse(modal_in, 'deterministic', 
+                                 collapse = ', '), ',\nMethod = ',
+                           ifelse(modal_in, 'deterministic',
                                   paste0('probabilistic, ',  n_bootstraps, ' bootstraps')))); p
           
         }else{
@@ -556,7 +556,7 @@ fcn_rev_errorbarplot_imd <- function(
                            color = !!sym(var), group = !!sym(var)),
                        size = 3, position = position_dodge(width = 0.9), shape = 4) + 
             theme_bw() + labs(col = format_legend(var), fill = format_legend(var), 
-                              x = 'IMD quintile', y = 'Proportion') +
+                              x = 'IMD quintile', y = 'Ratio') +
             geom_hline(yintercept = 1, lty = 2, alpha = 0.4) + 
             scale_color_manual(values = get(paste0('colors_', var))) + 
             ylim(c(0,NA)) + 
@@ -632,7 +632,7 @@ fcn_rev_errorbarplot_imd <- function(
                        size = 2, position = position_dodge(width = 0.9)) +
             geom_point(aes(x = new_var, y = true_var_imd_prop),
                        size = 3, position = position_dodge(width = 0.9), shape = 4) + 
-            theme_bw() + labs(col = '', x = '', y = 'Proportion') +
+            theme_bw() + labs(col = '', x = '', y = 'Ratio') +
             ylim(c(0,NA)) + facet_grid(imd_quintile~.) + 
             theme(axis.text.x=element_blank(),
                   axis.ticks.x=element_blank()) +
@@ -663,7 +663,7 @@ fcn_rev_errorbarplot_imd <- function(
                            color = new_var, group = new_var),
                        size = 3, position = position_dodge(width = 0.9), shape = 4) + 
             theme_bw() + labs(col = format_legend(var), fill = format_legend(var), 
-                              x = 'IMD quintile', y = 'Proportion') +
+                              x = 'IMD quintile', y = 'Ratio') +
             scale_color_manual(values = get(paste0('colors_', var)),
                                labels = paste0(names(get(paste0('colors_', var))),
                                                ' (',
@@ -762,7 +762,9 @@ fcn_evaluate_imd <- function(
                    color = as.factor(imd_quintile), group = as.factor(imd_quintile))) + 
     geom_label(aes(x = imd_quintile, y = 0.06 + upper_prop, label = round(med_prop,2), 
                   fill = as.factor(imd_quintile)), col = c('white','white','black','black','black')) + 
-    theme_bw() + labs(col = '', x = 'IMD quintile', y = 'Proportion of survey participants') + 
+    theme_bw() + 
+    labs(col = '', x = 'IMD quintile', y = 'Proportion of survey participants',
+         col = 'IMD quintile', fill = 'IMD quintile') + 
     ylim(c(0,0.4)) + theme(legend.position = 'none') + 
     scale_color_manual(values = imd_quintile_colors) +
     scale_fill_manual(values = imd_quintile_colors); plot1
@@ -786,11 +788,11 @@ fcn_evaluate_imd <- function(
                size = 3, position = position_dodge(width = 0.9)) +
     theme_bw() + ylim(c(0,25)) + 
     labs(color = 'IMD quintile', fill = 'IMD quintile', 
-         x = 'Age group', y = 'Mean contacts') + 
+         x = '', y = 'Mean contacts') + 
     ggtitle('Age-specific mean contacts') + 
     scale_color_manual(values = imd_quintile_colors) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
-          legend.position = 'none'); age_spec_contacts
+    theme(#legend.position = 'none',
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)); age_spec_contacts
                          
   # plot 
   plot_summary <- function(
@@ -816,8 +818,10 @@ fcn_evaluate_imd <- function(
                                   facet = T
     )
     
-    p + ggtitle(paste0(format_legend(var_name), ', Mean ', toupper(summary_stat),' = ', 
-                       round(mean(scores$stat), 3)))
+    # p + ggtitle(paste0(format_legend(var_name), ', Mean ', toupper(summary_stat),' = ',
+    #                    round(mean(scores$stat), 3)))
+    
+    p + ggtitle(format_legend(var_name))
     
   }
   
@@ -829,7 +833,13 @@ fcn_evaluate_imd <- function(
   n_col <- ceiling(sqrt(length(census_data_list)))
   n_row <- ceiling(length(census_data_list)/n_col)
   
-  patched_summ <- patchwork::wrap_plots(plots, ncol = n_col); patched_summ
+  k <- length(plots)
+  for(i in which(1:k %notin% c(1, 1 + k/n_row))){
+    plots[[i]] <- plots[[i]] + labs(y = '')
+  }
+  
+  patched_summ <- patchwork::wrap_plots(plots, ncol = n_col,
+                                        guides = 'collect'); patched_summ
   
   ### ALL PLOTS ###
   
@@ -842,9 +852,23 @@ fcn_evaluate_imd <- function(
   
   patched_total <- plot1 + bars + age_spec_contacts + patched_summ + plot_layout(design = layout) +
     plot_annotation(theme = theme(plot.title = element_text(size = 18)),
-                    tag_levels = 'a')
+                    tag_levels = 'a'); patched_total
   
-  patched_total
+  layout1 <- '
+  AAADDDD
+  AAADDDD
+  BBBDDDD
+  BBBDDDD
+  '
+  
+  output_plots <- list(
+    plot1 + age_spec_contacts + bars  + plot_layout(design = layout1, guides = 'collect') +
+      plot_annotation(theme = theme(plot.title = element_text(size = 18)),
+                      tag_levels = 'a'),
+    patched_summ +
+      plot_annotation(theme = theme(plot.title = element_text(size = 18)),
+                      tag_levels = 'a')
+  )
   
 }
 

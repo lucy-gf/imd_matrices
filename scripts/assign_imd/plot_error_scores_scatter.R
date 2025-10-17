@@ -18,9 +18,9 @@ source(file.path("scripts", "setup", "colors.R"))
 
 # set arguments 
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","wis","merged_scores.csv"),
-  'wis',
-  file.path("output", "figures", "assignment","eval_scatter_wis.png")
+  file.path("output", "data", "assignment","mse","merged_scores.csv"),
+  'mse',
+  file.path("output", "figures", "assignment","eval_scatter_mse.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 ## read in data 
@@ -65,6 +65,9 @@ plot_df <- error_scores %>%
 plot_df <- plot_df %>%
   filter(! variable %like% 'engreg|tenure|urban')
 
+labs_vars <- c('Age group','Household size','Highest qualification','Ethnicity','NS-SEC')
+names(labs_vars) <- c("age_grp", "hh_size", "hiqual", "ethnicity", "sec_input")
+
 plot_df %>% 
   ggplot() +  
   geom_point(aes(predictors, mean_stat, col = predictors, shape = method),
@@ -73,7 +76,8 @@ plot_df %>%
   #           aes(predictors, mean_stat, label = rank),
   #            size = 3, nudge_y = nudge) + 
   theme_bw() + 
-  facet_grid(. ~ variable, switch ='x') +
+  facet_grid(. ~ variable, switch ='x',
+             labeller = labeller(variable = labs_vars)) +
   scale_color_manual(values = model_colors,
                      labels = model_names[names(model_names) %in% plot_df$predictors]) +
   scale_shape_manual(values = method_shapes, labels = method_names) +

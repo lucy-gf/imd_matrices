@@ -22,10 +22,10 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","connect_prob_pcd1.rds"),
-  file.path("output", "data", "assignment","wis", "prob_pcd1_scores.csv"),
-  'prob_pcd1',
-  file.path("output", "figures", "assignment","prob_pcd1","evaluation.png")
+  file.path("output", "data", "assignment","connect_prob_pcd1ageethnnssec.rds"),
+  file.path("output", "data", "assignment","wis", "prob_pcd1ageethnnssec_scores.csv"),
+  'prob_pcd1ageethnnssec',
+  file.path("output", "figures", "assignment","prob_pcd1ageethnnssec","evaluation.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 connect_output <- readRDS(.args[1])
@@ -41,7 +41,7 @@ variables_input <- variables_from_name(varname)
 n_bootstraps <- n_distinct(connect_output$bootstrap)
 
 ## plot patchwork of goodness-of-fit indicators 
-fcn_evaluate_imd(
+eval_plots <- fcn_evaluate_imd(
   data_input = connect_output,
   census_data_list = list(#true_vals_engreg,
                           true_vals_age,
@@ -58,5 +58,17 @@ fcn_evaluate_imd(
   scores = summ_stats
 )
 
+p1 <- eval_plots[[1]]; p1
+
+ggsave(gsub('evaluation','distribution',.args[4]),
+       height = 10, width = 14)
+
+p <- eval_plots[[2]]; p
+
 ggsave(.args[4],
-       height = 15, width = 26)
+       height = 15, width = 20)
+
+
+
+
+

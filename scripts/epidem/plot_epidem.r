@@ -255,7 +255,7 @@ imd_final_size <- data %>%
         plot.title = element_text(size = 12),
         axis.text.y = element_text(color=1),
         axis.text.x = element_text(color=1)) +
-  labs(y = "Final size per 1000 population", x = "", color = "IMD", fill = 'IMD'); imd_final_size
+  labs(y = "Final size per 1000 population", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size
 
 p2bfacet <- ggplot(data, aes(x=time)) + 
   geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
@@ -303,11 +303,11 @@ imd_final_size_arr <- data %>%
         axis.text.x = element_text(color=1)) +
   labs(y = "Relative final size", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_arr
 
-imd_final_size + imd_final_size_arr + plot_layout(nrow = 2) 
+imd_final_size + imd_final_size_arr + plot_layout(nrow = 1) 
 
 ## save
 ggsave(here::here('output','figures','epidem',sens_analysis,'final_size_imd.png'), dpi=600, 
-       device = "png", width = 10, height = 8)
+       device = "png", width = 12, height = 5)
 
 ## fig 3 by age
 data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]

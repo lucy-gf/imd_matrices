@@ -10,10 +10,11 @@ options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
+  'base',
   file.path("output", "data", "epidem","base","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
-if(!file.exists(gsub('/byall.rds','',.args[2]))){dir.create(gsub('/byall.rds','',.args[2]))}
+if(!file.exists(gsub('/byall.rds','',.args[3]))){dir.create(gsub('/byall.rds','',.args[3]))}
 
 # source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
@@ -203,9 +204,9 @@ for(age_i in 1:na){age2[age_i] <- sum(age2raw[(age_i - 16) + 16*1:5])}
 if(sum(abs(age1 - age2) < 1) != na){stop('Age sums not aligning')}
 
 ## save files
-write_rds(byw, gsub('all','w',.args[2]))
-write_rds(byaw, gsub('all','aw',.args[2]))
-write_rds(byall, .args[2])
+write_rds(byw, gsub('all','w',.args[3]))
+write_rds(byaw, gsub('all','aw',.args[3]))
+write_rds(byall, .args[3])
 
 
 

@@ -3,8 +3,9 @@
 
 default: localdef
 
-localdef: allbalanced
-# allassignplots allmatrsplots allepidplots
+localdef: allmatrsplots
+#allepidplots 
+# allassignplots allmatrsplots allepidplots all_cm_inputs all_balanced
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -75,6 +76,8 @@ M_SENS_ANALYSES ?= ${A_SENS_ANALYSES} large_n_age no_cap_100
 
 # epidemic sensitivity analyses
 E_SENS_ANALYSES ?= ${M_SENS_ANALYSES} balance_sett_spec
+
+E_SENS_ANALYSES_NO_REG ?= base large_n_age no_cap_100 balance_sett_spec
 
 # functions to make into assigned .rds
 makeagesuffix = $(addprefix ${CONTDATA}/fitted_matrs_,$(patsubst %,%.${DATAEXT},$(1))) 
@@ -230,55 +233,56 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 
 ##### Make contact matrices ########## 
 
-${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/reconnect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
-	$(call R, $*)
+#${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/reconnect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
+#	$(call R, $*)
 	
-allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES})
+#allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES})
 
-${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
-	$(call R, $*)
+#${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
+#	$(call R, $*)
 	
-allsampledcont: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, ${A_SENS_ANALYSES})
+#allsampledcont: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, ${A_SENS_ANALYSES})
 
-${CONTDATA}/%/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/%/indiv_contacts.rds 
-	$(call R, $*)
+#${CONTDATA}/%/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/%/indiv_contacts.rds 
+#	$(call R, $*)
 	
-allcontdistr: $(patsubst %,${CONTDATA}/%/cont_imd_distr.rds, ${A_SENS_ANALYSES})
+#allcontdistr: $(patsubst %,${CONTDATA}/%/cont_imd_distr.rds, ${A_SENS_ANALYSES})
 	
-${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
-	$(call R, $*)
+#${ONSDIR}/polymod_weights.rds: ${CONTCODE}/polymod_weights.R ${ONSDIR}/age_ethn_sex.xlsx
+#	$(call R, $*)
 	
-${CONTDATA}/reconnect_weights.rds: ${CONTCODE}/reconnect_weights.R ${ONSDIR}/age_ethn_sex.xlsx
-	$(call R, $*)
-	
-${CONTDATA}/base/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
-	$(call R, base $*)
-	
-allagematrs_base: $(patsubst %,${CONTDATA}/base/fitted_matrs_%.csv, ${ALLAGES})
+#${CONTDATA}/reconnect_weights.rds: ${CONTCODE}/reconnect_weights.R ${ONSDIR}/age_ethn_sex.xlsx
+#	$(call R, $*)
 
-${CONTDATA}/regional/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/regional/participants.rds ${CONTDATA}/regional/indiv_contacts.rds ${CONTDATA}/regional/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
-	$(call R, regional $*)
+#allweights: ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+
+#all_cm_inputs: allsampledcont allcontdistr allbalanced allweights
 	
-allagematrs_regional: $(patsubst %,${CONTDATA}/regional/fitted_matrs_%.csv, ${ALLAGES})
-
-${CONTDATA}/no_cap_100/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
-	$(call R, no_cap_100 $*)
+#${CONTDATA}/base/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+#	$(call R, base $*)
 	
-allagematrs_no_cap_100: $(patsubst %,${CONTDATA}/no_cap_100/fitted_matrs_%.csv, ${ALLAGES})
+#allagematrs_base: $(patsubst %,${CONTDATA}/base/fitted_matrs_%.csv, ${ALLAGES})
 
-${CONTDATA}/large_n_age/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
-	$(call R, large_n_age $*)
+#${CONTDATA}/regional/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/regional/participants.rds ${CONTDATA}/regional/indiv_contacts.rds ${CONTDATA}/regional/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+#	$(call R, regional $*)
 	
-allagematrs_large_n_age: $(patsubst %,${CONTDATA}/large_n_age/fitted_matrs_%.csv, ${ALLAGES})
+#allagematrs_regional: $(patsubst %,${CONTDATA}/regional/fitted_matrs_%.csv, ${ALLAGES})
 
-allagematrs: allagematrs_base allagematrs_regional allagematrs_no_cap_100 allagematrs_large_n_age
+#${CONTDATA}/no_cap_100/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+#	$(call R, no_cap_100 $*)
+	
+#allagematrs_no_cap_100: $(patsubst %,${CONTDATA}/no_cap_100/fitted_matrs_%.csv, ${ALLAGES})
 
-# merge for each sensitivity analysis
+#${CONTDATA}/large_n_age/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
+#	$(call R, large_n_age $*)
+	
+#allagematrs_large_n_age: $(patsubst %,${CONTDATA}/large_n_age/fitted_matrs_%.csv, ${ALLAGES})
+
+#allagematrs: allagematrs_base allagematrs_regional allagematrs_no_cap_100 allagematrs_large_n_age
+
+# merge for each sensitivity analysis (merge regional and then split into regional files, file too big otherwise)
 
 ${CONTDATA}/base/fitted_matrs.csv: $(patsubst %,${CONTDATA}/base/fitted_matrs_%.csv, ${ALLAGES})
-	cat $^> $@
-	
-${CONTDATA}/regional/fitted_matrs.csv: $(patsubst %,${CONTDATA}/regional/fitted_matrs_%.csv, ${ALLAGES})
 	cat $^> $@
 
 ${CONTDATA}/no_cap_100/fitted_matrs.csv: $(patsubst %,${CONTDATA}/no_cap_100/fitted_matrs_%.csv, ${ALLAGES})
@@ -287,12 +291,15 @@ ${CONTDATA}/no_cap_100/fitted_matrs.csv: $(patsubst %,${CONTDATA}/no_cap_100/fit
 ${CONTDATA}/large_n_age/fitted_matrs.csv: $(patsubst %,${CONTDATA}/large_n_age/fitted_matrs_%.csv, ${ALLAGES})
 	cat $^> $@
 	
+${CONTDATA}/regional/fitted_matrs.csv: ${CONTCODE}/merge_and_split_regions.R $(patsubst %,${CONTDATA}/regional/fitted_matrs_%.csv, ${ALLAGES})
+	$(call R)
+
 allmergedmatrs: $(patsubst %,${CONTDATA}/%/fitted_matrs.csv, ${M_SENS_ANALYSES}) 
 
 # balance
 
 ${CONTDATA}/%/fitted_matrs_balanced.csv: ${CONTCODE}/balance_matrs.R ${CONTDATA}/%/fitted_matrs.csv
-	$(call R, $(firstword $(subst _, ,$*)))
+	$(call R, $*)
 	
 ${CONTDATA}/balance_sett_spec/fitted_matrs_balanced.csv: ${CONTCODE}/balance_matrs_sett_spec.R ${CONTDATA}/base/fitted_matrs.csv
 	$(call R, $*)
@@ -300,17 +307,16 @@ ${CONTDATA}/balance_sett_spec/fitted_matrs_balanced.csv: ${CONTCODE}/balance_mat
 allbalanced: $(patsubst %,${CONTDATA}/%/fitted_matrs_balanced.csv, ${E_SENS_ANALYSES}) 
 
 # plot 
-# TODO Make this work for regional analyses
 
-${CONTFIG}/%/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/%/fitted_matrs_balanced.csv
-	$(call R, $(firstword $(subst _, ,$*)))
+${CONTFIG}/%/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/%/fitted_matrs_balanced.csv ${CENSUSDIR}/imd_age.csv
+	$(call R, $*)
 	
 allmatrsplots_agg: $(patsubst %,${CONTFIG}/%/fitted_matrs.png, ${E_SENS_ANALYSES}) 
 	
 ${CONTFIG}/%/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/%/fitted_matrs.csv
-	$(call R, $(firstword $(subst _, ,$*)))
+	$(call R, $*)
 
-allmatrsplots_locn: $(patsubst %,${CONTFIG}/%/fitted_matrs_locn.png, ${M_SENS_ANALYSES}) 
+allmatrsplots_locn: $(patsubst %,${CONTFIG}/%/fitted_matrs_locn.png, ${E_SENS_ANALYSES_NO_REG}) 
 
 allmatrsplots: allmatrsplots_agg allmatrsplots_locn
 
@@ -324,7 +330,7 @@ ${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balan
 ${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/%/byall.rds
 	$(call R, $*)
 	
-allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
+allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES_NO_REG}) 
 
 
 

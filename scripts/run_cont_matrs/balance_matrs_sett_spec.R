@@ -14,7 +14,7 @@ library(purrr, warn.conflicts = FALSE)
   file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
   file.path("output", "data", "cont_matrs","balance_sett_spec","fitted_matrs_balanced.csv")
 ) else commandArgs(trailingOnly = TRUE)
-
+ 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 if(!file.exists(file.path("output", "data", "cont_matrs","balance_sett_spec"))){dir.create(file.path("output", "data", "cont_matrs","balance_sett_spec"))}
@@ -40,9 +40,11 @@ imd_age$age <- factor(imd_age$age, levels = age_labels)
 
 balanced_matr <- balancing_fcn(
   data = fitted,
-  age_structure = imd_age,
+  age_structure = imd_age,   
   setting_specific = T
 )
+
+write_csv(balanced_matr, gsub('_balanced.csv','.csv',.args[2]))
 
 balanced_matr <- balanced_matr %>% 
   group_by(bootstrap_index, p_age_group, p_imd_q, c_age_group, c_imd_q) %>% 
