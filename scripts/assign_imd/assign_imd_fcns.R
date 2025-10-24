@@ -867,6 +867,9 @@ fcn_evaluate_imd <- function(
                       tag_levels = 'a'),
     patched_summ +
       plot_annotation(theme = theme(plot.title = element_text(size = 18)),
+                      tag_levels = 'a'),
+    age_spec_contacts + bars + plot_layout(nrow = 2, heights = c(2,3), guides = 'collect') +
+      plot_annotation(theme = theme(plot.title = element_text(size = 18)),
                       tag_levels = 'a')
   )
   

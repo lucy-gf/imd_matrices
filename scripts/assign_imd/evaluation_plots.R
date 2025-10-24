@@ -63,6 +63,11 @@ p1 <- eval_plots[[1]]; p1
 ggsave(gsub('evaluation','distribution',.args[4]),
        height = 10, width = 14)
 
+p3 <- eval_plots[[3]]; p3
+
+ggsave(gsub('evaluation','paper_fig',.args[4]),
+       height = 10, width = 12)
+
 p <- eval_plots[[2]]; p
 
 ggsave(.args[4],

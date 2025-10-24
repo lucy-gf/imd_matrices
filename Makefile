@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allmatrsplots
+localdef: allscatterplots allepidplots
 #allepidplots 
 # allassignplots allmatrsplots allepidplots all_cm_inputs all_balanced
 
@@ -50,7 +50,7 @@ ${RENV}: install.R
 
 # scenarios for IMD assignment
 RUNVAR ?= engreg pcd1 pcd1age pcd1ageethn utlaageethn ageethn pcd1agehiqualnssec pcd1household pcd1ethntenure pcd1ethnhiqual pcd1agenssec pcd1ethn pcd1agehiqual pcd1hhsize pcd1hhtenure pcd1ethnnssec utlaethnnssec ethnnssec
-ANALYSEVAR ?= pcd1 pcd1age pcd1ethn pcd1ageethn pcd1agehiqualnssec pcd1ethnhiqual pcd1ethnnssec pcd1household pcd1ageethnnssec utlaageethnnssec
+ANALYSEVAR ?= engreg pcd1 pcd1age pcd1ethn pcd1ageethn pcd1agehiqualnssec pcd1ethnhiqual pcd1ethnnssec pcd1household pcd1ageethnnssec utlaageethnnssec
 
 # methods for IMD assignment
 ASSIGNMETHOD ?= prob det
@@ -101,17 +101,17 @@ ${CONNECTDIR}/connect_contacts_formatted.rds: ${ASSIGNDIR}/polymod_weights.R ${C
 
 ##### Deterministic ########## 
 
-${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
-	$(call R,$(firstword $(subst _, ,$*)))
+#${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
+#	$(call R,$(firstword $(subst _, ,$*)))
 
-allassignmentdet: $(call makeassigndet, ${RUNVAR})
+#allassignmentdet: $(call makeassigndet, ${RUNVAR})
 
 ##### Probabilistic ########## 
 
-${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
-	$(call R,$(firstword $(subst _, ,$*)))
+#${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
+#	$(call R,$(firstword $(subst _, ,$*)))
 
-allassignmentprob: $(call makeassignprob, ${RUNVAR})
+#allassignmentprob: $(call makeassignprob, ${RUNVAR})
 
 ##### Make merged age/ethnicity/nssec datasets ########## 
 
@@ -330,7 +330,7 @@ ${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balan
 ${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/%/byall.rds
 	$(call R, $*)
 	
-allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES_NO_REG}) 
+allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
 
 
 

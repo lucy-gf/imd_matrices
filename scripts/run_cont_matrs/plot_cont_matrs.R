@@ -111,22 +111,22 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
     group_by(p_imd_q, c_imd_q) %>% 
     summarise(weighted_mean = mean(weighted_sum))
   
-  imd_mix_unb %>% 
+  imdm <- imd_mix_unb %>% 
     ggplot() + 
     geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
     geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 
-                  col = (weighted_mean > 2.5))) +
+                  col = (weighted_mean > 2.5)), size = 6) +
     theme_bw() + 
     scale_fill_viridis(option = 'A', limits = c(0,NA)) +
     scale_color_manual(values = c('white', 'black'), guide = 'none') +
     labs(
-      x = 'Participant IMD',
-      y = 'Contact IMD',
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
       fill = 'Mean daily\ncontacts'
     ) + 
     theme(strip.background = element_blank(),
           strip.placement = "outside",
-          text = element_text(size = 14)) 
+          text = element_text(size = 18)); imdm
   
   ggsave(gsub('.png','_imd_mix_unbalanced.png',.args[4]), width = 12, height = 10)
   
@@ -146,24 +146,27 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
     group_by(p_imd_q, c_imd_q) %>% 
     summarise(weighted_mean = mean(weighted_sum))
   
-  imd_mix_nh %>% 
+  imdm_nh <- imd_mix_nh %>% 
     ggplot() + 
     geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
     geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 
-                  col = (weighted_mean > 2))) +
+                  col = (weighted_mean > 1.7)), size = 6) +
     theme_bw() + 
     scale_fill_viridis(option = 'A', limits = c(0,NA)) +
     scale_color_manual(values = c('white', 'black'), guide = 'none') +
     labs(
-      x = 'Participant IMD',
-      y = 'Contact IMD',
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
       fill = 'Mean daily\ncontacts'
     ) + 
     theme(strip.background = element_blank(),
           strip.placement = "outside",
-          text = element_text(size = 14)) 
+          text = element_text(size = 18)); imdm_nh 
   
   ggsave(gsub('.png','_imd_mix_no_home.png',.args[4]), width = 12, height = 10)
+  
+  imdm + imdm_nh + plot_layout(nrow = 1) + plot_annotation(tag_levels = 'a')
+  ggsave(gsub('.png','_imd_mix_both.png',.args[4]), width = 22, height = 10)
   
 }
 
@@ -194,21 +197,54 @@ imd_mix_plot <- imd_mix %>%
   scale_fill_viridis(option = 'A', limits = c(0,NA)) +
   scale_color_manual(values = c('white', 'black'), guide = 'none') +
   labs(
-    x = 'Participant IMD',
-    y = 'Contact IMD',
+    x = 'Participant IMD quintile',
+    y = 'Contact IMD quintile',
     fill = 'Mean daily\ncontacts'
   ) + 
-  theme(strip.background = element_blank(),
+  theme(#strip.background = element_blank(),
         strip.placement = "outside",
         text = element_text(size = 14))
 
 if(sens_analysis == 'regional'){
   imd_mix_plot <- imd_mix_plot + facet_wrap(. ~ p_engreg)
+  
+  imd_mix_plot_pc <- imd_mix %>% 
+    group_by(p_engreg, p_imd_q) %>% mutate(tot_p_imd_q = sum(weighted_mean)) %>% 
+    left_join(imd_age %>% group_by(p_engreg, imd_q) %>% summarise(prop = sum(prop)) %>% rename(c_imd_q = imd_q),
+              by = c('p_engreg','c_imd_q')) %>% 
+    mutate(pc_val = round(100*((weighted_mean/tot_p_imd_q)/prop - 1))) %>% 
+    ggplot() + 
+    geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = pc_val)) +
+    geom_text(aes(x = p_imd_q, y = c_imd_q, label = paste0(pc_val, '%'), 
+                  col = (pc_val > 2.5))) +
+    theme_bw() + 
+    facet_wrap(. ~ p_engreg) + 
+    scale_fill_viridis(option = 'D', 
+                       breaks = c(-30, 0, 30, 300),
+                       labels = paste0(c(-30, 0, 30, 300),'%'),
+                       transform = 'pseudo_log'
+                       ) +
+    scale_color_manual(values = c('white', 'black'), guide = 'none') +
+    labs(
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
+      fill = 'Percentage difference\nin contacts\ncompared to\nrandom mixing'
+    ) + 
+    theme(#strip.background = element_blank(),
+      strip.placement = "outside",
+      text = element_text(size = 14)); imd_mix_plot_pc
+  
+  ggsave(gsub('.png','_imd_mix_pc.png',.args[4]), width = 11, height = 10)
+  
+  imd_mix_plot + imd_mix_plot_pc + plot_layout(nrow=1) + 
+    plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+  ggsave(gsub('.png','_imd_mix_patch.png',.args[4]), width = 22, height = 10)
+  
 }
 
 imd_mix_plot
 
-ggsave(gsub('.png','_imd_mix.png',.args[4]), width = 12, height = 10)
+ggsave(gsub('.png','_imd_mix.png',.args[4]), width = ifelse(sens_analysis == 'regional', 11, 12), height = 10)
 
 if(sens_analysis != 'regional'){
   

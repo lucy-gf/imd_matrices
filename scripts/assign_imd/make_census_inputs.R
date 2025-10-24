@@ -623,6 +623,19 @@ tenure_nssec_pcd1 %>%
 ggsave(here::here('output','figures','census','tenure_nssec_pcd1.png'),
        width = 2*n_distinct(tenure_nssec_pcd1$p_tenure_short), height = 2*n_distinct(tenure_nssec_pcd1$p_sec_input))
 
+################################
+################################
+## NO. OF LSOAS IN EACH MODEL ##
+################################
+################################
+
+for(mod_name in c('age_pcd1', 'hh_st_pcd1','ns_hq_pcd1','age_ethn_pcd1','ethn_hiqual_pcd1','ethn_nssec_pcd1','ns_hq_pcd1')){
+  
+  cat('Model: ', mod_name, '\n', sep = '')
+  cat('LSOAs: ', n_distinct(get(mod_name)$lsoa21cd), ' (', round(100*n_distinct(get(mod_name)$lsoa21cd)/33755, 1), '%)', '\n\n', sep = '')  
+  
+}
+
 ###############################
 ###############################
 ## SAVE DATA AS MODEL INPUTS ##

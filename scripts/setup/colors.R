@@ -65,11 +65,12 @@ model_colors <- c('utlaageethnnssec' = '#31a354', 'pcd1' = '#7a0177',
                   'pcd1ethn' = '#de2d26', 'pcd1hhsize' = '#f768a1', 'pcd1hhtenure' = '#d7b5d8',
                   'pcd1ethntenure' = 'blue4', 'pcd1ethnhiqual' = '#fec44f',
                   'pcd1ethnnssec' = '#ec7014', 'pcd1ageethnnssec' = '#8c96c6',
-                  'ageethnnssec' = '#fb9a99')
+                  'ageethnnssec' = '#fb9a99', 'engreg' = '#72874EFF') 
 
 model_names <- unlist(unname(lapply(sapply(lapply(names(model_colors), variables_from_name),
                              paste, collapse = '_'),
                              simp_labels)))
+for(k in 1:length(model_names)){model_names[k] <- gsub('nsseccode','nssec',model_names[k])}
 names(model_names) <- names(model_colors)
 
 method_shapes <- c('det' = 1, 'prob' = 19)  

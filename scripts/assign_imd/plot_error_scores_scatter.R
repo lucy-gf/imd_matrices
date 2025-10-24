@@ -54,7 +54,7 @@ if(.args[2] != 'mse'){
 nudge <- if(.args[2] == 'mse'){0.003}else{0.005}
 
 plot_df <- error_scores %>% 
-  filter(! predictors == 'engreg') %>%
+  # filter(! predictors == 'engreg') %>%
   group_by(model, method, predictors, variable) %>% 
   summarise(mean_stat = mean(stat)) %>%
   group_by(variable) %>% 
