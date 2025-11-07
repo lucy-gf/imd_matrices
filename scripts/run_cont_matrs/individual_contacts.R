@@ -81,24 +81,24 @@ contacts_not_home_not_school <- contacts_not_home_not_school %>% select(!row_num
 
 if(nrow(contacts_school) + nrow(contacts_not_home_not_school) != nrow(contacts_not_home)){ warning('Rows not adding up') }
 
-year <- "24" # TODO Change to "25" when possible
+year <- "25" # TODO Change to "25" when possible
 
 dfe_distr <- if(sens_analysis == 'regional'){
-  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_AgeRegion_class.csv"), show_col_types = F)) %>% 
+  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_Age1Region_class.csv"), show_col_types = F)) %>% 
     rename(p_engreg = Region) %>% 
     mutate(p_engreg = case_when(grepl('London', p_engreg) ~ 'Greater London',
                               grepl('Yorkshire', p_engreg) ~ 'Yorkshire and the Humber',
                               T ~ p_engreg))
 }else{
-  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_Age_class.csv"), show_col_types = F))
+  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_Age1_class.csv"), show_col_types = F))
 } 
 
 dfe_distr <- dfe_distr %>% 
-  mutate(p_age_group = paste0(gsub(",.*$", "", gsub('\\[','',Agp)),
+  mutate(p_age_group = paste0(gsub(",.*$", "", gsub('\\[','',Agp1)),
                               '-',
-                              as.numeric(gsub(".*,\\s*", "", gsub(')','',Agp))) - 1),
+                              as.numeric(gsub(".*,\\s*", "", gsub(')','',Agp1))) - 1),
          c_age_group = p_age_group) %>% 
-  select(!c(Agp, n_attr_tot)) %>% 
+  select(!c(Agp1, n_attr_tot)) %>% 
   rename(imd_quintile = imd_five,
          imd_quintile_c = imd_five_c,
          probability = value)

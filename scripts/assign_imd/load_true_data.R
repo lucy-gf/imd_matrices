@@ -1,8 +1,8 @@
 
 # ## english region distribution
-#
+# 
 # pcd_imd <- read_csv(here::here('data','census','pcd1.csv'), show_col_types = F)
-#
+# 
 # true_vals_engreg <- pcd_imd %>%
 #   group_by(eng_reg, imd_quintile) %>%
 #   summarise(n = sum(population)) %>%
@@ -23,7 +23,7 @@
 #   summarise(n = sum(population)) %>%
 #   group_by(age_grp) %>%
 #   mutate(n_tot = sum(n),
-#          prop = n/n_tot) 
+#          prop = n/n_tot)
 # 
 # ## household tenure distribution
 # 
@@ -82,7 +82,7 @@
 #   summarise(n = sum(population)) %>%
 #   group_by(p_sec_input) %>%
 #   mutate(n_tot = sum(n),
-#          prop = n/n_tot) 
+#          prop = n/n_tot)
 # 
 # ## urban/rural
 # 

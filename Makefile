@@ -90,7 +90,7 @@ clean:
 
 ##### INPUTS ###################################################################
 
-## Script to turn raw census data into inputs is: scripts/assign_imd/make_census_inputs.R
+## Script to turn raw census data into inputs is: scripts/assign_imd/make_census_inputs_2025.R
 
 ##### Polymod-weighted large group contacts ########## 
 

@@ -23,17 +23,27 @@ if(!file.exists(file.path("output", "data", "cont_matrs","balance_sett_spec"))){
 
 fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 
-imd_age <- data.table(read_csv(file.path("data", "census","imd_age.csv"), show_col_types = F))
-imd_age$age <- gsub('.{1}$','',gsub('----','-',gsub('-----','',gsub("\\D", "-", imd_age$age))))
-imd_age <- imd_age %>% 
-  mutate(age = case_when(age == '4' ~ '0-4',
-                         age == '75' ~ '75+',
-                         T ~ age)) %>% 
-  group_by(imd_q) %>% mutate(tot_pop_imd = sum(population)) %>% 
+imd_age <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+
+imd_age <- imd_age <- imd_age_raw %>% 
+  mutate(p_engreg = case_when(
+    grepl('London',p_engreg) ~ 'Greater London',
+    grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+    T ~ p_engreg
+  ),
+  imd_q = imd_quintile,
+  population = pop,
+  age = age_grp) %>% 
+  select(imd_q, age, population) %>% 
+  group_by(imd_q, age) %>% 
+  summarise(population = sum(population)) %>% ungroup() %>% 
+  group_by(imd_q) %>% 
+  mutate(tot_pop_imd = sum(population)) %>% 
   ungroup() %>% 
-  mutate(tot_pop = sum(population),
-         prop_imd = population/tot_pop_imd,
+  mutate(tot_pop = sum(population)) %>% ungroup() %>% 
+  mutate(prop_imd = population/tot_pop_imd,
          prop = population/tot_pop)
+
 imd_age$age <- factor(imd_age$age, levels = age_labels)
 
 #### BALANCE ####

@@ -35,6 +35,24 @@ pset$Disease <- "Influenza"
 
 ## Parameters
 source(paste0(source_dir,"/parsF_.r"))
+## If R0 low, make runtime longer
+if(pset$R0fixed & (pars$R0 <= 1.1)){ 
+  
+  pars$times  <- 0:1000     #days sequence
+  pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+  pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+  pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+  
+}else{
+  if(pset$R0fixed & (pars$R0 < 1.65)){ 
+    
+    pars$times  <- 0:130     #days sequence
+    pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+    pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+    pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+    
+  }
+}
 
 ## Set base levels for IMD and age
 base_imd_arr <- 5
@@ -54,12 +72,69 @@ ar=1 #aspect ratio
 
 l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
 
+## Demography
+if(sens_analysis == 'regional'){
+  
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  
+  demog_allreg <- imd_age_raw %>% 
+    mutate(p_engreg = case_when(
+      grepl('London',p_engreg) ~ 'Greater London',
+      grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+      T ~ p_engreg
+    ),
+    IMD = imd_quintile,
+    population = pop,
+    Age = age_grp) %>% 
+    select(p_engreg, IMD, Age, population) %>% 
+    group_by(p_engreg, IMD, Age) %>% 
+    summarise(Population = sum(population)) %>% ungroup() %>% 
+    group_by(p_engreg, IMD) %>% 
+    mutate(tot_pop = sum(Population)) %>% ungroup() %>% 
+    mutate(Proportion = Population/tot_pop)
+  
+  demog_allreg$Age <- factor(demog_allreg$Age,
+                             levels = age_labels)
+  demog_allreg <- demog_allreg %>% arrange(p_engreg, IMD, Age)
+    
+  
+}else{
+  
+  demog <- read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F) %>% 
+    group_by(imd_quintile, age_grp) %>% summarise(population = sum(pop)) %>% 
+    group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
+    group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
+    mutate(Proportion = Population/tot_pop) %>% rename(Age = age_grp, IMD = imd_quintile) 
+  demog$Age <- factor(demog$Age,
+                      levels = age_labels)
+  demog <- demog %>% arrange(IMD, Age)
+  
+  n_pop <- sum(demog$Population)
+  
+}
+
 ## If NOT in regional sensitivity analysis
 
 if(sens_analysis != 'regional'){
   
+  ## Population by age group (over SES), by SES (over age), overall
+  # number of age groups
+  na   = pars$na
+  # number of SES
+  nimd = pars$nimd
+  # number of groups
+  ng   = na*nimd
+  oNg  <- 1/demog$Population
+  Sg0  <- demog$Population
+  Na<-rep(0,na)
+  Ns<-rep(0,nimd)
+  for (ia in 1:na) { for (is in 1:nimd) {
+    Na[ia] = Na[ia] + 1/oNg[(is-1)*na + ia] 
+    Ns[is] = Ns[is] + 1/oNg[(is-1)*na + ia] }}
+  Npop = sum(1/oNg);
+  
   ## fig 1 overall
-  data1000 <- byw[, c('sim','time','Iw','Uw')][, Infe := 10^3*(Iw + Uw)/sum(Na)][, c('sim','time','Infe')]
+  data1000 <- byw[, c('sim','time','Iw','Uw')][, Infe := 10^3*(Iw + Uw)/n_pop][, c('sim','time','Infe')]
   data <- rbind(
     data1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
     data1000[, lapply(.SD, l95_func), by = 'time'][, meas := 'l95'],
@@ -79,7 +154,7 @@ if(sens_analysis != 'regional'){
     labs(y = "Infections per 1000 population", x = "Day"); p1
   
   ## fig 1b cumulative
-  data1000 <- byw[, c('sim','time','Iw','Uw')][, Infe := 10^3*(Iw + Uw)/sum(Na)][, c('sim','time','Infe')]
+  data1000 <- byw[, c('sim','time','Iw','Uw')][, Infe := 10^3*(Iw + Uw)/n_pop][, c('sim','time','Infe')]
   data1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time]
   data <- rbind(
     data1000cum[, lapply(.SD, median), by = 'time'][, meas := 'median'],
@@ -110,6 +185,8 @@ if(sens_analysis != 'regional'){
   data <- melt.data.table(data, id.vars = c('time','meas'))
   data[, imd := substr(variable,6,6)]
   data <- dcast.data.table(data, time + imd ~ meas, value.var = 'value')
+  
+  save <- data %>% filter(time == max(time)) %>% select(!time)
   
   p2 <- ggplot(data, aes(x=time)) + 
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
@@ -180,6 +257,25 @@ if(sens_analysis != 'regional'){
           axis.text.x = element_text(color=1)) +
     labs(y = "Final size per 1000 population", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size
   
+  imd_final_size2 <- data_imd1000cum %>% 
+    filter(time == max(time)) %>% select(!time) %>% 
+    pivot_longer(!sim) %>% 
+    mutate(imd = substr(name,6,6)) %>% 
+    group_by(imd) %>% mutate(median = median(value)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = value, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    theme_bw() +
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) +
+    ylim(c(0,600)) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Final size per 1000 population", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size2
+  
   p2bfacet <- ggplot(data, aes(x=time)) + 
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
     geom_line(aes(y = median, col = imd), lwd=0.8)  +
@@ -211,14 +307,21 @@ if(sens_analysis != 'regional'){
   )
   data <- dcast.data.table(data_agg, imd ~ meas, value.var = 'arr')
   
-  imd_final_size_arr <- data %>% 
+  fin_size_save <- data_min %>% 
+    group_by(imd) %>% summarise(median = median(arr),
+                                l95 = l95_func(arr),
+                                u95 = u95_func(arr))
+  
+  imd_final_size_arr <- data_min %>% 
+    group_by(imd) %>% mutate(median = median(arr)) %>% 
     ggplot(aes(x=imd)) + 
     geom_hline(col = 1, lty = 2, alpha = 0.3, yintercept = 1) +
-    geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.2)  +
-    geom_point(aes(y = median, col = imd), size = 3)  +
+    geom_violin(aes(y = arr, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
     theme_bw() +
-    ylim(c(0.8, 1.2)) +
+    ylim(c(0.8, 1.25)) +
     scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
     theme(text=element_text(size=14),
           legend.position = 'none',
           plot.title = element_text(size = 12),
@@ -226,11 +329,92 @@ if(sens_analysis != 'regional'){
           axis.text.x = element_text(color=1)) +
     labs(y = "Relative final size", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_arr
   
-  imd_final_size + imd_final_size_arr + plot_layout(nrow = 1) 
+  imd_final_size2 + imd_final_size_arr + plot_layout(nrow = 1) 
   
   ## save
   ggsave(here::here('output','figures','epidem',sens_analysis,'final_size_imd.png'), dpi=600, 
          device = "png", width = 12, height = 5)
+  
+  ## age-standardised final size
+  data1000 <- copy(byall)
+  for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
+  data_1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time][, iW := NULL]
+  data <- melt.data.table(data_1000cum, id.vars = c('time','sim'))[time == max(time)][, time := NULL]
+  data[, age := rep(rep(pars$ages, each = nrow(data)/(nimd*na)), nimd)]
+  data[, imd := rep(1:nimd, each = n_distinct(data$sim)*na)]
+  
+  demog$Age <- factor(demog$Age, levels = pars$ages)
+  st_pop <- demog %>% 
+    group_by(Age) %>% summarise(pop = sum(Population)) %>% 
+    ungroup() %>% mutate(tot_pop = sum(pop)) %>% 
+    mutate(prop = pop/tot_pop) %>% rename(age = Age) # standard population
+  data <- data[st_pop, on = 'age']
+  data[, prop_x_infs := prop*value]
+  data_standard <- data[, c('sim','imd','prop_x_infs','value','prop')][, lapply(.SD, sum), by = c('sim','imd')]
+  setnames(data_standard, 'prop_x_infs','standardised_infs')
+  
+  data_standard_base <- data_standard[imd == base_imd_arr]
+  setnames(data_standard_base, 'standardised_infs','base_standardised_infs')
+  data_standard <- data_standard[data_standard_base[, c('sim','base_standardised_infs')], on = 'sim']
+  data_standard[, standardised_arr := standardised_infs/base_standardised_infs]
+  data_standard[, imd := as.character(imd)]
+  
+  fin_size_save <- rbind(
+    fin_size_save %>% mutate(standard = F),
+    data_standard %>% 
+    group_by(imd) %>% summarise(median = median(standardised_arr),
+                                l95 = l95_func(standardised_arr),
+                                u95 = u95_func(standardised_arr)) %>% 
+      mutate(standard = T),
+    save %>% mutate(standard = F))
+  write_csv(fin_size_save, here::here('output','figures','epidem',sens_analysis,'final_size_relative.csv'))
+  
+  imd_final_size_arr_standardised <- data_standard %>% 
+    group_by(imd) %>% mutate(median = median(standardised_arr)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_hline(col = 1, lty = 2, alpha = 0.3, yintercept = 1) +
+    geom_violin(aes(y = standardised_arr, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    theme_bw() +
+    ylim(c(0.8, 1.25)) +
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Relative final size (age-standardised)", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_arr_standardised
+  
+  imd_final_size_standardised <- data_standard %>% 
+    group_by(imd) %>% mutate(median = median(standardised_infs)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = standardised_infs, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    theme_bw() +
+    ylim(c(0,600)) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Final size per 1000 population (age-standardised)", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_standardised
+  
+  imd_final_size_standardised + imd_final_size_arr_standardised + plot_layout(nrow = 1) 
+  
+  ## save
+  ggsave(here::here('output','figures','epidem',sens_analysis,'final_size_imd_standardised.png'), dpi=600, 
+         device = "png", width = 12, height = 5)
+  
+  imd_final_size2 + (imd_final_size_arr + imd_final_size_arr_standardised + plot_layout(nrow = 2)) + 
+    plot_layout(nrow = 1) + plot_annotation(tag_levels = 'a',
+                                            tag_prefix = '(', tag_suffix = ')')
+  
+  ## save
+  ggsave(here::here('output','figures','epidem',sens_analysis,'final_size_imd_patchwork.png'), dpi=600, 
+         device = "png", width = 12, height = 8)
   
   ## fig 3 by age
   data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]
@@ -516,16 +700,17 @@ CCCDDDDD
   
   # regional age structure
   
-  imd_age_raw <-  data.table(read_csv(file.path("data", "census","pcd1age.csv"), show_col_types = F))
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
   
-  demog_allreg <- imd_age_raw %>%
-    mutate(
-      age = age_grp,
-      p_engreg = case_when(
-        grepl('London',eng_reg) ~ 'Greater London',
-        grepl('Yorkshire',eng_reg) ~ 'Yorkshire and the Humber',
-        T ~ eng_reg),
-      imd = as.character(imd_quintile)) %>% 
+  demog_allreg <- imd_age_raw %>% 
+    mutate(p_engreg = case_when(
+      grepl('London',p_engreg) ~ 'Greater London',
+      grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+      T ~ p_engreg
+    ),
+    imd = imd_quintile,
+    population = pop,
+    age = age_grp) %>% 
     select(p_engreg, imd, age, population) %>% 
     group_by(p_engreg, imd, age) %>% 
     summarise(Population = sum(population)) %>% ungroup() %>% 
@@ -534,15 +719,8 @@ CCCDDDDD
     mutate(Proportion = Population/tot_pop)
   
   demog_allreg$age <- factor(demog_allreg$age,
-                             levels = names(colors_age_grp))
+                             levels = age_labels)
   demog_allreg <- demog_allreg %>% arrange(p_engreg, imd, age)
-  
-  demog_allreg <- demog_allreg %>% 
-    mutate(age = case_when(
-      grepl('Aged 4 years', age) ~ '0-4',
-      grepl('75|80|85', age) ~ '75+',
-      T ~ gsub('Aged ', '', gsub(' to ', '-', gsub(' years', '', age)))
-    )) 
   
   demog_allreg <- data.table(demog_allreg)
   
@@ -646,15 +824,19 @@ CCCDDDDD
           axis.text.x = element_text(color=1)) +
     labs(y = "Cumulative infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2b
   
-  imd_final_size <- data %>% 
-    filter(time == max(time)) %>% 
+  imd_final_size <- data_imd1000cum %>% 
+    filter(time == max(time)) %>% select(!time) %>% 
+    pivot_longer(!c(p_engreg, sim)) %>% 
+    mutate(imd = substr(name, 6,6)) %>% 
+    group_by(p_engreg, imd) %>% mutate(median = median(value)) %>% 
+    left_join(demog_allreg[, c('imd','p_engreg','Population')][, lapply(.SD, sum), by = c('imd','p_engreg')], by = c('imd','p_engreg')) %>% 
     ggplot(aes(x=imd)) + 
-    geom_errorbar(aes(ymin = 1000*l95/Population, ymax = 1000*u95/Population, col = imd), width = 0.2)  +
-    geom_point(aes(y = 1000*median/Population, col = imd), size = 3)  +
+    geom_violin(aes(y = 1000*value/Population, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = 1000*median/Population, col = imd), size = 4)  +
     theme_bw() +
     facet_wrap(. ~ p_engreg) + 
     scale_color_manual(values = imd_quintile_colors) + 
-    # scale_fill_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) +
     ylim(c(0,800)) + 
     theme(text=element_text(size=14),
           legend.position = 'none',
@@ -682,15 +864,17 @@ CCCDDDDD
   )
   data <- dcast.data.table(data_agg, p_engreg + imd ~ meas, value.var = 'arr')
   
-  imd_final_size_arr <- data %>% 
+  imd_final_size_arr <- data_min %>% 
+    group_by(p_engreg, imd) %>% mutate(median = median(arr)) %>% 
     ggplot(aes(x=imd)) + 
     geom_hline(col = 1, lty = 2, alpha = 0.3, yintercept = 1) +
-    geom_errorbar(aes(ymin = l95, ymax = u95, col = imd), width = 0.2)  +
-    geom_point(aes(y = median, col = imd), size = 3)  +
+    geom_violin(aes(y = arr, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4) +
     facet_wrap(. ~ p_engreg) + 
     theme_bw() +
-    ylim(c(0.3, 2.5)) +
+    ylim(c(0, NA)) +
     scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
     theme(text=element_text(size=14),
           legend.position = 'none',
           plot.title = element_text(size = 12),

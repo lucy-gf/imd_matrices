@@ -35,20 +35,17 @@ sens_analysis <- .args[3]
 
 if(sens_analysis == 'regional'){
   
-  imd_age_raw <-  data.table(read_csv(file.path("data", "census","pcd1age.csv"), show_col_types = F))
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
   
   imd_age <- imd_age_raw %>% 
-    mutate(age = case_when(
-      grepl('Aged 4 years', age_grp) ~ '0-4',
-      grepl('75|80|85', age_grp) ~ '75+',
-      T ~ gsub('Aged ', '', gsub(' to ', '-', gsub(' years', '', age_grp)))
-    )) %>% 
     mutate(p_engreg = case_when(
-      grepl('London',eng_reg) ~ 'Greater London',
-      grepl('Yorkshire',eng_reg) ~ 'Yorkshire and the Humber',
-      T ~ eng_reg
+      grepl('London',p_engreg) ~ 'Greater London',
+      grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+      T ~ p_engreg
     ),
-    imd_q = imd_quintile) %>% 
+    imd_q = imd_quintile,
+    population = pop,
+    age = age_grp) %>% 
     select(p_engreg, imd_q, age, population) %>% 
     group_by(p_engreg, imd_q, age) %>% 
     summarise(population = sum(population)) %>% ungroup() %>% 
@@ -59,18 +56,26 @@ if(sens_analysis == 'regional'){
     mutate(prop_imd = population/tot_pop_imd,
            prop = population/tot_pop)
   
+  imd_age$age <- factor(imd_age$age, levels = age_labels)
+  
 }else{
-  imd_age <- data.table(read_csv(.args[2], show_col_types = F))
-  imd_age$age <- gsub('.{1}$','',gsub('----','-',gsub('-----','',gsub("\\D", "-", imd_age$age))))
-  imd_age <- imd_age %>% 
-    mutate(age = case_when(age == '4' ~ '0-4',
-                           age == '75' ~ '75+',
-                           T ~ age)) %>% 
-    group_by(imd_q) %>% mutate(tot_pop_imd = sum(population)) %>% 
+  imd_age <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  
+  imd_age <- imd_age_raw %>% 
+    mutate(
+    imd_q = imd_quintile,
+    population = pop,
+    age = age_grp) %>% 
+    select(imd_q, age, population) %>% 
+    group_by(imd_q, age) %>% 
+    summarise(population = sum(population)) %>% ungroup() %>% 
+    group_by(imd_q) %>% 
+    mutate(tot_pop_imd = sum(population)) %>% 
     ungroup() %>% 
-    mutate(tot_pop = sum(population),
-           prop_imd = population/tot_pop_imd,
+    mutate(tot_pop = sum(population)) %>% ungroup() %>% 
+    mutate(prop_imd = population/tot_pop_imd,
            prop = population/tot_pop)
+  
   imd_age$age <- factor(imd_age$age, levels = age_labels)
 }
 
@@ -92,6 +97,110 @@ agg$c_imd_q <- factor(agg$c_imd_q,
                       levels = rev(as.character(1:5)))
 
 #### PLOT ####
+
+#### IMD x IMD ####
+
+## balanced
+
+join_vars_balanced <- c('p_imd_q', 'p_age_group')
+if(sens_analysis == 'regional'){join_vars_balanced <- c(join_vars_balanced, 'p_engreg')}
+group_vars_balanced <- c('bootstrap_index', 'p_imd_q', 'c_imd_q')
+if(sens_analysis == 'regional'){group_vars_balanced <- c(group_vars_balanced, 'p_engreg')}
+group_vars_balanced_no_bs <- group_vars_balanced[!grepl('bootstrap', group_vars_balanced)]
+
+imd_mix <- balanced_matr %>% 
+  left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+            by = join_vars_balanced) %>% 
+  group_by(!!!syms(group_vars_balanced)) %>% 
+  summarise(weighted_sum = sum(n*prop_imd)) %>% 
+  group_by(!!!syms(group_vars_balanced_no_bs)) %>% 
+  summarise(weighted_mean = mean(weighted_sum))
+
+imd_mix_distr <- balanced_matr %>% 
+  left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+            by = join_vars_balanced) %>% 
+  group_by(!!!syms(group_vars_balanced)) %>% 
+  summarise(weighted_sum = sum(n*prop_imd)) %>% 
+  group_by(!!!syms(group_vars_balanced_no_bs)) %>% 
+  mutate(weighted_mean = mean(weighted_sum))
+
+imd_mix_plot <- imd_mix %>% 
+  ggplot() + 
+  geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
+  geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 
+                col = (weighted_mean > 2.5)), size = 6) +
+  theme_bw() + 
+  scale_fill_viridis(option = 'A', limits = c(0,NA)) +
+  scale_color_manual(values = c('white', 'black'), guide = 'none') +
+  labs(
+    x = 'Participant IMD quintile',
+    y = 'Contact IMD quintile',
+    fill = 'Mean daily\ncontacts'
+  ) + 
+  theme(#strip.background = element_blank(),
+        strip.placement = "outside",
+        text = element_text(size = 18))
+
+imd_mix_distr$c_imd_q <- factor(imd_mix_distr$c_imd_q, 
+                                levels = rev(1:5))
+imd_mix_distr_plot <- imd_mix_distr %>% 
+  ggplot() + 
+  geom_density(aes(x = weighted_sum, fill = weighted_mean)) +
+  theme_bw() + 
+  facet_grid(c_imd_q ~ p_imd_q, switch = 'both') + 
+  scale_fill_viridis(option = 'A', limits = c(0,NA)) +
+  labs(
+    x = 'Participant IMD quintile',
+    y = 'Contact IMD quintile',
+    fill = 'Mean daily\ncontacts'
+  ) + 
+  theme(strip.background = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.placement = "outside",
+        text = element_text(size = 14)); imd_mix_distr_plot
+ggsave(gsub('.png','_imd_mix_distr.png',.args[4]), width = 11, height = 10)
+    
+if(sens_analysis == 'regional'){
+  imd_mix_plot <- imd_mix_plot + facet_wrap(. ~ p_engreg)
+  
+  imd_mix_plot_pc <- imd_mix %>% 
+    group_by(p_engreg, p_imd_q) %>% mutate(tot_p_imd_q = sum(weighted_mean)) %>% 
+    left_join(imd_age %>% group_by(p_engreg, imd_q) %>% summarise(prop = sum(prop)) %>% rename(c_imd_q = imd_q),
+              by = c('p_engreg','c_imd_q')) %>% 
+    mutate(pc_val = round(100*((weighted_mean/tot_p_imd_q)/prop - 1))) %>% 
+    ggplot() + 
+    geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = pc_val)) +
+    geom_text(aes(x = p_imd_q, y = c_imd_q, label = paste0(pc_val, '%'), 
+                  col = (pc_val > 2.5))) +
+    theme_bw() + 
+    facet_wrap(. ~ p_engreg) + 
+    scale_fill_viridis(option = 'D', 
+                       breaks = c(-30, 0, 30, 300),
+                       labels = paste0(c(-30, 0, 30, 300),'%'),
+                       transform = 'pseudo_log'
+                       ) +
+    scale_color_manual(values = c('white', 'black'), guide = 'none') +
+    labs(
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
+      fill = 'Percentage difference\nin contacts\ncompared to\nrandom mixing'
+    ) + 
+    theme(#strip.background = element_blank(),
+      strip.placement = "outside",
+      text = element_text(size = 14)); imd_mix_plot_pc
+  
+  ggsave(gsub('.png','_imd_mix_pc.png',.args[4]), width = 11, height = 10)
+  
+  imd_mix_plot + imd_mix_plot_pc + plot_layout(nrow=1) + 
+    plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+  ggsave(gsub('.png','_imd_mix_patch.png',.args[4]), width = 22, height = 10)
+  
+}
+
+imd_mix_plot
+
+ggsave(gsub('.png','_imd_mix.png',.args[4]), width = ifelse(sens_analysis == 'regional', 11, 12), height = 10)
 
 if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
@@ -165,86 +274,13 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
   ggsave(gsub('.png','_imd_mix_no_home.png',.args[4]), width = 12, height = 10)
   
-  imdm + imdm_nh + plot_layout(nrow = 1) + plot_annotation(tag_levels = 'a')
+  imd_mix_plot + imdm_nh + plot_layout(nrow = 1) + 
+    plot_annotation(tag_levels = 'a',
+                    tag_prefix = '(',
+                    tag_suffix = ')')
   ggsave(gsub('.png','_imd_mix_both.png',.args[4]), width = 22, height = 10)
   
 }
-
-#### IMD x IMD ####
-
-## balanced
-
-join_vars_balanced <- c('p_imd_q', 'p_age_group')
-if(sens_analysis == 'regional'){join_vars_balanced <- c(join_vars_balanced, 'p_engreg')}
-group_vars_balanced <- c('bootstrap_index', 'p_imd_q', 'c_imd_q')
-if(sens_analysis == 'regional'){group_vars_balanced <- c(group_vars_balanced, 'p_engreg')}
-group_vars_balanced_no_bs <- group_vars_balanced[!grepl('bootstrap', group_vars_balanced)]
-
-imd_mix <- balanced_matr %>% 
-  left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
-            by = join_vars_balanced) %>% 
-  group_by(!!!syms(group_vars_balanced)) %>% 
-  summarise(weighted_sum = sum(n*prop_imd)) %>% 
-  group_by(!!!syms(group_vars_balanced_no_bs)) %>% 
-  summarise(weighted_mean = mean(weighted_sum))
-
-imd_mix_plot <- imd_mix %>% 
-  ggplot() + 
-  geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
-  geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 
-                col = (weighted_mean > 2.5))) +
-  theme_bw() + 
-  scale_fill_viridis(option = 'A', limits = c(0,NA)) +
-  scale_color_manual(values = c('white', 'black'), guide = 'none') +
-  labs(
-    x = 'Participant IMD quintile',
-    y = 'Contact IMD quintile',
-    fill = 'Mean daily\ncontacts'
-  ) + 
-  theme(#strip.background = element_blank(),
-        strip.placement = "outside",
-        text = element_text(size = 14))
-
-if(sens_analysis == 'regional'){
-  imd_mix_plot <- imd_mix_plot + facet_wrap(. ~ p_engreg)
-  
-  imd_mix_plot_pc <- imd_mix %>% 
-    group_by(p_engreg, p_imd_q) %>% mutate(tot_p_imd_q = sum(weighted_mean)) %>% 
-    left_join(imd_age %>% group_by(p_engreg, imd_q) %>% summarise(prop = sum(prop)) %>% rename(c_imd_q = imd_q),
-              by = c('p_engreg','c_imd_q')) %>% 
-    mutate(pc_val = round(100*((weighted_mean/tot_p_imd_q)/prop - 1))) %>% 
-    ggplot() + 
-    geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = pc_val)) +
-    geom_text(aes(x = p_imd_q, y = c_imd_q, label = paste0(pc_val, '%'), 
-                  col = (pc_val > 2.5))) +
-    theme_bw() + 
-    facet_wrap(. ~ p_engreg) + 
-    scale_fill_viridis(option = 'D', 
-                       breaks = c(-30, 0, 30, 300),
-                       labels = paste0(c(-30, 0, 30, 300),'%'),
-                       transform = 'pseudo_log'
-                       ) +
-    scale_color_manual(values = c('white', 'black'), guide = 'none') +
-    labs(
-      x = 'Participant IMD quintile',
-      y = 'Contact IMD quintile',
-      fill = 'Percentage difference\nin contacts\ncompared to\nrandom mixing'
-    ) + 
-    theme(#strip.background = element_blank(),
-      strip.placement = "outside",
-      text = element_text(size = 14)); imd_mix_plot_pc
-  
-  ggsave(gsub('.png','_imd_mix_pc.png',.args[4]), width = 11, height = 10)
-  
-  imd_mix_plot + imd_mix_plot_pc + plot_layout(nrow=1) + 
-    plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
-  ggsave(gsub('.png','_imd_mix_patch.png',.args[4]), width = 22, height = 10)
-  
-}
-
-imd_mix_plot
-
-ggsave(gsub('.png','_imd_mix.png',.args[4]), width = ifelse(sens_analysis == 'regional', 11, 12), height = 10)
 
 if(sens_analysis != 'regional'){
   

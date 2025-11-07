@@ -22,20 +22,17 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
  
 if(.args[2] == 'regional'){
   
-  imd_age_raw <- data.table(read_csv(file.path("data", "census","pcd1age.csv"), show_col_types = F))
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
   
   imd_age <- imd_age_raw %>% 
-    mutate(age = case_when(
-      grepl('Aged 4 years', age_grp) ~ '0-4',
-      grepl('75|80|85', age_grp) ~ '75+',
-      T ~ gsub('Aged ', '', gsub(' to ', '-', gsub(' years', '', age_grp)))
-    )) %>% 
     mutate(p_engreg = case_when(
-      grepl('London',eng_reg) ~ 'Greater London',
-      grepl('Yorkshire',eng_reg) ~ 'Yorkshire and the Humber',
-      T ~ eng_reg
+      grepl('London',p_engreg) ~ 'Greater London',
+      grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+      T ~ p_engreg
     ),
-    imd_q = imd_quintile) %>% 
+    imd_q = imd_quintile,
+    population = pop,
+    age = age_grp) %>% 
     select(p_engreg, imd_q, age, population) %>% 
     group_by(p_engreg, imd_q, age) %>% 
     summarise(population = sum(population)) %>% ungroup() %>% 
@@ -46,18 +43,26 @@ if(.args[2] == 'regional'){
     mutate(prop_imd = population/tot_pop_imd,
            prop = population/tot_pop)
   
+  imd_age$age <- factor(imd_age$age, levels = age_labels)
+  
 }else{
-  imd_age <- data.table(read_csv(file.path("data", "census","imd_age.csv"), show_col_types = F))
-  imd_age$age <- gsub('.{1}$','',gsub('----','-',gsub('-----','',gsub("\\D", "-", imd_age$age))))
-  imd_age <- imd_age %>% 
-    mutate(age = case_when(age == '4' ~ '0-4',
-                           age == '75' ~ '75+',
-                           T ~ age)) %>% 
-    group_by(imd_q) %>% mutate(tot_pop_imd = sum(population)) %>% 
+  imd_age <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  
+  imd_age <- imd_age_raw %>% 
+    mutate(
+    imd_q = imd_quintile,
+    population = pop,
+    age = age_grp) %>% 
+    select(imd_q, age, population) %>% 
+    group_by(imd_q, age) %>% 
+    summarise(population = sum(population)) %>% ungroup() %>% 
+    group_by(imd_q) %>% 
+    mutate(tot_pop_imd = sum(population)) %>% 
     ungroup() %>% 
-    mutate(tot_pop = sum(population),
-           prop_imd = population/tot_pop_imd,
+    mutate(tot_pop = sum(population)) %>% ungroup() %>% 
+    mutate(prop_imd = population/tot_pop_imd,
            prop = population/tot_pop)
+  
   imd_age$age <- factor(imd_age$age, levels = age_labels)
 }
 

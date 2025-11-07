@@ -22,6 +22,15 @@ cm_23 <- cms
 load(here::here('data','dfe','cm_24.rdata'))
 cm_24 <- cms 
 
+load(here::here('data','dfe','cm_25.rdata'))
+cm_25 <- cms 
+
+load(here::here('data','dfe','cm_23_cities.rdata'))
+cm_23_cities <- cms 
+
+load(here::here('data','dfe','cm_24_cities.rdata'))
+cm_24_cities <- cms 
+
 ## function to check sums ##
 
 check_sums <- function(dat, dat_name = ''){
@@ -186,7 +195,7 @@ plot_dfe_data <- function(dat_raw, dat_name = ''){
     scale_fill_viridis(begin = 0, end = 1, breaks = seq(0, 1, by = 0.25)) +
     labs(x = format_colname(x_var), y = format_colname(y_var), fill = 'Probability') +
     ggtitle(dat_name) +
-    theme(text = element_text(size = 14))
+    theme(text = element_text(size = 16))
   
   if(strata_exist){
     if(length(strata) == 1){
@@ -300,6 +309,7 @@ plot_dfe_data_per_capita <- function(dat_raw, dat_name = ''){
 
 inspect_and_plot <- function(data_list, name, folder){
   
+  if(grepl('Age1', name) & grepl('Age2', name)){return()}
   if(name == 'Counts'){return()}
   
   # select tibble
@@ -307,11 +317,16 @@ inspect_and_plot <- function(data_list, name, folder){
   data <- data %>% 
     mutate_all(function_NA_convert)
   
+  if(nrow(data %>% drop_na()) == 0){
+    cat('\nAll NA in ', name, sep = '')
+    return()
+    }
+  
   # check sums
   check_sums(data, name)
   
   # check for NAs
-  check_NAs(data, name)
+  #check_NAs(data, name)
   
   # remove NAs and rescale probabilities
   data <- fcn_scale(data, name)
@@ -346,40 +361,64 @@ inspect_and_plot <- function(data_list, name, folder){
   
   # save data
   data_folder <- gsub('figures','data',folder); if(!dir.exists(data_folder)){dir.create(data_folder)}
-  if(name %in% c('cm_IMD5_AgeRegion_class', 'cm_IMD5_AgeRegion_school',
-                 'cm_IMD5_Age_class', 'cm_IMD5_Age_school')){
+  if(name %in% c('cm_IMD5_Age1Region_class', 'cm_IMD5_Age1Region_school',
+                 'cm_IMD5_Age1_class', 'cm_IMD5_Age1_school',
+                 'cm_IMD5_Age2Region_class', 'cm_IMD5_Age2Region_school',
+                 'cm_IMD5_Age2_class', 'cm_IMD5_Age2_school')){
     write_csv(data, file.path(data_folder, paste0(name, '.csv')))
   }
   
 }
 
-## 2023 data
-cat('\n################')
-cat('\n## 2023 data: ##')
-cat('\n################')
+#### RUN DATA ANALYSIS ####
 
-folder_23 <- here::here('output','figures','cont_matrs','dfe','23')
+year_vec <- 2025 #c(2023:2025)
 
-for(name_x in names(cm_23)){
+for(year in year_vec){
   
-  inspect_and_plot(cm_23, name_x, folder_23)
+  cat('\n\n################')
+  cat('\n## ', year,' data: ##', sep = '')
+  cat('\n################')
+  
+  subyr <- substr(year, 3, 4)
+  
+  folder <- here::here('output','figures','cont_matrs','dfe',subyr)
+  
+  for(name_x in names(get(paste0('cm_', subyr)))){
+    
+    inspect_and_plot(
+      data_list = get(paste0('cm_', subyr)), 
+      name = name_x, 
+      folder)
+    
+  }
   
 }
 
-## 2024 data
-cat('\n\n################')
-cat('\n## 2024 data: ##')
-cat('\n################')
+## cities analysis
 
-folder_24 <- here::here('output','figures','cont_matrs','dfe','24')
+year_vec <- c()#c(2023:2024)
 
-for(name_x in names(cm_24)){
+for(year in year_vec){
   
-  inspect_and_plot(cm_24, name_x, folder_24)
+  cat('\n\n##################')
+  cat('\n## ', year,' cities: ##', sep = '')
+  cat('\n##################')
+  
+  subyr <- substr(year, 3, 4)
+  
+  folder <- here::here('output','figures','cont_matrs','dfe',paste0(subyr, '_cities'))
+  
+  for(name_x in names(get(paste0('cm_', subyr, '_cities')))){
+    
+    inspect_and_plot(
+      data_list = get(paste0('cm_', subyr, '_cities')), 
+      name = name_x, 
+      folder)
+    
+  }
   
 }
-
-
 
 
   

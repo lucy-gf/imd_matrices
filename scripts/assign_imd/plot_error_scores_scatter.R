@@ -63,7 +63,8 @@ plot_df <- error_scores %>%
 
 ## remove household tenure and urban/rural
 plot_df <- plot_df %>%
-  filter(! variable %like% 'engreg|tenure|urban')
+  filter(! variable %like% 'engreg|tenure|urban') %>% 
+  mutate(predictors = gsub('pcd1','pcd',predictors))
 
 labs_vars <- c('Age group','Household size','Highest qualification','Ethnicity','NS-SEC')
 names(labs_vars) <- c("age_grp", "hh_size", "hiqual", "ethnicity", "sec_input")

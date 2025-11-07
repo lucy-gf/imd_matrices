@@ -58,19 +58,20 @@ colors_age_grp <- c('Aged 4 years and under' = '#4d004b', 'Aged 5 to 9 years' = 
                         'Aged 60 to 64 years' = '#990000', 'Aged 65 to 69 years' = '#08589e',
                         'Aged 70 to 74 years' = '#3690c0', 'Aged 75+' = '#a6bddb')
 
-model_colors <- c('utlaageethnnssec' = '#31a354', 'pcd1' = '#7a0177', 
-                  'pcd1age' = '#fe9929', 'pcd1ageethn' = '#bdc9e1', 
-                  'pcd1agehiqualnssec' = '#a50f15', 'pcd1household' = '#bae4b3',
-                  'pcd1agenssec' = '#006d2c', 'pcd1agehiqual' = '#2b8cbe', 
-                  'pcd1ethn' = '#de2d26', 'pcd1hhsize' = '#f768a1', 'pcd1hhtenure' = '#d7b5d8',
-                  'pcd1ethntenure' = 'blue4', 'pcd1ethnhiqual' = '#fec44f',
-                  'pcd1ethnnssec' = '#ec7014', 'pcd1ageethnnssec' = '#8c96c6',
+model_colors <- c('utlaageethnnssec' = '#31a354', 'pcd' = '#7a0177', 
+                  'pcdage' = '#fe9929', 'pcdageethn' = '#bdc9e1', 
+                  'pcdagehiqualnssec' = '#a50f15', 'pcdhousehold' = '#bae4b3',
+                  'pcdagenssec' = '#006d2c', 'pcdagehiqual' = '#2b8cbe', 
+                  'pcdethn' = '#de2d26', 'pcdhhsize' = '#f768a1', 'pcdhhtenure' = '#d7b5d8',
+                  'pcdethntenure' = 'blue4', 'pcdethnhiqual' = '#fec44f',
+                  'pcdethnnssec' = '#ec7014', 'pcdageethnnssec' = '#8c96c6',
                   'ageethnnssec' = '#fb9a99', 'engreg' = '#72874EFF') 
 
 model_names <- unlist(unname(lapply(sapply(lapply(names(model_colors), variables_from_name),
                              paste, collapse = '_'),
                              simp_labels)))
 for(k in 1:length(model_names)){model_names[k] <- gsub('nsseccode','nssec',model_names[k])}
+for(k in 1:length(model_names)){model_names[k] <- gsub('pcd1','pcd',model_names[k])}
 names(model_names) <- names(model_colors)
 
 method_shapes <- c('det' = 1, 'prob' = 19)  
