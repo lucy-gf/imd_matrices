@@ -59,7 +59,7 @@ if(sens_analysis == 'regional'){
   imd_age$age <- factor(imd_age$age, levels = age_labels)
   
 }else{
-  imd_age <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
   
   imd_age <- imd_age_raw %>% 
     mutate(
@@ -124,13 +124,15 @@ imd_mix_distr <- balanced_matr %>%
   group_by(!!!syms(group_vars_balanced_no_bs)) %>% 
   mutate(weighted_mean = mean(weighted_sum))
 
+max_imd_mix <- max(imd_mix$weighted_mean)
+
 imd_mix_plot <- imd_mix %>% 
   ggplot() + 
   geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
   geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 
                 col = (weighted_mean > 2.5)), size = 6) +
   theme_bw() + 
-  scale_fill_viridis(option = 'A', limits = c(0,NA)) +
+  scale_fill_viridis(option = 'A', limits = c(0,max_imd_mix)) +
   scale_color_manual(values = c('white', 'black'), guide = 'none') +
   labs(
     x = 'Participant IMD quintile',
@@ -259,9 +261,9 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
     ggplot() + 
     geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
     geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 
-                  col = (weighted_mean > 1.7)), size = 6) +
+                  col = (weighted_mean > 2.7)), size = 6) +
     theme_bw() + 
-    scale_fill_viridis(option = 'A', limits = c(0,NA)) +
+    scale_fill_viridis(option = 'A', limits = c(0,max_imd_mix)) +
     scale_color_manual(values = c('white', 'black'), guide = 'none') +
     labs(
       x = 'Participant IMD quintile',
@@ -399,7 +401,8 @@ if(sens_analysis != 'regional'){
             axis.title.y=element_blank(),
             axis.text.y=element_blank(),
             axis.ticks.y=element_blank(),
-            legend.position = 'none')
+            legend.position = 'none'
+            )
     
   }
   
@@ -433,7 +436,7 @@ if(sens_analysis != 'regional'){
           strip.placement = "outside",
           text = element_text(size = 14),
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); cm
-  
+
   layout <- '
 AABBCCDDEE#
 KKKKKKKKKKJ
@@ -453,6 +456,46 @@ KKKKKKKKKKF
   #### SAVE PNG ####
   
   ggsave(.args[4], width = 16, height = 14)
+  
+  #### IMD 1 x IMD 1 ####
+  
+  layout_1x1 <- '
+AAA#
+CCCB
+CCCB
+CCCB
+'
+
+  cm_1x1 <- agg %>% 
+    filter(p_imd_q == 1, c_imd_q == 1) %>% 
+    ggplot() + 
+    geom_tile(aes(x = p_age_group, y = c_age_group, fill = med_n)) +
+    theme_bw() + 
+    facet_grid(c_imd_q ~ p_imd_q, switch="both") +
+    scale_fill_viridis() +
+    labs(
+      x = 'Participant IMD, age group',
+      y = 'Contact IMD, age group',
+      fill = 'Mean daily\ncontacts'
+    ) + 
+    theme(strip.background = element_blank(),
+          strip.placement = "outside",
+          strip.text = element_text(size = 14),
+          text = element_text(size = 14),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); cm_1x1
+  
+  imd_ages_1 <- map(
+    .x = 1,
+    .f = plot_imd_age
+  )
+  imd_ages_flip_1 <- map(
+    .x = 1,
+    .f = plot_imd_age_flip 
+  )
+  
+  patchwork::wrap_plots(c(imd_ages_1, imd_ages_flip_1)) + cm_1x1 + plot_layout(design = layout_1x1, guides = 'collect')
+  
+  ggsave(gsub('.png', '_1x1.png', .args[4]), width = 8, height = 7)
   
 }else{
   

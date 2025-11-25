@@ -1,4 +1,77 @@
 
+simp_labels <- function(string){
+  if(string == 'p_sec_input'){return('nssec')}
+  string <- gsub('_group','',string)
+  string <- gsub('_grp','',string)
+  string <- gsub('nssec','',string)
+  string <- gsub('p_sec_input_','nsseccode_',string)
+  string <- gsub('_p_sec_input','_nsseccode',string)
+  string <- gsub('c_','',string)
+  string <- gsub('p_','',string)
+  string <- gsub('_cd','',string)
+  string <- gsub('_nm','',string)
+  string <- gsub('_input','',string)
+  string <- gsub('_short','',string)
+  string <- gsub('_6','',string)
+  string <- gsub('_8','',string)
+  return(string)
+}
+
+variables_from_name <- function(varname){
+  
+  if(! varname %in% names(variables_and_names)){stop('varname not found')}
+  
+  out <- variables_and_names[[varname]]
+  
+  out
+}
+
+name_from_variables <- function(vars){
+  
+  i <- 0; j <- 0
+  
+  for(k in 1:length(variables_and_names)){
+    if(length(variables_and_names[[k]]) == length(vars)){
+      if(sum(variables_and_names[[k]] == vars) == length(vars)){
+        i <- k
+        j <- j + 1
+      }
+    }
+  }
+  
+  if(j > 1){stop('vars match more than one list entry')}
+  if(j == 0){stop("vars don't match any list entries")}
+  
+  out <- names(variables_and_names)[i]
+  
+  out
+}
+
+variables_and_names <- list(
+  'engreg' = c('eng_reg'),
+  'pcd' = c('pcd1'),
+  'pcdage' = c('pcd1','age_grp'),
+  'ageethn' = c('p_age_group','p_ethnicity'),
+  'pcdageethn' = c('pcd1','p_age_group','p_ethnicity'),
+  'utlaageethn' = c('utla','p_age_group','p_ethnicity'),
+  'pcdagehiqualnssec' = c('pcd1','age_grp_8','p_hiqual','p_sec_input'),
+  'pcdhousehold' = c('pcd1','hh_size_nm','hh_tenure_nm'),
+  'pcdhhsize' = c('pcd1','hh_size_nm'),
+  'pcdhhtenure' = c('pcd1','hh_tenure_nm'),
+  'pcdagehiqual' = c('pcd1','age_grp_8','p_hiqual'),
+  'pcdagenssec' = c('pcd1','age_grp_8','p_sec_input'),
+  'pcdethn' = c('pcd1','p_ethnicity'),
+  'pcdethntenure' = c('pcd1','p_ethnicity','p_tenure_short'),
+  'pcdethnhiqual' = c('pcd1','p_ethnicity','p_hiqual'),
+  'pcdtenurenssec' = c('pcd1','p_tenure_short','p_sec_input'),
+  'ethnnssec' = c('p_ethnicity','p_sec_input'),
+  'pcdethnnssec' = c('pcd1','p_ethnicity','p_sec_input'),
+  'utlaethnnssec' = c('utla','p_ethnicity','p_sec_input'),
+  'pcdageethnnssec' = c('pcd1','p_age_group','p_ethnicity','p_sec_input'),
+  'utlaageethnnssec' = c('utla','p_age_group','p_ethnicity','p_sec_input'),
+  'ageethnnssec' = c('p_age_group','p_ethnicity','p_sec_input')
+)
+
 ## COLORS FOR IMD ANALYSIS ##
 
 eng_reg_colors <- c("London"="#31688EFF", "North West" = '#CC4678FF',

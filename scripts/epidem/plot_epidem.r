@@ -201,6 +201,10 @@ if(sens_analysis != 'regional'){
           axis.text.x = element_text(color=1)) +
     labs(y = "Infections per 1000 population", x = "Day", color = "IMD", fill = 'IMD'); p2
   
+  p2 + scale_x_continuous(breaks = seq(0, max(data$time), by = 20)) + theme(text = element_text(size = 14))
+  ggsave(gsub('attack_rate_bars.png','imd_incidence.png', .args[3]),
+         width = 10, height = 5)
+  
   p2facet <- ggplot(data, aes(x=time)) + 
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = imd), alpha=0.25)  +
     geom_line(aes(y = median, col = imd), lwd=0.8)  +
