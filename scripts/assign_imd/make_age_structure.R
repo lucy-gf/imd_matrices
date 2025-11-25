@@ -28,9 +28,12 @@ lsoa_to_reg <- data.table(read_csv(here::here('data','ons','lsoa_to_region.csv')
 colnames(lsoa_to_reg) <- c('lsoa21cd','p_engreg')
 
 ## load age-specific population in each LSOA
-
-lsoa_pop <- data.table(read_xlsx(here::here('data','ons','sapelsoasyoa20192022.xlsx'), 
-                                 sheet = 8, skip = 3))
+# https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/lowersuperoutputareamidyearpopulationestimates
+# using 2024 population, but can go back to 2019 with these datasets (vary `years` and `sheet_input`)
+years <- c('20192022','20222024')[2]
+sheet_input <- ifelse(years == '20192022', 8, 7)
+lsoa_pop <- data.table(read_xlsx(here::here('data','ons',paste0('sapelsoasyoa', years, '.xlsx')), 
+                                 sheet = sheet_input, skip = 3))
 colnames(lsoa_pop) <- c('lad21cd','lad21nm','lsoa21cd','lsoa21nm','total',paste0('F_', 0:90), paste0('M_', 0:90))
 
 ## merge:
@@ -65,6 +68,12 @@ imd_dat_long <- imd_dat %>%
   group_by(p_engreg, imd_quintile, age) %>% 
   summarise(pop = sum(value))
 
+imd_dat_long %>% group_by(age) %>% 
+  summarise(pop = sum(pop)) %>% 
+  ggplot() +
+  geom_line(aes(x = age, y = pop)) +
+  theme_bw() + ylim(c(0,NA))
+
 imd_dat_long %>% 
   group_by(p_engreg) %>%
   mutate(tot_pop = sum(pop)) %>%
@@ -75,12 +84,12 @@ imd_dat_long %>%
   facet_wrap(. ~ p_engreg) + 
   scale_x_continuous(breaks = 10*(0:9)) + 
   scale_color_manual(values = imd_quintile_colors) +
-  labs(col = 'IMD', x = 'Age', y = 'Proportion') +
+  labs(col = 'IMD', x = 'Age', y = 'Proportion of regional population') +
   theme_bw()
 ggsave(here::here('output','figures','census','imd_region_age.png'),
        width = 12, height = 8)
 
- imd_age_1 <- imd_dat_long %>% 
+imd_age_1 <- imd_dat_long %>% 
   mutate(age_grp = cut(age, c(ages_1, Inf), right = F, labels = ages_1_names)) %>% 
   group_by(p_engreg, imd_quintile, age_grp) %>% 
   summarise(pop = sum(pop))
