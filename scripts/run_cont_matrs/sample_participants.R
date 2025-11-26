@@ -51,6 +51,13 @@ n_bootstraps <- 1000
 #### READ IN DATA FOR WEIGHTING #### 
 part <- readRDS(.args[1])
 age_ethn_sex <- read_xlsx(.args[2])
+
+## if in old_imd sensitivity analysis, use census/2019/ data ##
+if(sens_analysis == 'old_imd'){
+  .args[3] <- gsub('census','census/2019',.args[3])
+  .args[4] <- gsub('census','census/2019',.args[4])
+}
+    
 pcd1ageethn <- readr::read_csv(.args[3], show_col_types = F)
 pcd1ethnnssec <- readr::read_csv(.args[4], show_col_types = F)
 

@@ -33,6 +33,12 @@ contacts <- readRDS(.args[2]) %>%
   select(p_id, c_id, c_age, c_age_group, 
          c_ethnicity, c_sec_input, c_location)
 
+## if in old_imd sensitivity analysis, use census/2019/ data ##
+if(sens_analysis == 'old_imd'){
+  .args[3] <- gsub('census','census/2019',.args[3])
+  .args[4] <- gsub('census','census/2019',.args[4])
+}
+
 utlaageethn <- read_csv(.args[3], show_col_types = F) %>% 
   rename(c_age_group = p_age_group, 
          c_ethnicity = p_ethnicity)

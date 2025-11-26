@@ -26,7 +26,9 @@ census_input <- read_csv(.args[2], show_col_types = F)
 
 # define variables of analysis
 variables_input <- variables_from_name(.args[3])
- 
+
+start_time <- Sys.time()
+
 # make assignments 
 assign_out <- fcn_assign_imd(
   data_input = connect_part,
@@ -39,7 +41,11 @@ assign_out <- fcn_assign_imd(
 # save output
 write_rds(assign_out, .args[4])
 
-cat('\n', .args[3], ' done\n', sep = '')
+time_taken <- paste0(floor(difftime(Sys.time(), start_time, units = 'secs')[[1]]/60), ' mins ',
+                         round(difftime(Sys.time(), start_time, units = 'secs')[[1]] -
+                                 60*floor(difftime(Sys.time(), start_time, units = 'secs')[[1]]/60)), ' secs')
+  
+cat('\n', .args[3], ' done, time taken = ', time_taken, '\n', sep = '')
 
 
 
