@@ -3,9 +3,7 @@
 
 default: localdef
 
-localdef: allscatterplots allepidplots
-#allepidplots 
-# allassignplots allmatrsplots allepidplots all_cm_inputs all_balanced
+localdef: allassignplots
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -49,8 +47,8 @@ ${RENV}: install.R
 	 Rscript --vanilla $^
 
 # scenarios for IMD assignment
-RUNVAR ?= engreg pcd1 pcd1age pcd1ageethn utlaageethn ageethn pcd1agehiqualnssec pcd1household pcd1ethntenure pcd1ethnhiqual pcd1agenssec pcd1ethn pcd1agehiqual pcd1hhsize pcd1hhtenure pcd1ethnnssec utlaethnnssec ethnnssec
-ANALYSEVAR ?= engreg pcd1 pcd1age pcd1ethn pcd1ageethn pcd1agehiqualnssec pcd1ethnhiqual pcd1ethnnssec pcd1household pcd1ageethnnssec utlaageethnnssec
+RUNVAR ?= engreg pcd pcdage pcdageethn utlaageethn ageethn pcdagehiqualnssec pcdhousehold pcdethntenure pcdethnhiqual pcdagenssec pcdethn pcdagehiqual pcdhhsize pcdhhtenure pcdethnnssec utlaethnnssec ethnnssec
+ANALYSEVAR ?= engreg pcd pcdage pcdethn pcdageethn pcdagehiqualnssec pcdethnhiqual pcdethnnssec pcdhousehold pcdageethnnssec utlaageethnnssec
 
 # methods for IMD assignment
 ASSIGNMETHOD ?= prob det
@@ -69,10 +67,10 @@ makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.$
 ALLAGES ?= 0-4 5-9 10-14 15-19 20-24 25-29 30-34 35-39 40-44 45-49 50-54 55-59 60-64 65-69 70-74 75+
 
 # assignment sensitivity analyses
-A_SENS_ANALYSES ?= base regional
+A_SENS_ANALYSES ?= base regional old_imd
 
 # matrix fitting sensitivity analyses
-M_SENS_ANALYSES ?= ${A_SENS_ANALYSES} large_n_age no_cap_100
+M_SENS_ANALYSES ?= ${A_SENS_ANALYSES} large_n_age no_cap_100 
 
 # epidemic sensitivity analyses
 E_SENS_ANALYSES ?= ${M_SENS_ANALYSES} balance_sett_spec
@@ -101,17 +99,17 @@ ${CONNECTDIR}/connect_contacts_formatted.rds: ${ASSIGNDIR}/polymod_weights.R ${C
 
 ##### Deterministic ########## 
 
-#${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
-#	$(call R,$(firstword $(subst _, ,$*)))
+${DATDIR}/assignment/connect_det_%.rds: ${ASSIGNDIR}/assign_imd_det.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
+	$(call R,$(firstword $(subst _, ,$*)))
 
-#allassignmentdet: $(call makeassigndet, ${RUNVAR})
+allassignmentdet: $(call makeassigndet, ${RUNVAR})
 
 ##### Probabilistic ########## 
 
-#${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
-#	$(call R,$(firstword $(subst _, ,$*)))
+${DATDIR}/assignment/connect_prob_%.rds: ${ASSIGNDIR}/assign_imd_prob.R ${CONNECTDIR}/reconnect_part.rds ${CENSUSDIR}/%.csv
+	$(call R,$(firstword $(subst _, ,$*)))
 
-#allassignmentprob: $(call makeassignprob, ${RUNVAR})
+allassignmentprob: $(call makeassignprob, ${RUNVAR})
 
 ##### Make merged age/ethnicity/nssec datasets ########## 
 
@@ -120,10 +118,10 @@ ${DATDIR}/assignment/connect_%_ageethnnssec.rds: ${ASSIGNDIR}/merge/merge_ageeth
 	
 allmerged: $(patsubst %,${DATDIR}/assignment/connect_%_ageethnnssec.rds, ${ASSIGNMETHOD})
 
-${DATDIR}/assignment/connect_%_pcd1ageethnnssec.rds: ${ASSIGNDIR}/merge/merge_pcd1ageethnnssec.R ${DATDIR}/assignment/connect_%_pcd1ageethn.rds ${DATDIR}/assignment/connect_%_pcd1ethnnssec.rds
+${DATDIR}/assignment/connect_%_pcdageethnnssec.rds: ${ASSIGNDIR}/merge/merge_pcdageethnnssec.R ${DATDIR}/assignment/connect_%_pcdageethn.rds ${DATDIR}/assignment/connect_%_pcdethnnssec.rds
 	$(call R, $(firstword $(subst _, ,$*)))
 	
-allmerged: $(patsubst %,${DATDIR}/assignment/connect_%_pcd1ageethnnssec.rds, ${ASSIGNMETHOD})
+allmerged: $(patsubst %,${DATDIR}/assignment/connect_%_pcdageethnnssec.rds, ${ASSIGNMETHOD})
 
 ${DATDIR}/assignment/connect_%_utlaageethnnssec.rds: ${ASSIGNDIR}/merge/merge_utlaageethnnssec.R ${DATDIR}/assignment/connect_%_utlaageethn.rds ${DATDIR}/assignment/connect_%_utlaethnnssec.rds
 	$(call R, $(firstword $(subst _, ,$*)))
@@ -233,7 +231,7 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 
 ##### Make contact matrices ########## 
 
-#${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/reconnect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcd1ageethn.csv ${CENSUSDIR}/pcd1ethnnssec.csv
+#${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/reconnect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcdageethn.csv ${CENSUSDIR}/pcdethnnssec.csv
 #	$(call R, $*)
 	
 #allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES})

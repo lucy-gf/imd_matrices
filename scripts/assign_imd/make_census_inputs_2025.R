@@ -642,45 +642,45 @@ for(mod_name in c('age_pcd1', 'hh_st_pcd1','ns_hq_pcd1','age_ethn_pcd1','ethn_hi
 ###############################
 ###############################
 
-write_csv(age_pcd1, here::here('data','census','pcd1age.csv'))
-write_csv(age_pcd1, here::here('data','census','pcd1.csv'))
+write_csv(age_pcd1, here::here('data','census','pcdage.csv'))
+write_csv(age_pcd1, here::here('data','census','pcd.csv'))
 write_csv(age_pcd1, here::here('data','census','engreg.csv'))
 
-write_csv(hh_st_pcd1, here::here('data','census','pcd1household.csv'))
+write_csv(hh_st_pcd1, here::here('data','census','pcdhousehold.csv'))
 write_csv(hh_st_pcd1 %>% group_by(!!!syms(colnames(hh_st_pcd1)[!colnames(hh_st_pcd1) %like% 'population|tenure'])) %>% 
             summarise(population = sum(population)),  
-          here::here('data','census','pcd1hhsize.csv'))
+          here::here('data','census','pcdhhsize.csv'))
 write_csv(hh_st_pcd1 %>% group_by(!!!syms(colnames(hh_st_pcd1)[!colnames(hh_st_pcd1) %like% 'population|size'])) %>% 
-            summarise(population = sum(population)), here::here('data','census','pcd1hhtenure.csv'))
+            summarise(population = sum(population)), here::here('data','census','pcdhhtenure.csv'))
 
-write_csv(ns_hq_pcd1, here::here('data','census','pcd1agehiqualnssec.csv'))
+write_csv(ns_hq_pcd1, here::here('data','census','pcdagehiqualnssec.csv'))
 write_csv(ns_hq_pcd1 %>% group_by(!!!syms(colnames(ns_hq_pcd1)[!colnames(ns_hq_pcd1) %like% 'population|hiqual'])) %>% 
             summarise(population = sum(population)), 
-          here::here('data','census','pcd1agenssec.csv'))
+          here::here('data','census','pcdagenssec.csv'))
 write_csv(ns_hq_pcd1 %>% group_by(!!!syms(colnames(ns_hq_pcd1)[!colnames(ns_hq_pcd1) %like% 'population|nssec|p_sec_'])) %>% 
             summarise(population = sum(population)),
-          here::here('data','census','pcd1agehiqual.csv'))
+          here::here('data','census','pcdagehiqual.csv'))
 
-write_csv(age_ethn_pcd1, here::here('data','census','pcd1ageethn.csv'))
+write_csv(age_ethn_pcd1, here::here('data','census','pcdageethn.csv'))
 write_csv(age_ethn_pcd1, here::here('data','census','utlaageethn.csv'))
 write_csv(age_ethn_pcd1 %>% group_by(p_ethnicity, p_age_group, imd_quintile) %>% 
             summarise(population = sum(population)), 
           here::here('data','census','ageethn.csv'))
 write_csv(age_ethn_pcd1 %>% group_by(!!!syms(colnames(age_ethn_pcd1)[!colnames(age_ethn_pcd1) %like% 'population|age'])) %>% 
             summarise(population = sum(population)), 
-          here::here('data','census','pcd1ethn.csv'))
+          here::here('data','census','pcdethn.csv'))
 
-write_csv(ethn_tenure_pcd1, here::here('data','census','pcd1ethntenure.csv'))
+write_csv(ethn_tenure_pcd1, here::here('data','census','pcdethntenure.csv'))
 
-write_csv(ethn_hiqual_pcd1, here::here('data','census','pcd1ethnhiqual.csv'))
+write_csv(ethn_hiqual_pcd1, here::here('data','census','pcdethnhiqual.csv'))
 
 write_csv(ethn_nssec_pcd1 %>% group_by(p_ethnicity, p_sec_input, imd_quintile) %>% 
             summarise(population = sum(population)), 
           here::here('data','census','ethnnssec.csv'))
-write_csv(ethn_nssec_pcd1, here::here('data','census','pcd1ethnnssec.csv'))
+write_csv(ethn_nssec_pcd1, here::here('data','census','pcdethnnssec.csv'))
 write_csv(ethn_nssec_pcd1, here::here('data','census','utlaethnnssec.csv'))
 
-write_csv(tenure_nssec_pcd1, here::here('data','census','pcd1tenurenssec.csv'))
+write_csv(tenure_nssec_pcd1, here::here('data','census','pcdtenurenssec.csv'))
 
 ####################################
 ####################################

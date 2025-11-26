@@ -13,8 +13,8 @@ library(purrr, warn.conflicts = FALSE)
 .args <- if (interactive()) c(
   file.path("data", "reconnect", "reconnect_part.rds"),
   file.path("data", "ons", "age_ethn_sex.xlsx"),
-  file.path("data", "census", "pcd1ageethn.csv"),
-  file.path("data", "census", "pcd1ethnnssec.csv"),
+  file.path("data", "census", "pcdageethn.csv"),
+  file.path("data", "census", "pcdethnnssec.csv"),
   "base",
   file.path("output", "data", "cont_matrs","base","participants.rds")
 ) else commandArgs(trailingOnly = TRUE)

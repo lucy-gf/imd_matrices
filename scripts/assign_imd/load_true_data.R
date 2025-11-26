@@ -1,11 +1,12 @@
 
 # ## english region distribution
 # 
-# pcd_imd <- read_csv(here::here('data','census','pcd1.csv'), show_col_types = F)
+# imd_age <- read_csv(here::here('data','imd_25','imd_ages_1.csv'), show_col_types = F) %>% 
+#   mutate(eng_reg = p_engreg)
 # 
-# true_vals_engreg <- pcd_imd %>%
+# true_vals_engreg <- imd_age %>%
 #   group_by(eng_reg, imd_quintile) %>%
-#   summarise(n = sum(population)) %>%
+#   summarise(n = sum(pop)) %>%
 #   group_by(eng_reg) %>%
 #   mutate(n_tot = sum(n),
 #          prop = n/n_tot) %>%
@@ -18,16 +19,23 @@
 # 
 # ## age distribution
 # 
-# true_vals_age <- pcd_imd %>%
+# true_vals_age <- imd_age %>%
 #   group_by(age_grp, imd_quintile) %>%
-#   summarise(n = sum(population)) %>%
+#   summarise(n = sum(pop)) %>%
 #   group_by(age_grp) %>%
 #   mutate(n_tot = sum(n),
-#          prop = n/n_tot)
+#          prop = n/n_tot) %>% 
+#   mutate(age_grp = case_when(
+#     age_grp == '0-4' ~ 'Aged 4 years and under',
+#     age_grp == '75+' ~ 'Aged 75+',
+#     T ~ paste0('Aged ', as.numeric(unlist(strsplit(unlist(age_grp),"[^0-9]+")))[1],
+#                ' to ', as.numeric(unlist(strsplit(unlist(age_grp),"[^0-9]+")))[2],
+#                ' years')
+#   ))
 # 
 # ## household tenure distribution
 # 
-# hh_input <- read_csv(here::here('data','census','pcd1household.csv'), show_col_types = F)
+# hh_input <- read_csv(here::here('data','census','pcdhousehold.csv'), show_col_types = F)
 # 
 # true_vals_hh_tenure <- hh_input %>%
 #   group_by(hh_tenure_nm, imd_quintile) %>%
@@ -47,7 +55,7 @@
 # 
 # ## ethnicity distribution
 # 
-# age_ethn_pcd1 <- read_csv(here::here('data','census','pcd1ageethn.csv'), show_col_types = F)
+# age_ethn_pcd1 <- read_csv(here::here('data','census','pcdageethn.csv'), show_col_types = F)
 # 
 # true_vals_ethnicity <- age_ethn_pcd1 %>%
 #   group_by(ethn_nm, imd_quintile) %>%
@@ -66,7 +74,7 @@
 # 
 # ## highest qualification distribution
 # 
-# ns_hq_pcd1 <- read_csv(here::here('data','census','pcd1agehiqualnssec.csv'), show_col_types = F)
+# ns_hq_pcd1 <- read_csv(here::here('data','census','pcdagehiqualnssec.csv'), show_col_types = F)
 # 
 # true_vals_hiqual <- ns_hq_pcd1 %>%
 #   group_by(p_hiqual, imd_quintile) %>%

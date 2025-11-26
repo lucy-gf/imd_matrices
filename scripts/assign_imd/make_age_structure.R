@@ -89,6 +89,22 @@ imd_dat_long %>%
 ggsave(here::here('output','figures','census','imd_region_age.png'),
        width = 12, height = 8)
 
+imd_dat_long %>% 
+  group_by(imd_quintile, age) %>% 
+  summarise(pop = sum(pop)) %>% ungroup() %>% 
+  mutate(tot_pop = sum(pop)) %>%
+  ggplot() +
+  geom_line(aes(x = age, y = pop/tot_pop, 
+                col = as.factor(imd_quintile), group = imd_quintile),
+            lwd = 0.6) +
+  ylim(c(0,NA)) + 
+  scale_x_continuous(breaks = 10*(0:9)) + 
+  scale_color_manual(values = imd_quintile_colors) +
+  labs(col = 'IMD', x = 'Age', y = 'Proportion of population') +
+  theme_bw()
+ggsave(here::here('output','figures','census','imd_age.png'),
+       width = 10, height = 7)
+
 imd_age_1 <- imd_dat_long %>% 
   mutate(age_grp = cut(age, c(ages_1, Inf), right = F, labels = ages_1_names)) %>% 
   group_by(p_engreg, imd_quintile, age_grp) %>% 
