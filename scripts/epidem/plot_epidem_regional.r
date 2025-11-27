@@ -100,36 +100,30 @@ l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quant
 ## Demography
 # regional age structure
 
-imd_age_raw <-  data.table(read_csv(file.path("data", "census","pcd1age.csv"), show_col_types = F))
+imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
 
-demog_allreg <- imd_age_raw %>%
-  mutate(
-    age = age_grp,
-    p_engreg = case_when(
-      grepl('London',eng_reg) ~ 'Greater London',
-      grepl('Yorkshire',eng_reg) ~ 'Yorkshire and the Humber',
-      T ~ eng_reg),
-    imd = as.character(imd_quintile)) %>% 
+demog_allreg <- imd_age_raw %>% 
+  mutate(p_engreg = case_when(
+    grepl('London',p_engreg) ~ 'Greater London',
+    grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+    T ~ p_engreg
+  ),
+  imd = imd_quintile,
+  population = pop,
+  age = age_grp) %>% 
   select(p_engreg, imd, age, population) %>% 
   group_by(p_engreg, imd, age) %>% 
-  summarise(Population = sum(population)) %>% ungroup() %>% 
+  summarise(population = sum(population)) %>% ungroup() %>% 
   group_by(p_engreg, imd) %>% 
-  mutate(tot_pop = sum(Population)) %>% ungroup() %>% 
-  mutate(Proportion = Population/tot_pop)
+  mutate(tot_pop_imd = sum(population)) %>% 
+  ungroup() %>% 
+  group_by(p_engreg) %>% mutate(tot_pop = sum(population)) %>% ungroup() %>% 
+  mutate(prop_imd = population/tot_pop_imd,
+         prop = population/tot_pop)
 
-demog_allreg$age <- factor(demog_allreg$age,
-                           levels = names(colors_age_grp))
+demog_allreg$age <- factor(demog_allreg$age, levels = age_labels)
 demog_allreg <- demog_allreg %>% arrange(p_engreg, imd, age)
-
-demog_allreg <- demog_allreg %>% 
-  mutate(age = case_when(
-    grepl('Aged 4 years', age) ~ '0-4',
-    grepl('75|80|85', age) ~ '75+',
-    T ~ gsub('Aged ', '', gsub(' to ', '-', gsub(' years', '', age)))
-  )) 
-
 demog_allreg <- data.table(demog_allreg)
-
 
 ## read files
 byw <- data.table(); byaw <- data.table(); byall <- data.table()

@@ -25,6 +25,11 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
   file.path("output", "data", "assignment","wis","prob_pcd1_scores.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
+directory <- file.path("output", "data", "assignment","wis")
+if(!file.exists(directory)){
+  dir.create(directory)
+}
+
 connect_output <- readRDS(.args[1])
 
 census_data_list <- list(true_vals_engreg,

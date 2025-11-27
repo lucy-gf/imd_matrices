@@ -69,6 +69,11 @@ plot_df <- plot_df %>%
 labs_vars <- c('Age group','Household size','Highest qualification','Ethnicity','NS-SEC')
 names(labs_vars) <- c("age_grp", "hh_size", "hiqual", "ethnicity", "sec_input")
 
+write_csv(
+  plot_df %>% group_by(predictors, method) %>% summarise(mean_mean_stat = mean(mean_stat)) %>% arrange(mean_mean_stat),
+  gsub('/figures/','/data/',gsub('.png','.csv',.args[3]))
+)
+
 plot_df %>% 
   ggplot() +  
   geom_point(aes(predictors, mean_stat, col = predictors, shape = method),

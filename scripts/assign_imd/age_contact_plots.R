@@ -23,6 +23,13 @@ source(file.path("scripts", "setup", "colors.R"))
   file.path("output", "figures", "assignment","prob_pcd1","mean_age_contacts.png")
 ) else commandArgs(trailingOnly = TRUE)
 
+## make directory for plots
+directory_plots <- here::here(file.path("output", "figures", "assignment",.args[3]))
+
+if(!dir.exists(directory_plots)){
+  dir.create(directory_plots)
+}
+
 # cat('\n', .args, '\n', sep = '\n')
 
 connect_output <- readRDS(.args[1])
