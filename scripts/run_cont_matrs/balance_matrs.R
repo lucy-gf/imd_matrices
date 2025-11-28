@@ -46,7 +46,7 @@ if(.args[2] == 'regional'){
   imd_age$age <- factor(imd_age$age, levels = age_labels)
   
 }else{
-  imd_age <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
   
   imd_age <- imd_age_raw %>% 
     mutate(

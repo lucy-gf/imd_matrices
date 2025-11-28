@@ -23,9 +23,9 @@ if(!file.exists(file.path("output", "data", "cont_matrs","balance_sett_spec"))){
 
 fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 
-imd_age <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
 
-imd_age <- imd_age <- imd_age_raw %>% 
+imd_age <- imd_age_raw %>% 
   mutate(p_engreg = case_when(
     grepl('London',p_engreg) ~ 'Greater London',
     grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',

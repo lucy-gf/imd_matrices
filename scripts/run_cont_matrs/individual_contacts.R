@@ -21,6 +21,8 @@ library(purrr, warn.conflicts = FALSE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+sens_analysis <- .args[5]
+
 #### SET SEED #### 
 
 set.seed(70)
@@ -46,8 +48,6 @@ utlaageethn <- read_csv(.args[3], show_col_types = F) %>%
 utlaethnnssec <- read_csv(.args[4], show_col_types = F) %>% 
   rename(c_ethnicity = p_ethnicity,
          c_sec_input = p_sec_input)
-
-sens_analysis <- .args[5]
 
 #### LINK SAMPLED PARTICIPANTS TO CONTACTS ####
 
@@ -87,16 +87,17 @@ contacts_not_home_not_school <- contacts_not_home_not_school %>% select(!row_num
 
 if(nrow(contacts_school) + nrow(contacts_not_home_not_school) != nrow(contacts_not_home)){ warning('Rows not adding up') }
 
-year <- "25" # TODO Change to "25" when possible
+year <- "25" 
+imd_year <- ifelse(sens_analysis == 'old_imd', 19, 25) 
 
 dfe_distr <- if(sens_analysis == 'regional'){
-  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_Age1Region_class.csv"), show_col_types = F)) %>% 
+  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",paste0('imd',imd_year),year,"cm_IMD5_Age1Region_class.csv"), show_col_types = F)) %>% 
     rename(p_engreg = Region) %>% 
     mutate(p_engreg = case_when(grepl('London', p_engreg) ~ 'Greater London',
                               grepl('Yorkshire', p_engreg) ~ 'Yorkshire and the Humber',
                               T ~ p_engreg))
 }else{
-  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",year,"cm_IMD5_Age1_class.csv"), show_col_types = F))
+  data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",paste0('imd',imd_year),year,"cm_IMD5_Age1_class.csv"), show_col_types = F))
 } 
 
 dfe_distr <- dfe_distr %>% 

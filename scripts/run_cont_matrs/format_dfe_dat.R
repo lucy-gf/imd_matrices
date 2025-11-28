@@ -14,22 +14,30 @@ library(viridis)
 library(stringr)
 library(RColorBrewer)
 
+imd_year <- c(19, 25)[2]
+
 ## read in data ##
 
-load(here::here('data','dfe','cm_23.rdata'))
+load(here::here('data','dfe',paste0('imd',imd_year),'cm_23.rdata'))
 cm_23 <- cms 
 
-load(here::here('data','dfe','cm_24.rdata'))
+load(here::here('data','dfe',paste0('imd',imd_year),'cm_24.rdata'))
 cm_24 <- cms 
 
-load(here::here('data','dfe','cm_25.rdata'))
+load(here::here('data','dfe',paste0('imd',imd_year),'cm_25.rdata'))
 cm_25 <- cms 
 
-load(here::here('data','dfe','cm_23_cities.rdata'))
-cm_23_cities <- cms 
 
-load(here::here('data','dfe','cm_24_cities.rdata'))
-cm_24_cities <- cms 
+if(imd_year == 19){
+  
+  load(here::here('data','dfe','imd19','cm_23_cities.rdata'))
+  cm_23_cities <- cms 
+  
+  load(here::here('data','dfe','imd19','cm_24_cities.rdata'))
+  cm_24_cities <- cms 
+  
+}
+
 
 ## function to check sums ##
 
@@ -372,7 +380,7 @@ inspect_and_plot <- function(data_list, name, folder){
 
 #### RUN DATA ANALYSIS ####
 
-year_vec <- 2025 #c(2023:2025)
+year_vec <- c(2023:2025)
 
 for(year in year_vec){
   
@@ -382,7 +390,7 @@ for(year in year_vec){
   
   subyr <- substr(year, 3, 4)
   
-  folder <- here::here('output','figures','cont_matrs','dfe',subyr)
+  folder <- here::here('output','figures','cont_matrs','dfe',paste0('imd',imd_year),subyr)
   
   for(name_x in names(get(paste0('cm_', subyr)))){
     
@@ -395,30 +403,35 @@ for(year in year_vec){
   
 }
 
-## cities analysis
+#### CITIES ANALYSIS ####
 
-year_vec <- c()#c(2023:2024)
-
-for(year in year_vec){
+if(imd_year == 19){
   
-  cat('\n\n##################')
-  cat('\n## ', year,' cities: ##', sep = '')
-  cat('\n##################')
+  year_vec <- c(2023:2024)
   
-  subyr <- substr(year, 3, 4)
-  
-  folder <- here::here('output','figures','cont_matrs','dfe',paste0(subyr, '_cities'))
-  
-  for(name_x in names(get(paste0('cm_', subyr, '_cities')))){
+  for(year in year_vec){
     
-    inspect_and_plot(
-      data_list = get(paste0('cm_', subyr, '_cities')), 
-      name = name_x, 
-      folder)
+    cat('\n\n##################')
+    cat('\n## ', year,' cities: ##', sep = '')
+    cat('\n##################')
+    
+    subyr <- substr(year, 3, 4)
+    
+    folder <- here::here('output','figures','cont_matrs','dfe',paste0(subyr, '_cities'))
+    
+    for(name_x in names(get(paste0('cm_', subyr, '_cities')))){
+      
+      inspect_and_plot(
+        data_list = get(paste0('cm_', subyr, '_cities')), 
+        name = name_x, 
+        folder)
+      
+    }
     
   }
   
 }
+
 
 
   
