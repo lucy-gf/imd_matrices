@@ -46,8 +46,31 @@ reconnect_weights <- readRDS(.args[5]) %>%
 
 ## set sensitivity analysis ##
 sens_analysis <- .args[6]
-if(! grepl(sens_analysis, .args[8])){stop('Sens. analysis name not in output file path.')}
 if(!file.exists(file.path("output", "data", "cont_matrs", sens_analysis))){dir.create(file.path("output", "data", "cont_matrs", sens_analysis))}
+
+## change age groups if needed ##
+if(sens_analysis == 'nhs_ages'){
+  
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+  
+  participants <- participants %>% 
+    mutate(p_age_group = cut(p_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F))
+  
+  indiv_contacts <- indiv_contacts %>% 
+    mutate(p_age_group = cut(p_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F),
+           c_age_group = cut(c_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F))
+  
+}
 
 ## set age group ##
 age_in <- .args[7]
@@ -69,7 +92,7 @@ if(sens_analysis != 'no_cap_100'){
 }
 
 # use polymod individual weights unless in 'large_n_age' sens analysis
-weights <- if(sens_analysis != "large_n_age"){
+weights <- if(sens_analysis %notin% c("nhs_ages","large_n_age")){
   poly_weights
 }else{
   reconnect_weights
@@ -120,7 +143,7 @@ fit_matr_parallel_regional <- function(imd){
     
   }
   
-  out
+  out_df
   
 }
 
@@ -151,5 +174,5 @@ write.csv(fitted, tmp_file)
 # rename to final file (only if write was successful)
 file.rename(tmp_file, .args[8])
 
-# write_csv(fitted, .args[8])
+
 
