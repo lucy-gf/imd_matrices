@@ -990,7 +990,8 @@ nb_loglik <- function(x, par) {
 add_large_n <- function(vec){
   
   n <- vec[1]
-  probs <- vec[2:17]
+  length_v <- length(vec)
+  probs <- vec[2:length_v]
   
   samples <- sample(x = 1:length(probs),
                     size = n,

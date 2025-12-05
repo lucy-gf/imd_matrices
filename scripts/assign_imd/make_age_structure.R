@@ -68,6 +68,14 @@ imd_dat_long <- imd_dat %>%
   group_by(p_engreg, imd_quintile, age) %>% 
   summarise(pop = sum(value))
 
+imd_dat_long_gender <- imd_dat %>% 
+  select(!total) %>% 
+  pivot_longer(cols = !c('p_engreg', 'imd_quintile')) %>% 
+  mutate(gender = substr(name, 1, 1),
+         age = as.numeric(substr(name, 3, 4))) %>% 
+  group_by(p_engreg, imd_quintile, age, gender) %>% 
+  summarise(pop = sum(value))
+
 imd_dat_long %>% group_by(age) %>% 
   summarise(pop = sum(pop)) %>% 
   ggplot() +
@@ -87,6 +95,22 @@ imd_dat_long %>%
   labs(col = 'IMD', x = 'Age', y = 'Proportion of regional population') +
   theme_bw()
 ggsave(here::here('output','figures','census','imd_region_age.png'),
+       width = 12, height = 8)
+
+imd_dat_long_gender %>% 
+  group_by(p_engreg) %>%
+  mutate(tot_pop = sum(pop)) %>%
+  ggplot() +
+  geom_line(aes(x = age, y = pop/tot_pop, 
+                col = as.factor(imd_quintile),
+                group = interaction(imd_quintile, gender),
+                lty = gender)) +
+  facet_wrap(. ~ p_engreg) + 
+  scale_x_continuous(breaks = 10*(0:9)) + 
+  scale_color_manual(values = imd_quintile_colors) +
+  labs(col = 'IMD', x = 'Age', y = 'Proportion of regional population', lty='Gender') +
+  theme_bw()
+ggsave(here::here('output','figures','census','imd_region_age_gender.png'),
        width = 12, height = 8)
 
 imd_dat_long %>% 

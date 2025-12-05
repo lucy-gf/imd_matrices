@@ -1,8 +1,6 @@
 
 ## FIT CONTACT MATRICES ##
 
-setwd('imd_matrices')
-
 # load packages
 library(data.table)
 library(readr)
@@ -36,7 +34,7 @@ sens_analysis_folder <- if(sens_analysis == 'regional'){
 }else{
   'base'
 }
-sens_analysis_folder_imd_distr <- if(sens_analysis %in% c('regional','nhs_ages')){
+sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages')){
   sens_analysis
 }else{
   'base'
@@ -46,9 +44,9 @@ sens_analysis_folder_imd_distr <- if(sens_analysis %in% c('regional','nhs_ages')
 
 participants <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis_folder,"participants.rds")) %>% 
   rename(p_imd_q = imd_quintile)
-indiv_contacts <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis_folder,"indiv_contacts.rds")) %>% 
+indiv_contacts <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis_folder_contacts,"indiv_contacts.rds")) %>% 
   mutate(c_location = tolower(c_location))
-cont_imd_distr <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis_folder_imd_distr,"cont_imd_distr.rds")) %>% 
+cont_imd_distr <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis_folder_contacts,"cont_imd_distr.rds")) %>% 
   mutate(c_location = tolower(c_location))
 poly_weights <- readRDS(file.path("data", "ons","polymod_weights.rds")) %>% 
   mutate(c_location = tolower(c_location))
