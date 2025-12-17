@@ -122,6 +122,16 @@ colors_p_age_group <- c('0-4' = '#4d004b', '5-9' = '#7a0177',
                         '60-64' = '#990000', '65-69' = '#08589e',
                         '70-74' = '#3690c0', '75+' = '#a6bddb')
 
+colors_p_age_group_nhs <- c('0-4' = '#4d004b',
+                           '5-11' = '#ae017e', 
+                           '12-17' = '#dd3497',
+                           '18-25' = '#f768a1', 
+                           '26-34' = '#fcc5c0',
+                           '35-49' = '#fec44f',
+                           '50-69' = '#fe9929',
+                           '70-79' = '#ef6548',
+                           '80+' = '#990000')
+
 colors_age_grp <- c('Aged 4 years and under' = '#4d004b', 'Aged 5 to 9 years' = '#7a0177',
                         'Aged 10 to 14 years' = '#ae017e', 'Aged 15 to 19 years' = '#dd3497',
                         'Aged 20 to 24 years' = '#f768a1', 'Aged 25 to 29 years' = '#fa9fb5',

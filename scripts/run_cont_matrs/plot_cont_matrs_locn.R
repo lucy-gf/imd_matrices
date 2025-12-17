@@ -19,7 +19,14 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
   file.path("output", "figures", "cont_matrs","base","location","fitted_matrs_locn.png")
 ) else commandArgs(trailingOnly = TRUE)
 
+sens_analysis <- .args[2]
+
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
+
+if(sens_analysis == 'nhs_ages'){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
 
 if(!file.exists(gsub('/fitted_matrs_locn.png','',.args[3]))){dir.create(gsub('/fitted_matrs_locn.png','',.args[3]))}
 
@@ -136,7 +143,9 @@ patchwork::wrap_plots(plots, nrow = 2)
 
 #### SAVE PNG ####
 
-ggsave(.args[3], width = 24, height = 22)
+width_value <- ifelse(sens_analysis != 'nhs_ages', 24, 34)
+
+ggsave(.args[3], width = width_value, height = 22)
 
 
 

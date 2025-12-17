@@ -9,11 +9,10 @@ suppressPackageStartupMessages(require(data.table))
 options(dplyr.summarise.inform = FALSE)
 library(purrr)
 
-.args <- if (interactive()) 
-  c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
-  'base',
-  file.path("output", "data", "epidem","base","byall.rds")
+.args <- if (interactive()) c(
+  file.path("output", "data", "cont_matrs","nhs_ages","fitted_matrs_balanced.csv"),
+  'nhs_ages',
+  file.path("output", "data", "epidem","nhs_ages","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
@@ -34,6 +33,18 @@ pset$Disease <- "Influenza"
 
 # set seed
 set.seed(120)
+
+# set ages
+if(sens_analysis == 'nhs_ages'){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
+demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
+  group_by(age_grp) %>% summarise(population = sum(pop)) 
+demog$age_grp <- factor(demog$age_grp, levels = age_labels)
+demog <- demog %>% arrange(age_grp)
+demog_population <- demog$population
 
 ## Parameters
 source(paste0(source_dir,"/parsF_.r"))
@@ -91,9 +102,11 @@ if(sens_analysis != 'regional'){
     cm1000 <- cm1000[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
   }
   
-  
   ## Demography
-  demog <- read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F) %>% 
+  
+  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
+  
+  demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
     group_by(imd_quintile, age_grp) %>% summarise(population = sum(pop)) %>% 
     group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
     group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
@@ -111,11 +124,9 @@ if(sens_analysis != 'regional'){
   
   # proportion by age
   pa<-vector(); for (i in 1:na){pa[i]=sum(demog$Population[which(demog$Age==pars$ages[i])])/sum(demog$Population)}
-  #  check:
-  #  round(pa,4)          [1] 0.0573 0.0873 0.0693 0.1500 0.1337 0.1258 0.1351 0.1058 0.1358
-  #  round(pars$ageons,4) [1] 0.0471 0.0882 0.0700 0.1516 0.1351 0.1272 0.1366 0.1069 0.1373
   
-  if(!grepl('9', demog$Age[2])){warning('Demog names wrong')}
+  if(sens_analysis != 'nhs_ages' & !grepl('9', demog$Age[2])){warning('Demog names wrong')}
+  if(sens_analysis == 'nhs_ages' & !grepl('11', demog$Age[2])){warning('Demog names wrong')}
   
   ## Initial state: S, E1:2, I1:2, U1:2, R, D
   oNg  <- 1/demog$Population;   # 1/Population
@@ -148,8 +159,8 @@ if(sens_analysis != 'regional'){
     # randomly seed the initial (1/100,000) latent infections
     random_demographic <- sample(1:length(pars$pE1g0), 1)
     SEEDTRACK[sim_num] <- random_demographic
-    pars$pE1g0 <- rep(0, length(pars$pE1g0))
-    pars$pE1g0[random_demographic] <- (1/10^5)   
+    pars$pE1g0 <- rep(0, length(pars$pE1g0)); pars$pE1g0[random_demographic] <- (1/10^5)   
+    if(sum(pars$pE1g0) != (1/10^5)){warning('Initial conditions wrong')}
     
     E1g0 = (1/oNg)*pars$pE1g0
     Sg0  = Sg0 - E1g0
@@ -185,12 +196,9 @@ if(sens_analysis != 'regional'){
     parscpp <- parscpp %>% magrittr::inset(c('age', 'ages', 'ageons', 'm'), NULL)  #parscpp45[['age']] <- NULL; etc
     
     ## Model output (for the proposed parameters)
-    if (pset$COMPILE==1 & pset$Vaccination==0) {
-      if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDas_.cpp"))
-      if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasday_.cpp")) }
-    if (pset$COMPILE==1 & pset$Vaccination==1) {
-      if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasvacc_.cpp"))
-      if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasvaccday_.cpp")) }
+    if (pset$COMPILE==1 & pset$Vaccination==0 & pset$DailyIncidence==1) {
+      sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasday_",ng,".cpp")) 
+    }
     
     mas <- model(parscpp)
     
@@ -218,16 +226,22 @@ if(sens_analysis != 'regional'){
                     ' - ', signif(quantile(BETATRACK, 0.975),3), ')\n'), sep = '')
   }
   
+  ## check sums
+  
+  imd_vec <- paste0('Iw_s', 1:nimd)
+  age_vec <- paste0('Iw_a', 1:na)
+  group_vec <- paste0('Iw_g', 1:ng)
+  
   ## imd check
-  imd1 <- colSums(byw[, paste0('Iw_s', 1:5)])
-  imd2raw <- colSums(byall[, paste0('Iw_g', 1:80)]); imd2 <- rep(0, nimd)
-  for(imd_i in 1:nimd){imd2[imd_i] <- sum(imd2raw[16*(imd_i - 1) + (1:16)])}
+  imd1 <- colSums(byw[, ..imd_vec])
+  imd2raw <- colSums(byall[, ..group_vec]); imd2 <- rep(0, nimd)
+  for(imd_i in 1:nimd){imd2[imd_i] <- sum(imd2raw[na*(imd_i - 1) + (1:na)])}
   if(sum(abs(imd1 - imd2) < 1) != nimd){stop('IMD sums not aligning')}
   
   ## age check
-  age1 <- colSums(byaw[, paste0('Iw_a', 1:16)])
-  age2raw <- colSums(byall[, paste0('Iw_g', 1:80)]); age2 <- rep(0, na)
-  for(age_i in 1:na){age2[age_i] <- sum(age2raw[(age_i - 16) + 16*1:5])}
+  age1 <- colSums(byaw[, ..age_vec])
+  age2raw <- colSums(byall[, ..group_vec]); age2 <- rep(0, na)
+  for(age_i in 1:na){age2[age_i] <- sum(age2raw[(age_i - na) + na*1:5])}
   if(sum(abs(age1 - age2) < 1) != na){stop('Age sums not aligning')}
   
   ## save files
@@ -235,14 +249,13 @@ if(sens_analysis != 'regional'){
   write_rds(byaw, gsub('all','aw',.args[3]))
   write_rds(byall, .args[3])
   
-
 }else{
   
   ###.##############
   #### REGIONAL ####
   ###.##############
     
-    regional_SA <- 1 # TODO change this !!!
+  for(regional_SA in 1:4){
     
     if(regional_SA == 1){} # do nothing
     if(regional_SA == 2){pars$R0 <- 1.1} # lower R0
@@ -420,12 +433,9 @@ if(sens_analysis != 'regional'){
         parscpp <- parscpp %>% magrittr::inset(c('age', 'ages', 'ageons', 'm'), NULL)  #parscpp45[['age']] <- NULL; etc
         
         ## Model output (for the proposed parameters)
-        if (pset$COMPILE==1 & pset$Vaccination==0) {
-          if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDas_.cpp"))
-          if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasday_.cpp")) }
-        if (pset$COMPILE==1 & pset$Vaccination==1) {
-          if(pset$DailyIncidence==0) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasvacc_.cpp"))
-          if(pset$DailyIncidence==1) sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasvaccday_.cpp")) }
+        if (pset$COMPILE==1 & pset$Vaccination==0 & pset$DailyIncidence==1) {
+          sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasday_",ng,".cpp")) 
+        }
         
         mas <- model(parscpp)
         
@@ -471,6 +481,7 @@ if(sens_analysis != 'regional'){
       write_rds(byaw, gsub('all','aw',gsub('.rds', paste0('_', regional_SA, '_', gsub(' ', '_', reg), '.rds'), .args[3])))
       write_rds(byall, gsub('.rds', paste0('_', regional_SA, '_', gsub(' ', '_', reg), '.rds'), .args[3]))
     
+    }
   }
   
 }

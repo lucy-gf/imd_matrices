@@ -18,9 +18,11 @@ library(purrr, warn.conflicts = FALSE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+sens_analysis <- .args[2] 
+
 #### READ IN DATA ####
  
-if(.args[2] == 'regional'){
+if(sens_analysis == 'regional'){
   
   imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
   
@@ -46,7 +48,15 @@ if(.args[2] == 'regional'){
   imd_age$age <- factor(imd_age$age, levels = age_labels)
   
 }else{
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  
+  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
+  
+  if(sens_analysis == 'nhs_ages'){
+    age_limits <- c(5,12,18,26,35,50,70,80)
+    age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+  }
+  
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
   
   imd_age <- imd_age_raw %>% 
     mutate(
@@ -68,7 +78,7 @@ if(.args[2] == 'regional'){
 
 #### BALANCE ####
 
-if(.args[2] == 'regional'){
+if(sens_analysis == 'regional'){
   
   balanced_matr <- data.table()
   

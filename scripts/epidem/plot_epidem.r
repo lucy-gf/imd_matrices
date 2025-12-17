@@ -33,6 +33,18 @@ source(here::here(source_dir,'setup.r')) #repo
 ### Diseases cycle
 pset$Disease <- "Influenza"
 
+# set ages
+if(sens_analysis == 'nhs_ages'){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
+demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
+  group_by(age_grp) %>% summarise(population = sum(pop)) 
+demog$age_grp <- factor(demog$age_grp, levels = age_labels)
+demog <- demog %>% arrange(age_grp)
+demog_population <- demog$population
+
 ## Parameters
 source(paste0(source_dir,"/parsF_.r"))
 ## If R0 low, make runtime longer
@@ -56,7 +68,7 @@ if(pset$R0fixed & (pars$R0 <= 1.1)){
 
 ## Set base levels for IMD and age
 base_imd_arr <- 5
-base_age_arr <- '35-39'
+base_age_arr <- ifelse(sens_analysis != 'nhs_ages', '35-39', '35-49')
 
 # set seed
 set.seed(120)
@@ -100,7 +112,9 @@ if(sens_analysis == 'regional'){
   
 }else{
   
-  demog <- read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F) %>% 
+  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
+  
+  demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
     group_by(imd_quintile, age_grp) %>% summarise(population = sum(pop)) %>% 
     group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
     group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
@@ -421,8 +435,9 @@ if(sens_analysis != 'regional'){
          device = "png", width = 12, height = 8)
   
   ## fig 3 by age
-  data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]
-  for(a in 1:16){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]} 
+  age_vec <- paste0('IUw_a', 1:na); age_sim_vec <- c('sim',age_vec)
+  data_age1000 <- byaw[, ..age_sim_vec]
+  for(a in 1:na){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]} 
   data_age1000[, time := rep(min(byw$time):max(byw$time), max(data_age1000$sim))]
   data <- rbind(
     data_age1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
@@ -434,12 +449,18 @@ if(sens_analysis != 'regional'){
   data <- dcast.data.table(data, time + age ~ meas, value.var = 'value')
   data$age <- factor(data$age, levels = pars$ages)
   
+  age_colors <- if(sens_analysis != 'nhs_ages'){
+    colors_p_age_group
+  }else{
+    colors_p_age_group_nhs
+  }
+  
   p3 <- ggplot(data, aes(x=time)) + 
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
     geom_line(aes(y = median, col = age), lwd=0.8)  +
     theme_bw() +
-    scale_color_manual(values = colors_p_age_group) + 
-    scale_fill_manual(values = colors_p_age_group) + 
+    scale_color_manual(values = age_colors) + 
+    scale_fill_manual(values = age_colors) + 
     theme(text=element_text(size=10),
           legend.key.size = unit(2, 'mm'),
           plot.title = element_text(size = 12),
@@ -451,8 +472,8 @@ if(sens_analysis != 'regional'){
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
     geom_line(aes(y = median, col = age), lwd=0.8)  +
     theme_bw() +
-    scale_color_manual(values = colors_p_age_group) + 
-    scale_fill_manual(values = colors_p_age_group) + 
+    scale_color_manual(values = age_colors) + 
+    scale_fill_manual(values = age_colors) + 
     facet_wrap(age ~ .) +
     theme(text=element_text(size=10),
           legend.key.size = unit(2, 'mm'),
@@ -462,8 +483,8 @@ if(sens_analysis != 'regional'){
     labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age');p3facet
   
   ## fig 3b by age
-  data_age1000 <- byaw[, c('sim',paste0('IUw_a', 1:16))]
-  for(a in 1:16){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]}
+  data_age1000 <- byaw[, ..age_sim_vec]
+  for(a in 1:na){data_age1000[, (paste0('IUw_a', a))] <- 1e3*data_age1000[, get(paste0('IUw_a', a))]/Na[a]}
   data_age1000[, time := data_imd1000$time]
   data_age1000cum <- data_age1000[, lapply(.SD, cumsum), by = c('sim')][, time := data_age1000$time]
   data <- rbind(
@@ -480,8 +501,8 @@ if(sens_analysis != 'regional'){
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
     geom_line(aes(y = median, col = age), lwd=0.8)  +
     theme_bw() +
-    scale_color_manual(values = colors_p_age_group) + 
-    scale_fill_manual(values = colors_p_age_group) + 
+    scale_color_manual(values = age_colors) + 
+    scale_fill_manual(values = age_colors) + 
     theme(text=element_text(size=10),
           legend.key.size = unit(2, 'mm'),
           plot.title = element_text(size = 12),
@@ -563,7 +584,7 @@ if(sens_analysis != 'regional'){
                size = 3)  +
     theme_minimal() +
     facet_grid(imd~., switch = 'x') + 
-    scale_color_manual(values = colors_p_age_group) + 
+    scale_color_manual(values = age_colors) + 
     theme(text=element_text(size=12),
           # axis.title.x=element_blank(),
           axis.text.x=element_blank(),
@@ -592,8 +613,8 @@ if(sens_analysis != 'regional'){
     geom_line(aes(y = median, col = age), lwd=0.8)  +
     theme_bw() +
     facet_grid(imd ~ .) + 
-    scale_color_manual(values = colors_p_age_group) + 
-    scale_fill_manual(values = colors_p_age_group) + 
+    scale_color_manual(values = age_colors) + 
+    scale_fill_manual(values = age_colors) + 
     theme(text=element_text(size=10),
           legend.key.size = unit(2, 'mm'),
           plot.title = element_text(size = 12),
@@ -621,8 +642,8 @@ if(sens_analysis != 'regional'){
     geom_line(aes(y = median, col = age), lwd=0.8)  +
     theme_bw() +
     facet_grid(imd ~ .) + 
-    scale_color_manual(values = colors_p_age_group) + 
-    scale_fill_manual(values = colors_p_age_group) + 
+    scale_color_manual(values = age_colors) + 
+    scale_fill_manual(values = age_colors) + 
     theme(text=element_text(size=10),
           legend.key.size = unit(2, 'mm'),
           plot.title = element_text(size = 12),

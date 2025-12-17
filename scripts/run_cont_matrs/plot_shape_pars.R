@@ -21,6 +21,11 @@ library(patchwork)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+if(sens_analysis == 'nhs_ages'){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+
 ## plotting function ##
 
 plot_shape_pars <- function(
@@ -135,8 +140,10 @@ if(.args[2] == 'regional'){
   
   patchwork::wrap_plots(plots)
   
+  width_value <- ifelse(sens_analysis != 'nhs_ages', 30, 36)
+  
   ggsave(.args[3],
-         width = 30, height = 20)
+         width = width_value, height = 20)
   
 }
 

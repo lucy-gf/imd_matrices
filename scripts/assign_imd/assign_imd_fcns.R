@@ -1,6 +1,12 @@
 
 options(dplyr.summarise.inform = FALSE)
 
+age_breaks <- c(-Inf, 5*1:(75/5), Inf)
+age_vals <- age_breaks[is.finite(age_breaks)]
+age_limits <- age_vals
+age_labels <- c(paste0(c(0, age_vals[1:length(age_vals)-1]), '-', c(age_vals-1)), paste0(age_vals[length(age_vals)], '+'))
+
+
 ## FUNCTION TO ASSIGN IMD TO CONNECT PARTICIPANTS ##
 
 fcn_assign_imd <- function(

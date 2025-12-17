@@ -989,6 +989,8 @@ nb_loglik <- function(x, par) {
 
 add_large_n <- function(vec){
   
+  vec <- unlist(unname(vec))
+  
   n <- vec[1]
   length_v <- length(vec)
   probs <- vec[2:length_v]
@@ -1000,7 +1002,7 @@ add_large_n <- function(vec){
   
   occurrence_vec <- sapply(1:length(probs), FUN = function(x) length(samples[samples==x]))
   
-  out_vec <- c(n, occurrence_vec)
+  out_vec <- as.numeric(c(n, occurrence_vec))
   
   out_vec
   

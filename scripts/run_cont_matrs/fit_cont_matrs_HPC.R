@@ -12,8 +12,8 @@ library(patchwork, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  "base",
-  "1"
+  "regional",
+  "2"
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -176,6 +176,14 @@ fitted_list <- map(
 
 fitted <- rbindlist(fitted_list)
 
+#### SAVE CSV ####
+
+# write to the temp file
+write.csv(fitted, tmp_file)
+
+# rename to final file (only  if write was successful)
+file.rename(tmp_file, output_folder)
+
 # Print data
 cat('\nTime taken: ', floor(difftime(Sys.time(), start_time, units = 'secs')[[1]]/60), ' mins ',
     round(difftime(Sys.time(), start_time, units = 'secs')[[1]] -
@@ -185,12 +193,6 @@ mem <- memory.profile()
 cat("\nPeak memory used (R side): ", round(sum(mem) / 1024 / 1024, 2), "GB\n", sep = '')
 
 
-#### SAVE CSV ####
 
-# write to the temp file
-write.csv(fitted, tmp_file)
-
-# rename to final file (only  if write was successful)
-file.rename(tmp_file, output_folder)
 
 

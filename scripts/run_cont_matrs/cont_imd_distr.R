@@ -109,19 +109,36 @@ indiv_contacts_imd_props_no_school <- if(sens_analysis == 'nhs_ages'){
   indiv_contacts_imd_props_empirical %>% 
     filter(! (c_location == 'School' & 
                 p_age_group == c_age_group & 
-                p_age_group %in% c('0-4','5-9','10-14','15-19'))) 
+                p_age_group %in% c('0-4','5-11','12-17','18-25'))) 
   
 }else{
   
   indiv_contacts_imd_props_empirical %>% 
     filter(! (c_location == 'School' & 
                 p_age_group == c_age_group & 
-                p_age_group %in% c('0-4','5-11','12-17','18-25'))) 
+                p_age_group %in% c('0-4','5-9','10-14','15-19'))) 
   
 }
 
 indiv_contacts_imd_props <- rbind(indiv_contacts_imd_props_no_school,
                                   dfe_distr)
+
+# check this is the right number of rows
+
+if(sens_analysis != 'regional'){
+  if(nrow(indiv_contacts_imd_props) != (n_distinct(indiv_contacts_imd_props_empirical$p_age_group)^2)*
+     (n_distinct(indiv_contacts_imd_props_empirical$p_imd_q)^2)*
+     (n_distinct(indiv_contacts_imd_props_empirical$c_location))){
+    warning("N rows not correct in indiv_contacts_imd_props")
+  }
+}else{
+  if(nrow(indiv_contacts_imd_props) != (n_distinct(indiv_contacts_imd_props_empirical$p_age_group)^2)*
+     (n_distinct(indiv_contacts_imd_props_empirical$p_imd_q)^2)*
+     (n_distinct(indiv_contacts_imd_props_empirical$p_engreg))*
+     (n_distinct(indiv_contacts_imd_props_empirical$c_location))){
+    warning("N rows not correct in indiv_contacts_imd_props")
+  }
+}
 
 ## plot
 

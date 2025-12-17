@@ -1,6 +1,8 @@
 
 ## plot degree distribution ##
 
+library(ggplot2)
+
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","participants.rds"),
   "base",
@@ -72,3 +74,47 @@ participants %>% mutate(n_contacts = n_contacts + large_n) %>%
        col = 'IMD quintile')
 
 ggsave(.args[3], width = 15, height = 10)
+
+p_gender <- readRDS(file.path('data','reconnect','reconnect_part.rds'))
+
+participants <- participants %>% 
+  left_join(p_gender %>% select(p_id, p_gender), by = 'p_id')
+
+bs_gender <- participants %>% mutate(n_contacts = n_contacts + large_n) %>% 
+  filter(p_gender %in% c('Female','Male')) %>% 
+  group_by(bootstrap_index, imd_quintile, p_age_group, p_gender) %>%
+  mutate(n_participants = length(unique(p_id))) %>%
+  ungroup() %>%
+  group_by(bootstrap_index, n_contacts, imd_quintile, p_gender, p_age_group, n_participants) %>%
+  summarise(people_w_n_contacts = length(unique(p_id))) %>%
+  arrange(desc(n_contacts)) %>%
+  group_by(bootstrap_index, imd_quintile, p_age_group, p_gender, n_participants) %>%
+  mutate(
+    cumul_n = cumsum(people_w_n_contacts),
+    prob_n = cumul_n / n_participants
+  ) %>%
+  filter(n_contacts > 0) # for log scale
+
+bs_gender_agg <- bs_gender %>% 
+  group_by(imd_quintile, n_contacts, p_age_group, p_gender) %>% 
+  summarise(prob_n = mean(prob_n))
+
+bs_gender %>% 
+  ggplot(aes(x = n_contacts, y = prob_n, 
+             col = as.factor(imd_quintile), 
+             group = interaction(bootstrap_index, p_gender, as.factor(imd_quintile)),
+             lty = p_gender)) +
+  geom_line(lwd = 0.8, alpha = 0.1) +
+  # geom_point() + 
+  scale_linetype_manual(values = c(1,2)) + 
+  scale_color_manual(values = imd_quintile_colors) + 
+  theme_bw() + facet_wrap(p_age_group ~ .) +
+  scale_x_log10(breaks = c(1, 3, 10, 30, 100, 300, 1000)) +
+  scale_y_log10(breaks = c(0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1)) +
+  labs(x = "Contact degree",
+       y = "Proportion of participants",
+       col = 'IMD quintile',
+       lty = 'Gender')
+
+ggsave(gsub('.png','_gender.png',.args[3]), width = 15, height = 10)
+

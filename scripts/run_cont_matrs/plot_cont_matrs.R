@@ -16,20 +16,20 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 # set arguments
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
-  file.path("data", "census","imd_age.csv"),
   "base",
   file.path("output", "figures", "cont_matrs","base","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
+source(here::here('scripts','setup','colors.R'))
 
-if(!file.exists(gsub('/fitted_matrs.png','',.args[4]))){dir.create(gsub('/fitted_matrs.png','',.args[4]))}
+if(!file.exists(gsub('/fitted_matrs.png','',.args[3]))){dir.create(gsub('/fitted_matrs.png','',.args[3]))}
 
 #### READ IN DATA ####
 
 balanced_matr <- data.table(read_csv(.args[1], show_col_types = F))
 
-sens_analysis <- .args[3]
+sens_analysis <- .args[2]
 
 ## age distribution 
 
@@ -59,13 +59,21 @@ if(sens_analysis == 'regional'){
   imd_age$age <- factor(imd_age$age, levels = age_labels)
   
 }else{
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  
+  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
+  
+  if(sens_analysis == 'nhs_ages'){
+    age_limits <- c(5,12,18,26,35,50,70,80)
+    age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+  }
+  
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
   
   imd_age <- imd_age_raw %>% 
     mutate(
-    imd_q = imd_quintile,
-    population = pop,
-    age = age_grp) %>% 
+      imd_q = imd_quintile,
+      population = pop,
+      age = age_grp) %>% 
     select(imd_q, age, population) %>% 
     group_by(imd_q, age) %>% 
     summarise(population = sum(population)) %>% ungroup() %>% 
@@ -77,6 +85,8 @@ if(sens_analysis == 'regional'){
            prop = population/tot_pop)
   
   imd_age$age <- factor(imd_age$age, levels = age_labels)
+  imd_age <- imd_age %>% arrange(imd_q, age)
+  
 }
 
 #### SUMMARISE ####
@@ -145,23 +155,51 @@ imd_mix_plot <- imd_mix %>%
 
 imd_mix_distr$c_imd_q <- factor(imd_mix_distr$c_imd_q, 
                                 levels = rev(1:5))
-imd_mix_distr_plot <- imd_mix_distr %>% 
-  ggplot() + 
-  geom_density(aes(x = weighted_sum, fill = weighted_mean)) +
-  theme_bw() + 
-  facet_grid(c_imd_q ~ p_imd_q, switch = 'both') + 
-  scale_fill_viridis(option = 'A', limits = c(0,NA)) +
-  labs(
-    x = 'Participant IMD quintile',
-    y = 'Contact IMD quintile',
-    fill = 'Mean daily\ncontacts'
-  ) + 
-  theme(strip.background = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        strip.placement = "outside",
-        text = element_text(size = 14)); imd_mix_distr_plot
-ggsave(gsub('.png','_imd_mix_distr.png',.args[4]), width = 11, height = 10)
+
+imd_mix_distr_plot <- if(sens_analysis != 'regional'){
+  
+  imd_mix_distr %>% 
+    ggplot() + 
+    geom_density(aes(x = weighted_sum, fill = weighted_mean)) +
+    theme_bw() + 
+    facet_grid(c_imd_q ~ p_imd_q, switch = 'both') + 
+    scale_fill_viridis(option = 'A', limits = c(0,NA)) +
+    labs(
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
+      fill = 'Mean daily\ncontacts'
+    ) + 
+    theme(strip.background = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          strip.placement = "outside",
+          text = element_text(size = 14))
+
+  }else{
+    
+  imd_mix_distr %>% 
+    ggplot() + 
+    geom_density(aes(x = weighted_sum, fill = p_engreg, group = p_engreg),
+                 alpha = 0.4) +
+    theme_bw() + 
+    facet_grid(c_imd_q ~ p_imd_q, switch = 'both') + 
+    scale_fill_manual(values = colors_p_engreg) +
+    labs(
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
+      fill = 'Mean daily\ncontacts'
+    ) + 
+    theme(strip.background = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          strip.placement = "outside",
+          text = element_text(size = 14))
+    
+}
+
+imd_mix_distr_plot
+
+ggsave(gsub('.png','_imd_mix_distr.png',.args[3]), width = 11, height = 10)
     
 if(sens_analysis == 'regional'){
   imd_mix_plot <- imd_mix_plot + facet_wrap(. ~ p_engreg)
@@ -192,17 +230,17 @@ if(sens_analysis == 'regional'){
       strip.placement = "outside",
       text = element_text(size = 14)); imd_mix_plot_pc
   
-  ggsave(gsub('.png','_imd_mix_pc.png',.args[4]), width = 11, height = 10)
+  ggsave(gsub('.png','_imd_mix_pc.png',.args[3]), width = 11, height = 10)
   
   imd_mix_plot + imd_mix_plot_pc + plot_layout(nrow=1) + 
     plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
-  ggsave(gsub('.png','_imd_mix_patch.png',.args[4]), width = 22, height = 10)
+  ggsave(gsub('.png','_imd_mix_patch.png',.args[3]), width = 22, height = 10)
   
 }
 
 imd_mix_plot
 
-ggsave(gsub('.png','_imd_mix.png',.args[4]), width = ifelse(sens_analysis == 'regional', 11, 12), height = 10)
+ggsave(gsub('.png','_imd_mix.png',.args[3]), width = ifelse(sens_analysis == 'regional', 11, 12), height = 10)
 
 if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
@@ -239,7 +277,7 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
           strip.placement = "outside",
           text = element_text(size = 18)); imdm
   
-  ggsave(gsub('.png','_imd_mix_unbalanced.png',.args[4]), width = 12, height = 10)
+  ggsave(gsub('.png','_imd_mix_unbalanced.png',.args[3]), width = 12, height = 10)
   
   ## balanced without home
   
@@ -274,19 +312,19 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
           strip.placement = "outside",
           text = element_text(size = 18)); imdm_nh 
   
-  ggsave(gsub('.png','_imd_mix_no_home.png',.args[4]), width = 12, height = 10)
+  ggsave(gsub('.png','_imd_mix_no_home.png',.args[3]), width = 12, height = 10)
   
   imd_mix_plot + imdm_nh + plot_layout(nrow = 1) + 
     plot_annotation(tag_levels = 'a',
                     tag_prefix = '(',
                     tag_suffix = ')')
-  ggsave(gsub('.png','_imd_mix_both.png',.args[4]), width = 22, height = 10)
+  ggsave(gsub('.png','_imd_mix_both.png',.args[3]), width = 22, height = 10)
   
 }
 
 if(sens_analysis != 'regional'){
   
-  #### VARIATION ####
+  #### UNCERTAINTY ####
   
   agg %>% 
     ggplot() + 
@@ -306,7 +344,7 @@ if(sens_analysis != 'regional'){
   
   #### SAVE PNG ####
   
-  ggsave(gsub('.png','_var.png',.args[4]), width = 16, height = 14)
+  ggsave(gsub('.png','_var.png',.args[3]), width = 16, height = 14)
   
   #### IMD DIFFS ####
   
@@ -354,7 +392,7 @@ if(sens_analysis != 'regional'){
   
   #### SAVE PNG ####
   
-  ggsave(gsub('.png','_diff.png',.args[4]), width = 14, height = 14)
+  ggsave(gsub('.png','_diff.png',.args[3]), width = 14, height = 14)
   
   # with the age diagonal removed
   cm_limited <- agg %>% 
@@ -375,7 +413,7 @@ if(sens_analysis != 'regional'){
           text = element_text(size = 14),
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); cm_limited
   
-  ggsave(gsub('.png','_limited.png',.args[4]), width = 16, height = 14)
+  ggsave(gsub('.png','_limited.png',.args[3]), width = 16, height = 14)
 
 }
 
@@ -385,6 +423,12 @@ if(sens_analysis != 'regional'){
   
   # age distribution plots
   
+  cols <- if(n_distinct(imd_age$age) == 16){
+    heat.colors(30)[1:16]
+  }else{
+    heat.colors(15)[1:9]
+  }
+  
   plot_imd_age <- function(i){
     
     imd_age %>% 
@@ -393,7 +437,7 @@ if(sens_analysis != 'regional'){
       geom_bar(aes(age, prop, fill = age),
                stat = 'identity', position = 'dodge', alpha = 0.7) +
       theme_void() +
-      scale_fill_manual(values = heat.colors(30)[1:16]) +
+      scale_fill_manual(values = cols) +
       ylim(c(0,max(imd_age$prop))) + 
       theme(axis.title.x=element_blank(),
             axis.text.x=element_blank(),
@@ -455,7 +499,7 @@ KKKKKKKKKKF
   
   #### SAVE PNG ####
   
-  ggsave(.args[4], width = 16, height = 14)
+  ggsave(.args[3], width = 16, height = 14)
   
   #### IMD 1 x IMD 1 ####
   
@@ -495,7 +539,7 @@ CCCB
   
   patchwork::wrap_plots(c(imd_ages_1, imd_ages_flip_1)) + cm_1x1 + plot_layout(design = layout_1x1, guides = 'collect')
   
-  ggsave(gsub('.png', '_1x1.png', .args[4]), width = 8, height = 7)
+  ggsave(gsub('.png', '_1x1.png', .args[3]), width = 8, height = 7)
   
 }else{
   
@@ -587,7 +631,7 @@ KKKKKKKKKKF
   
   #### SAVE PNG ####
   
-  ggsave(.args[4], width = 28, height = 24)
+  ggsave(.args[3], width = 28, height = 24)
   
   
 }
