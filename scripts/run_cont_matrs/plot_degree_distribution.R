@@ -99,12 +99,12 @@ bs_gender_agg <- bs_gender %>%
   group_by(imd_quintile, n_contacts, p_age_group, p_gender) %>% 
   summarise(prob_n = mean(prob_n))
 
-bs_gender %>% 
+bs_gender_agg %>% 
   ggplot(aes(x = n_contacts, y = prob_n, 
              col = as.factor(imd_quintile), 
-             group = interaction(bootstrap_index, p_gender, as.factor(imd_quintile)),
+             group = interaction(p_gender, as.factor(imd_quintile)),
              lty = p_gender)) +
-  geom_line(lwd = 0.8, alpha = 0.1) +
+  geom_line(lwd = 0.8) +
   # geom_point() + 
   scale_linetype_manual(values = c(1,2)) + 
   scale_color_manual(values = imd_quintile_colors) + 

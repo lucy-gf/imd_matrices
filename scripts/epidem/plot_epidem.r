@@ -13,9 +13,9 @@ suppressPackageStartupMessages(require(viridis))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "epidem","base","byall.rds"),
-  "base",
-  file.path('output','figures','epidem','base','attack_rate_bars.png')
+  file.path("output", "data", "epidem","nhs_ages","byall.rds"),
+  "nhs_ages",
+  file.path('output','figures','epidem','nhs_ages','attack_rate_bars.png')
 ) else commandArgs(trailingOnly = TRUE)
 
 if(!file.exists(gsub('/attack_rate_bars.png','',.args[3]))){dir.create(gsub('/attack_rate_bars.png','',.args[3]))}
@@ -73,10 +73,11 @@ base_age_arr <- ifelse(sens_analysis != 'nhs_ages', '35-39', '35-49')
 # set seed
 set.seed(120)
 
-## read files
-byw <- readRDS(gsub('all','w',.args[1]))
-byaw <- readRDS(gsub('all','aw',.args[1]))
-byall <- readRDS(.args[1])
+age_colors <- if(sens_analysis != 'nhs_ages'){
+  colors_p_age_group
+}else{
+  colors_p_age_group_nhs
+}
 
 ## Figures
 
@@ -127,9 +128,15 @@ if(sens_analysis == 'regional'){
   
 }
 
+#### NOT REGIONAL ####
 ## If NOT in regional sensitivity analysis
 
 if(sens_analysis != 'regional'){
+  
+  ## read files
+  byw <- readRDS(gsub('all','w',.args[1]))
+  byaw <- readRDS(gsub('all','aw',.args[1]))
+  byall <- readRDS(.args[1])
   
   ## Population by age group (over SES), by SES (over age), overall
   # number of age groups
@@ -275,18 +282,20 @@ if(sens_analysis != 'regional'){
           axis.text.x = element_text(color=1)) +
     labs(y = "Final size per 1000 population", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size
   
-  imd_final_size2 <- data_imd1000cum %>% 
+  final_size_dat2 <- data_imd1000cum %>% 
     filter(time == max(time)) %>% select(!time) %>% 
     pivot_longer(!sim) %>% 
     mutate(imd = substr(name,6,6)) %>% 
-    group_by(imd) %>% mutate(median = median(value)) %>% 
+    group_by(imd) %>% mutate(median = median(value)) 
+  
+  imd_final_size2 <- final_size_dat2 %>% 
     ggplot(aes(x=imd)) + 
     geom_violin(aes(y = value, fill = imd, col = imd), alpha = 0.4)  +
     geom_point(aes(y = median, col = imd), size = 4)  +
     theme_bw() +
     scale_color_manual(values = imd_quintile_colors) + 
     scale_fill_manual(values = imd_quintile_colors) +
-    ylim(c(0,600)) + 
+    ylim(c(0,NA)) + 
     theme(text=element_text(size=14),
           legend.position = 'none',
           plot.title = element_text(size = 12),
@@ -355,6 +364,7 @@ if(sens_analysis != 'regional'){
   
   ## age-standardised final size
   data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
   for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
   data_1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time][, iW := NULL]
   data <- melt.data.table(data_1000cum, id.vars = c('time','sim'))[time == max(time)][, time := NULL]
@@ -449,12 +459,6 @@ if(sens_analysis != 'regional'){
   data <- dcast.data.table(data, time + age ~ meas, value.var = 'value')
   data$age <- factor(data$age, levels = pars$ages)
   
-  age_colors <- if(sens_analysis != 'nhs_ages'){
-    colors_p_age_group
-  }else{
-    colors_p_age_group_nhs
-  }
-  
   p3 <- ggplot(data, aes(x=time)) + 
     geom_ribbon(aes(ymin = l95, ymax = u95, fill = age), alpha=0.25)  +
     geom_line(aes(y = median, col = age), lwd=0.8)  +
@@ -527,6 +531,7 @@ if(sens_analysis != 'regional'){
   # ARRs
   X <- base_imd_arr
   data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
   for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
   data_1000ar <- data1000[, lapply(.SD, sum), by = c('sim')][, iW := NULL][, time := NULL]
   data_melt <- melt.data.table(data_1000ar, id.vars = c('sim'))
@@ -596,6 +601,7 @@ if(sens_analysis != 'regional'){
   
   ## across all groups
   data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
   for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
   data <- rbind(
     data1000[, lapply(.SD, median), by = 'time'][, meas := 'median'],
@@ -624,6 +630,7 @@ if(sens_analysis != 'regional'){
   
   # across all groups, cumulative
   data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
   for(a in 1:ng){data1000[, (paste0('Iw_g', a))] <- 1e3*data1000[, get(paste0('Iw_g', a))]/Sg0[a]} 
   data_1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time]
   data <- rbind(
@@ -723,6 +730,21 @@ CCCDDDDD
   
 }else{
   
+  #### REGIONAL ####
+  
+  for(reg_sens_analysis in 1:4){
+  
+    if(reg_sens_analysis == 1){reg_sens_analysis_name <- 'R0_1.5'}
+    if(reg_sens_analysis == 2){reg_sens_analysis_name <- 'R0_1.1'}
+    if(reg_sens_analysis == 3){reg_sens_analysis_name <- 'R0_3'}
+    if(reg_sens_analysis == 4){reg_sens_analysis_name <- 'R0_variable'}
+    
+  # change input and output names
+  input <- gsub('all', paste0('all_', reg_sens_analysis), .args[1])
+  sens_analysis_sens_analysis <- paste0(sens_analysis, '/', reg_sens_analysis_name)
+  outdir <- file.path('output','figures','epidem',sens_analysis_sens_analysis)
+  if(!dir.exists(outdir)){dir.create(outdir)}
+  
   # regional age structure
   
   imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
@@ -733,7 +755,7 @@ CCCDDDDD
       grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
       T ~ p_engreg
     ),
-    imd = imd_quintile,
+    imd = as.character(imd_quintile),
     population = pop,
     age = age_grp) %>% 
     select(p_engreg, imd, age, population) %>% 
@@ -748,6 +770,32 @@ CCCDDDDD
   demog_allreg <- demog_allreg %>% arrange(p_engreg, imd, age)
   
   demog_allreg <- data.table(demog_allreg)
+  
+  ## read files
+  byw <- data.table()
+  byaw <- data.table()
+  byall <- data.table()
+  
+  for(region in unique(demog_allreg$p_engreg)){
+    
+    region_collapsed <- gsub(' ', '_', region)
+    
+    byw <- rbind(byw, 
+                 readRDS(gsub('all','w',gsub('.rds',paste0('_', region_collapsed, '.rds'),input))))
+    byaw <- rbind(byaw, 
+                  readRDS(gsub('all','aw',gsub('.rds',paste0('_', region_collapsed, '.rds'),input))))
+    byall <- rbind(byall,
+                   readRDS(gsub('.rds',paste0('_', region_collapsed, '.rds'),input)))
+    
+  }
+  
+  ## Population by age group (over SES), by SES (over age), overall
+  # number of age groups
+  na   = pars$na
+  # number of SES
+  nimd = pars$nimd
+  # number of groups
+  ng   = na*nimd
   
   ## fig 1 overall
   data1000 <- byw[, c('p_engreg','sim','time','Iw','Uw')][, Infe := (Iw + Uw)][, c('p_engreg','sim','time','Infe')]
@@ -910,7 +958,7 @@ CCCDDDDD
   imd_final_size + imd_final_size_arr + plot_layout(nrow = 1) 
   
   ## save
-  ggsave(here::here('output','figures','epidem',sens_analysis,'final_size_imd.png'), dpi=600, 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'final_size_imd.png'), dpi=600, 
          device = "png", width = 16, height = 8)
   
   ## fig 3 by age
@@ -973,22 +1021,23 @@ CCCDDDDD
   
   ## save
   p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')
-  ggsave(here::here('output','figures','epidem',sens_analysis,'time_series.png'), dpi=600, 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'time_series.png'), dpi=600, 
          device = "png", width = 16, height = 12)
   
   ## save
   p2b 
-  ggsave(here::here('output','figures','epidem',sens_analysis,'time_series_imd_facet.png'), dpi=600, 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'time_series_imd_facet.png'), dpi=600, 
          device = "png", width = 12, height = 8)
   
   ## save
   p3b
-  ggsave(here::here('output','figures','epidem',sens_analysis,'time_series_age_facet.png'), dpi=600, 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'time_series_age_facet.png'), dpi=600, 
          device = "png", width = 12, height = 8)
   
   # ARRs
   X <- base_imd_arr
   data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
   data_1000ar <- data1000[, lapply(.SD, sum), by = c('p_engreg','sim')][, iW := NULL][, time := NULL]
   data_melt <- melt.data.table(data_1000ar, id.vars = c('p_engreg','sim'))
   data_melt[, age := rep(rep(pars$ages, each = n_distinct(data_melt$p_engreg)*n_distinct(data_melt$sim)), nimd)]
@@ -1025,7 +1074,7 @@ CCCDDDDD
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank()) +
     labs(y = "Relative attack rate", x = 'Age group', color = "IMD", fill = 'IMD'); arr_plot
-  ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by_imd.png'), dpi=600, 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'rel_attack_rates_by_imd.png'), dpi=600, 
          bg = 'white',
          device = "png", width =20, height = 20)
   
@@ -1063,10 +1112,9 @@ CCCDDDDD
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank()) +
     labs(y = "Relative attack rate", x = 'IMD quintile', color = "Age", fill = 'Age'); arr_plot_age
-  ggsave(here::here('output','figures','epidem',sens_analysis,'rel_attack_rates_by_age.png'), dpi=600, 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'rel_attack_rates_by_age.png'), dpi=600, 
          bg = 'white',
          device = "png", width = 20, height = 20)
-  
   
   data <- copy(data_melt)
   data <- data[demog_allreg[, c('p_engreg','age','imd','Population')][, lapply(.SD, sum), by = c('p_engreg','age','imd')][,imd := as.numeric(imd)], 
@@ -1098,10 +1146,16 @@ CCCDDDDD
     labs(y = "Attack rate /1000", x = "Age group", color = "IMD quintile", fill = 'IMD quintile'); age_spec_ar
   
   ggsave(plot = age_spec_ar, 
+         here::here('output','figures','epidem',sens_analysis_sens_analysis,'attack_rate_bars.png'),
+         dpi=600, 
+         device = "png", width = 24, height = 12)
+  
+  ggsave(plot = age_spec_ar, 
          .args[3],
          dpi=600, 
          device = "png", width = 24, height = 12)
   
+  }
 }
   
 

@@ -248,6 +248,11 @@ ${CONTFIG}/%/degree_distribution.png: ${CONTCODE}/plot_degree_distibution.R ${CO
 
 alldegdistr: $(patsubst %,${CONTFIG}/%/degree_distribution.png, ${A_SENS_ANALYSES})
 
+${CONTDATA}/base/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/%/participants.rds base
+	$(call R)
+
+allmeancontacts: ${CONTDATA}/base/mean_contacts/mean_contacts.csv
+
 ${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
 	$(call R, $*)
 	
@@ -274,7 +279,7 @@ ${CONTDATA}/reconnect_weights_nhs_ages.rds: ${CONTCODE}/reconnect_weights_nhs_ag
 
 allweights: ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds ${CONTDATA}/reconnect_weights_nhs_ages.rds
 
-all_cm_inputs: alldegdistr allsampledcont allsampledcont_nhs allcontdistr allweights
+all_cm_inputs: alldegdistr allmeancontacts allsampledcont allsampledcont_nhs allcontdistr allweights
 
 ################################################
 ########## Run contact matrix fitting ##########
@@ -375,7 +380,9 @@ allmatrsplots: allmatrsplots_agg allmatrsplots_locn
 
 ################################################################################
 
-##### Epidemic simulations ########## 
+#################################
+##### Epidemic simulations ######
+################################# 
 
 ${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balanced.csv 
 	$(call R, $*)
