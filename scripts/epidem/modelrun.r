@@ -1,4 +1,4 @@
-#pipeline SEIRD Rcpp
+# run epidemics
 
 suppressPackageStartupMessages(require(bench))
 suppressPackageStartupMessages(require(magrittr))
@@ -9,10 +9,12 @@ suppressPackageStartupMessages(require(data.table))
 options(dplyr.summarise.inform = FALSE)
 library(purrr)
 
+#### SET UP ####
+
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
-  'base',
-  file.path("output", "data", "epidem","base","byall.rds")
+  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv"),
+  'regional',
+  file.path("output", "data", "epidem","regional","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
@@ -34,6 +36,8 @@ pset$Disease <- "Influenza"
 # set seed
 set.seed(120)
 
+#### FUNCTION ####
+
 run_epidemic <- function(
     sens_analysis_input,
     cm_1000,
@@ -49,7 +53,7 @@ run_epidemic <- function(
   
   if(sens_analysis_input == 'regional'){
     
-    demog_allreg <- imd_age_raw %>% 
+    demog_allreg <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
       mutate(p_engreg = case_when(
         grepl('London',p_engreg) ~ 'Greater London',
         grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
@@ -69,8 +73,10 @@ run_epidemic <- function(
                                levels = names(colors_age_grp))
     demog_allreg <- demog_allreg %>% arrange(p_engreg, IMD, Age)
     
-    # filter demography and contact matrix for specific region
+    # filter demography for specific region
     demog <- demog_allreg %>% filter(p_engreg == region)
+    
+    # filter contact matrix for specific region
     cm_1000 <- cm_1000[p_engreg == region]
     cm_1000[, p_engreg := NULL]
     
@@ -88,7 +94,7 @@ run_epidemic <- function(
   }
   
   # input for parsF_.R
-  demog_population <- demog$Population
+  demog_population <<- demog$Population
   
   ## Parameters
   source(paste0(source_dir,"/parsF_.r"))
@@ -144,11 +150,7 @@ run_epidemic <- function(
   cm_1000$p_age_group <- factor(cm_1000$p_age_group, levels = pars$ages)
   cm_1000$c_age_group <- factor(cm_1000$c_age_group, levels = pars$ages)
   
-  if(sens_analysis_input == 'regional'){
-    cm_1000 <- cm_1000[order(bootstrap_index, p_engreg, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-  }else{
-    cm_1000 <- cm_1000[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-  }
+  cm_1000 <- cm_1000[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
   
   # number of age groups
   na   = pars$na
@@ -306,7 +308,7 @@ run_epidemic <- function(
   
 }
 
-## SETUP
+#### INPUTS ####
 # set ages
 if(sens_analysis == 'nhs_ages'){
   age_limits <- c(5,12,18,26,35,50,70,80)
@@ -324,7 +326,7 @@ if(!exists('cm1000')){
   cm1000 <- cm1000[, ..cm_col_vec][, lapply(.SD, sum), by = sum_over]
 }
 
-## run epidemics 
+#### RUN ####
 
 if(sens_analysis == 'regional'){
   

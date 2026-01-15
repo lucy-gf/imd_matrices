@@ -22,10 +22,10 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","connect_prob_pcd1ageethnnssec.rds"),
-  file.path("output", "data", "assignment","wis", "prob_pcd1ageethnnssec_scores.csv"),
-  'prob_pcd1ageethnnssec',
-  file.path("output", "figures", "assignment","prob_pcd1ageethnnssec","evaluation.png")
+  file.path("output", "data", "assignment","connect_prob_pcdageethnnssec.rds"),
+  file.path("output", "data", "assignment","wis", "prob_pcdageethnnssec_scores.csv"),
+  'prob_pcdageethnnssec',
+  file.path("output", "figures", "assignment","prob_pcdageethnnssec","evaluation.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 connect_output <- readRDS(.args[1])
@@ -66,13 +66,21 @@ ggsave(gsub('evaluation','distribution',.args[4]),
 p3 <- eval_plots[[3]]; p3
 
 ggsave(gsub('evaluation','paper_fig',.args[4]),
-       height = 10, width = 12)
+       height = 8, width = 12)
 
 p <- eval_plots[[2]]; p
 
 ggsave(.args[4],
        height = 15, width = 20)
 
+save_table <- eval_plots[[4]] %>% 
+  mutate(print_val = paste0(round(100*med_prop, 1),
+                            ' (',
+                            round(100*lower_prop, 1),
+                            ' - ',
+                            round(100*upper_prop, 1), ')'))
+
+write_csv(save_table, file.path(paste0('output/data/assignment/', .args[3], '.csv')))
 
 
 

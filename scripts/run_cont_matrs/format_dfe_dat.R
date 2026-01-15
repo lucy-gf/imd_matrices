@@ -202,7 +202,7 @@ plot_dfe_data <- function(dat_raw, dat_name = ''){
     theme_bw() +
     scale_fill_viridis(begin = 0, end = 1, breaks = seq(0, 1, by = 0.25)) +
     labs(x = format_colname(x_var), y = format_colname(y_var), fill = 'Probability') +
-    ggtitle(dat_name) +
+    # ggtitle(dat_name) +
     theme(text = element_text(size = 16))
   
   if(strata_exist){
@@ -380,7 +380,7 @@ inspect_and_plot <- function(data_list, name, folder){
 
 #### RUN DATA ANALYSIS ####
 
-year_vec <- c(2023:2025)
+year_vec <- 2025 #c(2023:2025)
 
 for(year in year_vec){
   
@@ -404,33 +404,33 @@ for(year in year_vec){
 }
 
 #### CITIES ANALYSIS ####
-
-if(imd_year == 19){
-  
-  year_vec <- c(2023:2024)
-  
-  for(year in year_vec){
-    
-    cat('\n\n##################')
-    cat('\n## ', year,' cities: ##', sep = '')
-    cat('\n##################')
-    
-    subyr <- substr(year, 3, 4)
-    
-    folder <- here::here('output','figures','cont_matrs','dfe',paste0(subyr, '_cities'))
-    
-    for(name_x in names(get(paste0('cm_', subyr, '_cities')))){
-      
-      inspect_and_plot(
-        data_list = get(paste0('cm_', subyr, '_cities')), 
-        name = name_x, 
-        folder)
-      
-    }
-    
-  }
-  
-}
+# 
+# if(imd_year == 19){
+#   
+#   year_vec <- c(2023:2024)
+#   
+#   for(year in year_vec){
+#     
+#     cat('\n\n##################')
+#     cat('\n## ', year,' cities: ##', sep = '')
+#     cat('\n##################')
+#     
+#     subyr <- substr(year, 3, 4)
+#     
+#     folder <- here::here('output','figures','cont_matrs','dfe',paste0(subyr, '_cities'))
+#     
+#     for(name_x in names(get(paste0('cm_', subyr, '_cities')))){
+#       
+#       inspect_and_plot(
+#         data_list = get(paste0('cm_', subyr, '_cities')), 
+#         name = name_x, 
+#         folder)
+#       
+#     }
+#     
+#   }
+#   
+# }
 
 
 

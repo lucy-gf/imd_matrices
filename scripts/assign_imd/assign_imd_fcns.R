@@ -186,8 +186,7 @@ fcn_barplot_imd <- function(
       theme_bw() + labs(fill = 'IMD quintile', x = '', y = '') + 
       ggtitle(format_legend(var)) + 
       scale_fill_manual(values = imd_quintile_colors) +
-      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-            legend.position = 'none')
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
     
   }
   
@@ -874,13 +873,13 @@ fcn_evaluate_imd <- function(
     patched_summ +
       plot_annotation(theme = theme(plot.title = element_text(size = 18)),
                       tag_levels = 'a'),
-    age_spec_contacts + bars + plot_layout(nrow = 2, heights = c(2,3), guides = 'collect') +
+    bars + plot_layout(guides = 'collect') +
       plot_annotation(theme = theme(plot.title = element_text(size = 18)),
-                      tag_levels = 'a')
+                      tag_levels = 'a', tag_prefix = '(', tag_suffix = ')'),
+    main_table_imd
   )
   
 }
-
 
 ## FUNCTION TO CALCULATE MEAN SQUARED ERROR OF SURVEY PROP IN ##
 ## IMD QUINTILE COMPARED TO TRUE CENSUS PROP IN IMD ##

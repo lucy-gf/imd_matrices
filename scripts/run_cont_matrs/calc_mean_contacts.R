@@ -40,14 +40,18 @@ part <- part %>% left_join(part_reconnect %>% select(p_id, p_gender, day_week),
                            by = 'p_id') %>% 
   mutate(total_contacts = n_contacts + large_n)
 
-## set grouping vars (eventually loop over these)
+# combination of variables
 
-for(group_index in 1:4){
+group_vars_list <- list(c('imd_quintile'),
+                        c('imd_quintile','p_age_group'),
+                        c('imd_quintile','p_gender'),
+                        c('imd_quintile','p_age_group','p_gender'))
+
+## function to fit data
+
+fit_mean_contacts <- function(group_index){
   
-  if(group_index == 1){group_vars <- c('imd_quintile')}
-  if(group_index == 2){group_vars <- c('imd_quintile','p_age_group')}
-  if(group_index == 3){group_vars <- c('imd_quintile','p_gender')}
-  if(group_index == 4){group_vars <- c('imd_quintile','p_age_group','p_gender')}
+  group_vars <- group_vars_list[[group_index]]
   
   group_vars_bs <- c(group_vars, 'bootstrap_index')
   
@@ -79,52 +83,148 @@ for(group_index in 1:4){
   if('p_age_group' %in% group_vars){
     out_agg$p_age_group <- factor(out_agg$p_age_group,
                                   levels = age_labels)
+    out_agg <- out_agg %>% arrange(p_age_group)
   }
   
-  ## plot
+  out_agg 
+  
+}
+
+## function to read in data
+
+read_dat <- function(i){
+  data.table(read_csv(gsub('.csv', paste0('_', paste(group_vars_list[[i]],collapse = '_'), '.csv'),.args[3]),
+                      show_col_types = F))
+}
+
+## function to plot
+
+plot_mean_contacts <- function(out_agg, # dataframe
+                               group_index){
+  
+  if('p_age_group' %in% group_vars_list[[group_index]]){
+    out_agg$p_age_group <- factor(out_agg$p_age_group,
+                                  levels = age_labels)
+    out_agg <- out_agg %>% arrange(p_age_group)
+  }
   
   plot_df <- out_agg %>% 
     select(!k) %>% 
     pivot_wider(names_from = measure, values_from = n) 
   
-  if('p_gender' %in% group_vars){
-    plot_df <- plot_df %>% 
-      mutate(yval = paste0(imd_quintile, '_', p_gender))
-  }else{
-    plot_df <- plot_df %>% 
-      mutate(yval = imd_quintile)
+  if(group_index == 1){
+    p <- plot_df %>% 
+      ggplot() + 
+      geom_errorbar(aes(ymin = lower, ymax = upper, x = as.factor(imd_quintile), 
+                        col = as.factor(imd_quintile)), 
+                    width = 0.4, position = position_dodge(width = 0.9)) + 
+      geom_point(aes(x = as.factor(imd_quintile), y = mean,
+                     col = as.factor(imd_quintile)),
+                 position = position_dodge(width = 0.9)) +
+      scale_color_manual(values = imd_quintile_colors) + 
+      scale_linetype_manual(values = c(1,2)) + 
+      theme_bw() + 
+      ylim(c(0, NA)) + 
+      labs(col = 'IMD quintile', fill = 'IMD quintile',
+           y = 'Mean contacts', x = '',
+           linetype = 'Gender')
   }
-  
-  p <- plot_df %>% 
-    ggplot(aes(y = yval, col = as.factor(imd_quintile))) + 
-    geom_point(aes(x = mean)) +
-    scale_color_manual(values = imd_quintile_colors) + 
-    scale_linetype_manual(values = c(1,2)) + 
-    theme_bw() + 
-    xlim(c(0, NA)) + 
-    labs(col = 'IMD quintile', fill = 'IMD quintile',
-         x = 'Mean contacts', y = '',
-         linetype = 'Gender')
-  
-  if('p_age_group' %in% group_vars){
-    p <- p + facet_wrap(p_age_group ~ ., scales = 'free') 
+  if(group_index == 2){
+    p <- plot_df %>% 
+      ggplot() + 
+      geom_errorbar(aes(ymin = lower, ymax = upper, x = p_age_group,
+                        group = as.factor(imd_quintile), 
+                        col = as.factor(imd_quintile)), 
+                    width = 0.4, position = position_dodge(width = 0.9)) + 
+      geom_point(aes(x = p_age_group, y = mean,
+                     group = as.factor(imd_quintile), 
+                     col = as.factor(imd_quintile)),
+                 position = position_dodge(width = 0.9)) +
+      scale_color_manual(values = imd_quintile_colors) + 
+      scale_linetype_manual(values = c(1,2)) + 
+      theme_bw() + 
+      ylim(c(0, NA)) + 
+      labs(col = 'IMD quintile', fill = 'IMD quintile',
+           x = 'Mean contacts', y = '',
+           linetype = 'Gender')
   }
-  
-  if('p_gender' %in% group_vars){
-    p <- p + geom_errorbar(aes(xmin = lower, xmax = upper, lty = p_gender), 
-                           width = 0.4)
-  }else{
-    p <- p + geom_errorbar(aes(xmin = lower, xmax = upper), 
-                           width = 0.4)
+  if(group_index == 3){
+    p <- plot_df %>% 
+      ggplot() + 
+      geom_errorbar(aes(ymin = lower, ymax = upper, x = p_gender,
+                        group = as.factor(imd_quintile), 
+                        col = as.factor(imd_quintile)), 
+                    width = 0.4, position = position_dodge(width = 0.9)) + 
+      geom_point(aes(x = p_gender, y = mean,
+                     group = as.factor(imd_quintile), 
+                     col = as.factor(imd_quintile)),
+                 position = position_dodge(width = 0.9)) +
+      scale_color_manual(values = imd_quintile_colors) + 
+      scale_linetype_manual(values = c(1,2)) + 
+      theme_bw() + 
+      ylim(c(0, NA)) + 
+      labs(col = 'IMD quintile', fill = 'IMD quintile',
+           x = 'Mean contacts', y = '',
+           linetype = 'Gender')
+  }
+  if(group_index == 4){
+    p <- plot_df %>% 
+      ggplot() + 
+      geom_errorbar(aes(ymin = lower, ymax = upper, x = p_age_group,
+                        group = interaction(as.factor(imd_quintile), p_gender), 
+                        col = as.factor(imd_quintile), lty = p_gender), 
+                    width = 0.4, position = position_dodge(width = 0.9)) + 
+      geom_point(aes(x = p_age_group, y = mean,
+                     group = interaction(as.factor(imd_quintile), p_gender), 
+                     col = as.factor(imd_quintile)),
+                 position = position_dodge(width = 0.9)) +
+      scale_color_manual(values = imd_quintile_colors) + 
+      scale_linetype_manual(values = c(1,2)) + 
+      theme_bw() + 
+      ylim(c(0, NA)) + 
+      labs(col = 'IMD quintile', fill = 'IMD quintile',
+           y = 'Mean contacts', x = '',
+           linetype = 'Gender')
   }
   
   p
-  ggsave(gsub('data','figures',gsub('.csv', paste0('_', paste(group_vars,collapse = '_'), '.png'),.args[3])),
-         width = 4*length(group_vars), height = 3*length(group_vars))
   
-  ## save 
-  write_csv(out_agg, gsub('.csv', paste0('_', paste(group_vars,collapse = '_'), '.csv'),.args[3]))
+}
+  
+## fit data, or read in 
+read <- c(T, T, T, T)
 
+data_list <- map(
+  .x = 1:length(group_vars_list),
+  .f = ifelse(read[.x], read_dat, fit_mean_contacts)
+)
+
+names(data_list) <- unlist(lapply(group_vars_list, function(x) paste(x,collapse = '_')))
+
+## save any that were run
+for(i in 1:length(read)){
+  if(!read[i]){
+    ## save data
+    write_csv(data_list[[i]], gsub('.csv', paste0('_', paste(group_vars_list[[i]],collapse = '_'), '.csv'),.args[3]))
+  }
 }
 
+## plot
+
+plots <- map(
+  .x = 1:length(data_list),
+  .f = ~{plot_mean_contacts(data_list[[.x]], .x)}
+)
+
+widths <- c(6, 12, 7, 14)
+heights <- c(4, 6, 5, 8)
+
+for(i in 1:length(plots)){
+
+  ggsave(plot = plots[[i]], filename = gsub('data','figures',gsub('.csv', paste0('_', paste(group_vars_list[[i]],collapse = '_'), '.png'),.args[3])),
+         width = widths[i], height = heights[i])
+  
+}
+
+## save dummy data table
 write_csv(data.table(x=0), .args[3])

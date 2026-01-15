@@ -1064,7 +1064,7 @@ CCCDDDDD
                   width = 0.4, lwd = 0.8)  +
     geom_point(aes(y = median, col = as.factor(imd), group = as.factor(imd)),
                size = 3)  +
-    geom_point(data = data %>% filter(l95 > 1),
+    geom_point(data = data %>% filter(l95 > 1 | u95 < 1),
                aes(y = median, col = as.factor(imd)), shape = 1, size = 5)  +
     theme_bw() +
     facet_grid(p_engreg ~ age, scales = 'free_y', switch = 'x') + 

@@ -387,11 +387,14 @@ allmatrsplots: allmatrsplots_agg allmatrsplots_locn
 ${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balanced.csv 
 	$(call R, $*)
 
+allepidout: $(patsubst %,${EPIDDATA}/%/byall.rds, ${E_SENS_ANALYSES}) 
+
 ${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/%/byall.rds
 	$(call R, $*)
 	
 allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
 
+allepid: allepidout allepidplots
 
 
 
