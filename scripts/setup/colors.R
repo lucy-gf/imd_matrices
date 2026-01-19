@@ -1,4 +1,6 @@
 
+select <- dplyr::select
+
 simp_labels <- function(string){
   if(string == 'p_sec_input'){return('nssec')}
   string <- gsub('_group','',string)
@@ -171,7 +173,7 @@ variable_colors <- c('nssec' = '#66c2a4', 'age' = '#7a0177',
                      'region' = '#f768a1', 'hiqual' = '#2b8cbe', 
                      'ethnicity' = '#de2d26', 'urban_rural' = '#006d2c')
 
-
+gender_colors <- c('Female' = '#31a354', 'Male' = '#7a0177')
 
 
 

@@ -12,9 +12,9 @@ library(purrr)
 #### SET UP ####
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv"),
-  'regional',
-  file.path("output", "data", "epidem","regional","byall.rds")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
+  'base',
+  file.path("output", "data", "epidem","base","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
@@ -70,8 +70,10 @@ run_epidemic <- function(
       mutate(Proportion = Population/tot_pop)
     
     demog_allreg$Age <- factor(demog_allreg$Age,
-                               levels = names(colors_age_grp))
+                               levels = names(colors_p_age_group))
     demog_allreg <- demog_allreg %>% arrange(p_engreg, IMD, Age)
+    
+    tot_pop <- sum(demog_allreg$Population)
     
     # filter demography for specific region
     demog <- demog_allreg %>% filter(p_engreg == region)
@@ -90,6 +92,8 @@ run_epidemic <- function(
     demog$Age <- factor(demog$Age,
                         levels = age_labels)
     demog <- demog %>% arrange(IMD, Age)
+    
+    tot_pop <- sum(demog$Population)
 
   }
   
@@ -178,9 +182,9 @@ run_epidemic <- function(
   Dg0  <- rep(0,ng);  # Dead 
   
   # seed the initial 1,000 latent infections proportionately across groups
-  pars$pE1g0 <- rep(init_infected/sum(Sg0), length(E1g0))
+  prop <- init_infected/tot_pop
+  pars$pE1g0 <- rep(prop, length(E1g0))
   E1g0 = (1/oNg)*pars$pE1g0
-  if(all.equal(sum(E1g0), init_infected) != T){stop('Initial conditions wrong')}
   Sg0  = Sg0 - E1g0
   
   ## Population by age group (over SES), by SES (over age), overall

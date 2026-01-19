@@ -13,15 +13,17 @@ suppressPackageStartupMessages(require(viridis))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "epidem","nhs_ages","byall.rds"),
-  "nhs_ages",
-  file.path('output','figures','epidem','nhs_ages','attack_rate_bars.png')
+  file.path("output", "data", "epidem","regional","byall.rds"),
+  "regional",
+  file.path('output','figures','epidem','regional','attack_rate_bars.png')
 ) else commandArgs(trailingOnly = TRUE)
 
 if(!file.exists(gsub('/attack_rate_bars.png','',.args[3]))){dir.create(gsub('/attack_rate_bars.png','',.args[3]))}
 
 sens_analysis <- .args[2]
 
+#### RUN ALL SETUP ####
+if(T){
 # source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
 source(here::here('scripts','setup','colors.R'))
@@ -85,7 +87,10 @@ ar=1 #aspect ratio
 
 l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
 
-## Demography
+}
+
+#### DEMOGRAPHY ####
+
 if(sens_analysis == 'regional'){
   
   imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
@@ -274,7 +279,7 @@ if(sens_analysis != 'regional'){
     theme_bw() +
     scale_color_manual(values = imd_quintile_colors) + 
     # scale_fill_manual(values = imd_quintile_colors) + 
-    ylim(c(0,800)) + 
+    ylim(c(0,NA)) + 
     theme(text=element_text(size=14),
           legend.position = 'none',
           plot.title = element_text(size = 12),
@@ -910,7 +915,7 @@ CCCDDDDD
     facet_wrap(. ~ p_engreg) + 
     scale_color_manual(values = imd_quintile_colors) + 
     scale_fill_manual(values = imd_quintile_colors) +
-    ylim(c(0,800)) + 
+    ylim(c(0,NA)) + 
     theme(text=element_text(size=14),
           legend.position = 'none',
           plot.title = element_text(size = 12),
@@ -935,7 +940,7 @@ CCCDDDDD
     data_min[, lapply(.SD, l95_func), by = c('p_engreg','imd')][, meas := 'l95'],
     data_min[, lapply(.SD, u95_func), by = c('p_engreg','imd')][, meas := 'u95']
   )
-  data <- dcast.data.table(data_agg, p_engreg + imd ~ meas, value.var = 'arr')
+  # data <- dcast.data.table(data_agg, p_engreg + imd ~ meas, value.var = 'arr')
   
   imd_final_size_arr <- data_min %>% 
     group_by(p_engreg, imd) %>% mutate(median = median(arr)) %>% 
@@ -955,13 +960,96 @@ CCCDDDDD
           axis.text.x = element_text(color=1)) +
     labs(y = "Relative final size", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_arr
   
-  imd_final_size + imd_final_size_arr + plot_layout(nrow = 1) 
+  ## age-standardised final size
+  data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
+  if('iW' %in% colnames(data1000)){data1000[, iW := NULL]}
+  data1000 <- data1000[, lapply(.SD, sum), by = c('p_engreg','sim')][, time := NULL]
+  data <- melt.data.table(data1000, id.vars = c('p_engreg','sim'))
+  data[, num := as.numeric(gsub('Iw_g','', variable))][, variable := NULL]
+  data[, imd := as.character(ceiling(num/n_distinct(demog_allreg$age)))]
+  data[, age_index := (num %% n_distinct(demog_allreg$age))]
+  data[age_index == 0, age_index := 16]
+  for(age_num in 1:length(age_labels)){data[age_index == age_num, age := age_labels[age_num]]}
+  data[, age_index := NULL][, num := NULL]
   
-  ## save
+  ## add populations
+  data <- data[demog_allreg[, c('imd','age','p_engreg','Population')], on = c('imd','age','p_engreg')]
+  data[, age_imd_attack_rate := value/Population]
+  
+  ## making standard population (region-specific)
+  demog_allreg$age <- factor(demog_allreg$age, levels = pars$ages)
+  st_pop <- demog_allreg %>% 
+    group_by(p_engreg, age) %>% summarise(pop = sum(Population)) %>% 
+    group_by(p_engreg) %>% mutate(tot_pop = sum(pop)) %>% 
+    ungroup() %>% 
+    mutate(prop = pop/tot_pop) # standard population
+  
+  data <- data[st_pop, on = c('age','p_engreg')]
+  
+  # weighted sum using proportions of standard population
+  data[, prop_x_infs := prop*age_imd_attack_rate]
+  data_standard <- data[, c('p_engreg','sim','imd','prop_x_infs','value','prop')][, lapply(.SD, sum), by = c('sim','p_engreg','imd')]
+  setnames(data_standard, 'prop_x_infs','standardised_arr')
+  
+  # relative to IMD X
+  data_standard_base <- data_standard[imd == base_imd_arr]
+  setnames(data_standard_base, 'standardised_arr','base_standardised_arr')
+  data_standard <- data_standard[data_standard_base[, c('sim','p_engreg','base_standardised_arr')], on = c('sim','p_engreg')]
+  data_standard[, standardised_arr := standardised_arr/base_standardised_arr]
+  data_standard[, imd := as.character(imd)]
+  
+  ## plot
+  imd_final_size_arr_standardised <- data_standard %>% 
+    group_by(imd, p_engreg) %>% mutate(median = median(standardised_arr)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_hline(col = 1, lty = 2, alpha = 0.3, yintercept = 1) +
+    geom_violin(aes(y = standardised_arr, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    theme_bw() +
+    facet_wrap(p_engreg ~ .) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Relative final size (age-standardised within region)", 
+         x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size_arr_standardised
+  
+  imd_region_population <- demog_allreg %>% 
+    group_by(p_engreg, imd) %>% summarise(pop = sum(Population)) %>% 
+    ggplot() + 
+    geom_bar(aes(x = as.factor(imd), y = pop/1e6, fill = as.factor(imd)),
+             stat = 'identity', position = 'dodge') + 
+    theme_bw() + 
+    scale_fill_manual(values = imd_quintile_colors) +
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) + 
+    labs(x = 'IMD quintile', y = 'Population (millions)') +
+    facet_wrap(p_engreg ~ .); imd_region_population
+  
+  # patchwork
+  imd_final_size + (imd_final_size_arr + imd_final_size_arr_standardised + plot_layout(nrow = 1)) + 
+    plot_layout(nrow = 2) + plot_annotation(tag_levels = 'a',
+                                            tag_prefix = '(', tag_suffix = ')')
+  
   ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'final_size_imd.png'), dpi=600, 
-         device = "png", width = 16, height = 8)
+         device = "png", width = 16, height = 14)
   
-  ## fig 3 by age
+  ## save with population barplot
+  imd_region_population + imd_final_size + imd_final_size_arr + imd_final_size_arr_standardised +
+    plot_layout(nrow = 2) + plot_annotation(tag_levels = 'a',
+                                            tag_prefix = '(', tag_suffix = ')')
+  
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'final_size_imd_w_pop.png'), dpi=600, 
+         device = "png", width = 16, height = 14)
+  
+   ## fig 3 by age
   data_age1000 <- byaw[, c('p_engreg','sim',paste0('IUw_a', 1:16))]
   data_age1000[, time := rep(min(byw$time):max(byw$time), n_distinct(byaw$p_engreg)*max(data_age1000$sim))]
   data <- rbind(
@@ -1019,8 +1107,34 @@ CCCDDDDD
           axis.text.x = element_text(color=1)) +
     labs(y = "Cumulative infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); p3b
   
+  ## overall attack rate by region
+  data1000 <- byw[, c('p_engreg','sim','time','Iw','Uw')][, Infe := (Iw + Uw)][, c('p_engreg','sim','time','Infe')]
+  data1000cum <- data1000[, lapply(.SD, cumsum), by = c('p_engreg','sim')][, time := data1000$time]
+  data1000cum <- data1000cum[demog_allreg[, c('p_engreg','Population')][, lapply(.SD, sum), by = 'p_engreg'], on = 'p_engreg']
+  data1000cum[, ar := Infe/Population]
+  data <- rbind(
+    data1000cum[, lapply(.SD, median), by = c('p_engreg','time')][, meas := 'median'],
+    data1000cum[, lapply(.SD, l95_func), by = c('p_engreg','time')][, meas := 'l95'],
+    data1000cum[, lapply(.SD, u95_func), by = c('p_engreg','time')][, meas := 'u95']
+  ); data[, sim := NULL]
+  data <- dcast.data.table(data, p_engreg + time ~ meas, value.var = 'ar')
+  
+  reg_att_r <- data %>% 
+    filter(time == max(time)) %>% 
+    ggplot() + 
+    geom_point(aes(x = p_engreg, y = median, col = p_engreg), size=3) + 
+    geom_errorbar(aes(x = p_engreg, ymin = l95, ymax = u95, col = p_engreg),
+                  lwd=0.8, width=0.4) + 
+    ylim(c(0,1)) + 
+    theme_bw() + 
+    scale_color_manual(values = colors_p_engreg) + 
+    theme(text=element_text(size=12),
+          legend.position = 'none') +
+    labs(y = "Attack rate", x = "", color = "", fill = ""); reg_att_r
+  
   ## save
-  p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')
+  reg_att_r + (p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')) + 
+    plot_layout(nrow = 2, heights = c(1,3))
   ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'time_series.png'), dpi=600, 
          device = "png", width = 16, height = 12)
   

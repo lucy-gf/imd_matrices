@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allepidplots
+localdef: allepidplots allmeancontacts
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -248,10 +248,13 @@ ${CONTFIG}/%/degree_distribution.png: ${CONTCODE}/plot_degree_distibution.R ${CO
 
 alldegdistr: $(patsubst %,${CONTFIG}/%/degree_distribution.png, ${A_SENS_ANALYSES})
 
-${CONTDATA}/base/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/%/participants.rds base
-	$(call R)
+${CONTDATA}/base/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/base/participants.rds
+	$(call R, base)
 
-allmeancontacts: ${CONTDATA}/base/mean_contacts/mean_contacts.csv
+${CONTDATA}/nhs_ages/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/base/participants.rds
+	$(call R, nhs_ages)
+
+allmeancontacts: ${CONTDATA}/base/mean_contacts/mean_contacts.csv ${CONTDATA}/nhs_ages/mean_contacts/mean_contacts.csv
 
 ${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
 	$(call R, $*)
