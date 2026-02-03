@@ -45,45 +45,15 @@ sens_analysis <- .args[2]
   demog <- demog %>% arrange(age_grp)
   demog_population <- demog$population
   
-  ## Parameters
-  source(paste0(source_dir,"/parsF_.r"))
-  ## If R0 low, make runtime longer
-  if(pset$R0fixed & (pars$R0 <= 1.1)){ 
-    
-    pars$times  <- 0:1000     #days sequence
-    pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
-    pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
-    pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
-    
-  }else{
-    if(pset$R0fixed & (pars$R0 < 1.65)){ 
-      
-      pars$times  <- 0:130     #days sequence
-      pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
-      pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
-      pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
-      
-    }
-  }
-  
   ## Set base levels for IMD and age
   base_imd_arr <- 5
   base_age_arr <- ifelse(sens_analysis != 'nhs_ages', '35-39', '35-49')
-  
-  # set seed
-  set.seed(120)
   
   age_colors <- if(sens_analysis != 'nhs_ages'){
     colors_p_age_group
   }else{
     colors_p_age_group_nhs
   }
-  
-  nd <- pars$nd
-  
-  ## Figures
-  
-  ar=1 #aspect ratio
   
   l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
   
@@ -93,7 +63,10 @@ sens_analysis <- .args[2]
 
 if(sens_analysis == 'regional'){
   
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+  ages_file <- ifelse(sens_analysis == 'nhs_ages', 2, 1)
+  imd_age_raw <- data.table(read_csv(file.path("data","imd_25",
+                                               paste0("imd_ages_",ages_file,".csv")), 
+                                     show_col_types = F))
   
   demog_allreg <- imd_age_raw %>% 
     mutate(p_engreg = case_when(
