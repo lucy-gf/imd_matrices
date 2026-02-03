@@ -13,9 +13,9 @@ suppressPackageStartupMessages(require(viridis))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "epidem","regional","byall.rds"),
-  "regional",
-  file.path('output','figures','epidem','regional','attack_rate_bars.png')
+  file.path("output", "data", "epidem","base","byall.rds"),
+  "base",
+  file.path('output','figures','epidem','base','attack_rate_bars.png')
 ) else commandArgs(trailingOnly = TRUE)
 
 if(!file.exists(gsub('/attack_rate_bars.png','',.args[3]))){dir.create(gsub('/attack_rate_bars.png','',.args[3]))}
@@ -677,6 +677,78 @@ if(sens_analysis != 'regional'){
           axis.text.x = element_text(color=1)) +
     labs(y = "Infections per 1000 population", x = "Day", color = "Age", fill = 'Age'); all_time_s_cum_imd
   
+  #### AGE-SPEC ARs ####
+  nat_ars <- data %>%
+    filter(time == max(time)) %>% 
+    left_join(demog %>% rename(imd = IMD, age = Age), by = c('imd','age')) %>% 
+    ggplot() +
+    geom_ribbon(aes(x = age, ymin = l95, ymax = u95, 
+                    fill = as.factor(imd), group = as.factor(imd)),
+                alpha = 0.2) + 
+    geom_line(aes(x = age, y = median, 
+                  col = as.factor(imd), group = as.factor(imd)),
+              lwd = 1) +
+    theme_bw() + ylim(c(0,800)) + 
+    theme(text = element_text(size = 14)) + 
+    labs(x = 'Age', y = 'Attack rate per 1000 population', 
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors)
+  
+  nat_infs <- data %>%
+    filter(time == max(time)) %>% 
+    left_join(demog %>% rename(imd = IMD, age = Age), by = c('imd','age')) %>% 
+    ggplot() +
+    geom_ribbon(aes(x = age, ymin = l95*Population/(1000*1000), ymax = u95*Population/(1000*1000), 
+                    fill = as.factor(imd), group = as.factor(imd)),
+                alpha = 0.2) + 
+    geom_line(aes(x = age, y = median*Population/(1000*1000), 
+                  col = as.factor(imd), group = as.factor(imd)),
+              lwd = 1) +
+    theme_bw() + ylim(c(0,800)) + 
+    theme(text = element_text(size = 14)) + 
+    labs(x = 'Age', y = 'Infections (1000s)', 
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors)
+  
+  data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
+  data_1000cum <- data1000[, lapply(.SD, cumsum), by = c('sim')][, time := data1000$time][, iW := NULL]
+  data_1000cum <- data_1000cum[time==max(time)][, time := NULL]
+  data <- melt.data.table(data_1000cum, id.vars = c('sim'))
+  data[, age := rep(rep(as.character(1:na), each = 1000), 5)]
+  suppressWarnings(for(i in 1:length(age_labels)){data[as.numeric(age) == i, age := age_labels[i]]})
+  data[, imd := rep(1:nimd, each = 1000*na)][, variable := NULL]
+  data <- data[demog %>% rename(age=Age,imd=IMD), on = c('imd','age')]
+  data <- data[demog %>% rename(age=Age,imd=IMD) %>% group_by(age) %>% 
+                 summarise(pop = sum(Population)) %>% ungroup() %>% 
+                 mutate(total_pop = sum(pop)), on = c('age')]
+  data[, as_ar := (value/Population) * pop / 5]
+  data <- data[, c('sim','imd','as_ar')][, lapply(.SD, sum), by = c('imd','sim')][, sim := NULL]
+  data <- rbind(
+    data[, lapply(.SD, median), by = 'imd'][, meas := 'median'],
+    data[, lapply(.SD, l95_func), by = 'imd'][, meas := 'l95'],
+    data[, lapply(.SD, u95_func), by = 'imd'][, meas := 'u95']
+  )
+  data <- dcast.data.table(data, imd ~ meas, value.var = 'as_ar')
+  
+  nat_tot_inf <- data %>%
+    ggplot() +
+    geom_errorbar(aes(x = as.factor(imd), ymin = l95/1e6, ymax = u95/1e6, 
+                      col = as.factor(imd))) + 
+    geom_point(aes(x = as.factor(imd), y = median/1e6, 
+                   col = as.factor(imd))) +
+    theme_bw() + 
+    theme(text = element_text(size = 14), legend.position = 'none') + 
+    labs(x = 'IMD quintile', y = '', title = 'Age-standardised total\ninfections (millions)', 
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    scale_color_manual(values = imd_quintile_colors) 
+  
+  nat_ars + nat_infs + inset_element(nat_tot_inf, 0.6, 0.6, 1, 1) + plot_layout(nrow = 2, guides = 'collect') 
+  ggsave(here::here('output','figures','epidem',sens_analysis,'national_as_ar.png'), dpi=600, 
+         device = "png", width = 12, height = 12)
+  
   age_spec_ar <- ggplot(data[time == max(data$time)]) + 
     # geom_ribbon(aes(x = age, ymin = l95, ymax = u95, fill = as.factor(imd), group = imd), alpha = 0.25) +
     geom_bar(aes(x = age, y = median, fill = as.factor(imd)),
@@ -923,6 +995,29 @@ CCCDDDDD
           axis.text.x = element_text(color=1)) +
     labs(y = "Final size per 1000 population", x = "IMD Quintile", color = "IMD", fill = 'IMD'); imd_final_size
   
+  ## just noting that the patterns of following IMD population distribution
+  ## is even more extreme if taking rates per 1000 total regional populaitoin
+  data_imd1000cum %>% 
+    filter(time == max(time)) %>% select(!time) %>% 
+    pivot_longer(!c(p_engreg, sim)) %>% 
+    mutate(imd = substr(name, 6,6)) %>% 
+    group_by(p_engreg, imd) %>% mutate(median = median(value)) %>% 
+    left_join(demog_allreg[, c('p_engreg','Population')][, lapply(.SD, sum), by = c('p_engreg')], by = c('p_engreg')) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = 1000*value/Population, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = 1000*median/Population, col = imd), size = 4)  +
+    theme_bw() +
+    facet_wrap(. ~ p_engreg) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) +
+    ylim(c(0,NA)) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Final size per total regional 1000 population", x = "IMD Quintile", color = "IMD", fill = 'IMD')
+  
   data_imd1000 <- byw[, c('p_engreg','sim','time','IUw_s1','IUw_s2','IUw_s3','IUw_s4','IUw_s5')]
   data_imd1000sum <- data_imd1000[, lapply(.SD, sum), by = c('p_engreg','sim')][, time := NULL]
   X <- base_imd_arr
@@ -950,7 +1045,6 @@ CCCDDDDD
     geom_point(aes(y = median, col = imd), size = 4) +
     facet_wrap(. ~ p_engreg) + 
     theme_bw() +
-    ylim(c(0, NA)) +
     scale_color_manual(values = imd_quintile_colors) + 
     scale_fill_manual(values = imd_quintile_colors) + 
     theme(text=element_text(size=14),
@@ -986,6 +1080,10 @@ CCCDDDDD
     mutate(prop = pop/tot_pop) # standard population
   
   data <- data[st_pop, on = c('age','p_engreg')]
+  
+  data_for_nat <- data %>% ungroup() %>% 
+    group_by(p_engreg, imd, sim) %>% mutate(imd_pop = sum(Population)) %>% 
+    ungroup() %>% mutate(imd_prop = Population/imd_pop)
   
   # weighted sum using proportions of standard population
   data[, prop_x_infs := prop*age_imd_attack_rate]
@@ -1049,7 +1147,180 @@ CCCDDDDD
   ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'final_size_imd_w_pop.png'), dpi=600, 
          device = "png", width = 16, height = 14)
   
-   ## fig 3 by age
+  ## national final size by IMD quintile
+  data_imd1000 <- byw[, c('sim','IUw_s1','IUw_s2','IUw_s3','IUw_s4','IUw_s5')]
+  data_imd1000 <- data_imd1000[, lapply(.SD, sum), by = c('sim')]
+  data_l <- data_imd1000 %>% 
+    pivot_longer(!sim) %>% 
+    mutate(imd = gsub('IUw_s','',name)) %>% 
+    left_join(demog_allreg %>% group_by(imd) %>% 
+                summarise(pop = sum(Population)), by = 'imd') %>% 
+    mutate(final_size = 1000*value/pop)
+  
+  nat_fs <- data_l %>% 
+    group_by(imd) %>% mutate(median = median(final_size)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = final_size, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    theme_bw() +
+    ylim(c(0,NA)) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Final size", x = "IMD Quintile", color = "IMD", fill = 'IMD')
+  
+  data_l_base <- data_l %>% filter(imd == base_imd_arr) %>% 
+    mutate(base_fs = final_size) %>% select(sim, base_fs)
+  
+  data_l <- data_l %>% left_join(data_l_base, by = 'sim') %>% 
+    mutate(arr = final_size/base_fs)
+  
+  nat_arr <- data_l %>% 
+    group_by(imd) %>% mutate(median = median(arr)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = arr, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    geom_hline(yintercept = 1, lty = 2, alpha = 0.3) +
+    theme_bw() +
+    ylim(c(0,1.6)) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Relative final size", x = "IMD Quintile", color = "IMD", fill = 'IMD')
+  
+  nat_fs + nat_arr 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'national_final_size.png'), dpi=600, 
+         device = "png", width = 12, height = 5)
+  
+  nat_fs_age_standardised <- data_for_nat %>% 
+    mutate(weight = prop/imd_prop,
+           weighted_infs = value*weight) %>% 
+    group_by(sim, imd) %>% 
+    summarise(weighted_infs = sum(weighted_infs)) %>% 
+    left_join(demog_allreg %>% group_by(imd) %>% 
+                summarise(pop = sum(Population)), by = 'imd') %>% 
+    mutate(final_size = 1000*weighted_infs/pop)
+  
+  national_as_ar <- data_for_nat %>% group_by(sim, age, imd) %>% 
+    summarise(infections = sum(value),
+              population = sum(Population),
+              attack_rate = infections/population) 
+  
+  national_as_ar$age <- factor(national_as_ar$age, levels = age_labels)
+  
+  #### AGE-SPEC ARs ####
+  nat_ars_reg <- national_as_ar %>%
+    group_by(imd, age) %>%
+    summarise(median = median(attack_rate),
+              l95 = quantile(attack_rate, 0.025),
+              u95 = quantile(attack_rate, 0.975)) %>%
+    ggplot() +
+    geom_ribbon(aes(x = age, ymin = 1000*l95, ymax = 1000*u95, 
+                    fill = as.factor(imd), group = as.factor(imd)),
+                alpha = 0.2) + 
+    geom_line(aes(x = age, y = 1000*median, 
+                  col = as.factor(imd), group = as.factor(imd)),
+              lwd = 1) +
+    theme_bw() + ylim(c(0,800)) + 
+    theme(text = element_text(size = 14)) + 
+    labs(x = 'Age', y = 'Attack rate per 1000 population', 
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors)
+  
+  nat_infs_reg <- national_as_ar %>%
+    group_by(imd, age) %>%
+    summarise(median = median(infections),
+              l95 = quantile(infections, 0.025),
+              u95 = quantile(infections, 0.975)) %>%
+    ggplot() +
+    geom_ribbon(aes(x = age, ymin = l95/1000, ymax = u95/1000, 
+                    fill = as.factor(imd), group = as.factor(imd)),
+                alpha = 0.2) + 
+    geom_line(aes(x = age, y = median/1000, 
+                  col = as.factor(imd), group = as.factor(imd)),
+              lwd = 1) +
+    theme_bw() + ylim(c(0,800)) + 
+    theme(text = element_text(size = 14)) + 
+    labs(x = 'Age', y = 'Infections (1000s)', 
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors)
+  
+  nat_tot_inf_reg <- national_as_ar %>%
+    group_by(imd, sim) %>%
+    summarise(infections = sum(infections)) %>% 
+    group_by(imd) %>% 
+    summarise(median = median(infections),
+              l95 = quantile(infections, 0.025),
+              u95 = quantile(infections, 0.975)) %>%
+    ggplot() +
+    geom_errorbar(aes(x = as.factor(imd), ymin = l95/1e6, ymax = u95/1e6, 
+                    col = as.factor(imd))) + 
+    geom_point(aes(x = as.factor(imd), y = median/1e6, 
+                  col = as.factor(imd))) +
+    theme_bw() + 
+    theme(text = element_text(size = 14), legend.position = 'none') + 
+    labs(x = 'IMD quintile', y = '', title = 'Age-standardised total\ninfections (millions)', 
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    scale_color_manual(values = imd_quintile_colors) 
+  
+  nat_ars_reg + nat_infs_reg + inset_element(nat_tot_inf_reg, 0.6, 0.6, 1, 1) + plot_layout(nrow = 2, guides = 'collect') 
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'national_as_ar.png'), dpi=600, 
+         device = "png", width = 12, height = 12)
+  
+  nat_fs_age_standardised_plot <- nat_fs_age_standardised %>% group_by(imd) %>% 
+    mutate(median = median(final_size)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = final_size, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    theme_bw() +
+    ylim(c(0,NA)) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Final size (age-standardised)", x = "IMD Quintile", color = "IMD", fill = 'IMD')
+  
+  nat_fs_age_standardised_base <- nat_fs_age_standardised %>% filter(imd == base_imd_arr) %>% 
+    mutate(base_fs = final_size) %>% select(sim, base_fs)
+  
+  nat_fs_age_standardised <- nat_fs_age_standardised %>% left_join(nat_fs_age_standardised_base, by = 'sim') %>% 
+    mutate(arr = final_size/base_fs)
+  
+  nat_arr_age_standardised_plot <- nat_fs_age_standardised %>% 
+    group_by(imd) %>% mutate(median = median(arr)) %>% 
+    ggplot(aes(x=imd)) + 
+    geom_violin(aes(y = arr, fill = imd, col = imd), alpha = 0.4)  +
+    geom_point(aes(y = median, col = imd), size = 4)  +
+    geom_hline(yintercept = 1, lty = 2, alpha = 0.3) +
+    theme_bw() +
+    ylim(c(0,1.6)) + 
+    scale_color_manual(values = imd_quintile_colors) + 
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme(text=element_text(size=14),
+          legend.position = 'none',
+          plot.title = element_text(size = 12),
+          axis.text.y = element_text(color=1),
+          axis.text.x = element_text(color=1)) +
+    labs(y = "Relative final size (age-standardised)", x = "IMD Quintile", color = "IMD", fill = 'IMD')
+  
+  nat_fs + nat_fs_age_standardised_plot + nat_arr + nat_arr_age_standardised_plot
+  ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'national_final_size_age_standardised.png'), dpi=600, 
+         device = "png", width = 12, height = 10)
+  
+  ## fig 3 by age
   data_age1000 <- byaw[, c('p_engreg','sim',paste0('IUw_a', 1:16))]
   data_age1000[, time := rep(min(byw$time):max(byw$time), n_distinct(byaw$p_engreg)*max(data_age1000$sim))]
   data <- rbind(

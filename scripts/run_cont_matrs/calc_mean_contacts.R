@@ -320,6 +320,22 @@ for(i in 1:length(read)){
   }
 }
 
+## save mean CI width by age group, across IMD
+
+out_agg_raw <- data.table(data_list[[2]])[, bootstrap_index := NULL]
+group_vars <- group_vars_list[[2]]
+out_agg <- rbind(out_agg_raw[, lapply(.SD, mean), by = group_vars][, measure := 'mean'],
+                 out_agg_raw[, lapply(.SD, eti95L), by = group_vars][, measure := 'lower'],
+                 out_agg_raw[, lapply(.SD, eti95U), by = group_vars][, measure := 'upper'])
+out_agg$p_age_group <- factor(out_agg$p_age_group,
+                                levels = age_labels)
+out_agg <- out_agg %>% arrange(p_age_group)
+plot_df <- out_agg %>% 
+  select(!k) %>% 
+  pivot_wider(names_from = measure, values_from = n) 
+write_csv(plot_df %>% mutate(width = upper - lower) %>% group_by(p_age_group) %>% summarise(mean_width = mean(width)),
+          gsub('.csv', '_ci_width.csv',.args[3]))
+
 ## plot
 
 plots <- map(

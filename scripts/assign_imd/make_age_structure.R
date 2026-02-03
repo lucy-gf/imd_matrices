@@ -150,8 +150,27 @@ sum(imd_age_2$pop)
 write_csv(imd_age_1, here::here('data','imd_25','imd_ages_1.csv'))
 write_csv(imd_age_2, here::here('data','imd_25','imd_ages_2.csv'))
 
+## regional and IMD-specific median age
 
+reg_imd_med <- imd_dat_long %>% 
+  group_by(p_engreg, imd_quintile) %>%
+  mutate(tot_pop = sum(pop),
+         cumpop = cumsum(pop),
+         prop_pop = cumpop/tot_pop,
+         diff = abs(prop_pop - 0.5)) %>% 
+  filter(diff == min(diff)) %>% 
+  select(p_engreg, imd_quintile, age)
 
+reg_imd_med %>% 
+  pivot_wider(values_from = age, names_from = imd_quintile) %>% 
+  mutate(`5`-`1`)
+  
+reg_imd_med %>% 
+  ggplot() + 
+  geom_line(aes(as.factor(imd_quintile), age, 
+                group = p_engreg, col = p_engreg), lwd = 1) + 
+  theme_bw() + labs(x = 'IMD quintile', y='Median age', col = 'Region') + 
+  scale_color_manual(values = colors_p_engreg)
 
 
 
