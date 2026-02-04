@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allepidplots allmeancontacts
+localdef: allepid allmatrsplots
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -392,12 +392,22 @@ ${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balan
 
 allepidout: $(patsubst %,${EPIDDATA}/%/byall.rds, ${E_SENS_ANALYSES}) 
 
-${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_epidem.r ${EPIDDATA}/%/byall.rds
+${EPIDDATA}/%/epidemic_outputs.rds: ${EPIDCODE}/process_epidem.r ${EPIDDATA}/%/byall.rds
+	$(call R, $*)
+
+allepidaggout: $(patsubst %,${EPIDDATA}/%/epidemic_outputs.rds, ${E_SENS_ANALYSES}) 
+
+${EPIDFIG}/%/time_series.png: ${EPIDCODE}/plot_trajectories.r ${EPIDDATA}/%/epidemic_outputs.rds
 	$(call R, $*)
 	
-allepidplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
+allepidtrajplots: $(patsubst %,${EPIDFIG}/%/time_series.png, ${E_SENS_ANALYSES}) 
 
-allepid: allepidout allepidplots
+${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_attack_rates.r ${EPIDDATA}/%/epidemic_outputs.rds
+	$(call R, $*)
+	
+allepidarplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
+
+allepid: allepidtrajplots allepidarplots
 
 
 

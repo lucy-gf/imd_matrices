@@ -17,11 +17,6 @@ options(dplyr.summarise.inform = FALSE)
   "regional",
   file.path('output','data','epidem','regional','epidemic_outputs.rds')
 ) else commandArgs(trailingOnly = TRUE)
-.args <-  c(
-  file.path("output", "data", "epidem","regional","byall.rds"),
-  "regional",
-  file.path('output','data','epidem','regional','epidemic_outputs.rds')
-) 
 
 sens_analysis <- .args[2]
 
@@ -233,6 +228,8 @@ if(sens_analysis != 'regional'){
     
     ## save total infections
     write_rds(data, gsub('.rds',paste0('_',reg_sens_analysis,'.rds'),.args[3]))
+    
+    write_rds(data.table(x=0), .args[3])
   
   }
   

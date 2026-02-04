@@ -106,59 +106,103 @@ agg$c_age_group <- factor(agg$c_age_group,
 agg$c_imd_q <- factor(agg$c_imd_q,
                       levels = rev(as.character(1:5)))
 
+agg <- agg %>% 
+  arrange(p_imd_q, p_age_group, c_age_group)
 
-## testing leading eigenvalue
-data <- CJ(p_i = 1:5, c_i = 1:5, r0 = 0)
-for(i in 1:5){for(j in 1:5){
-  filt <- agg %>% filter(p_imd_q==i, c_imd_q==j) %>% 
-    ungroup() %>% 
-    select(p_age_group, c_age_group, med_n) %>% 
-    pivot_wider(names_from = c_age_group, values_from = med_n) %>% 
-    select(!p_age_group)
-  filt <- as.matrix(filt, nrow=16)
-  r0 <- Re(eigen(filt)$values[1])
-  data[data$p_i==i & data$c_i==j,]$r0 <- r0
+#### PLOT ####
+
+#### MEAN AGE DIFFERENCE ####
+## (using midpoint of each age group), 
+## 80 for 75+ age group
+## (or 85 for 80+ age group in nhs_ages)
+
+mean_age_diff <- function(agg_dat){
+  
+  data <- CJ(p_i = 1:5, c_i = 1:5, m = 0)
+  for(i in 1:5){for(j in 1:5){
+    filt <- agg_dat %>% filter(p_imd_q==i, c_imd_q==j) %>% 
+      ungroup() %>% 
+      mutate(p_age_group = case_when(p_age_group=='75+' ~ '77.5-', 
+                                     p_age_group=='80+' ~ '82.5-', 
+                                     T ~ p_age_group),
+             c_age_group = case_when(c_age_group=='75+' ~ '77.5-',
+                                     c_age_group=='80+' ~ '82.5-', 
+                                     T ~ c_age_group),
+             p_mid_age = as.numeric(gsub("-.*$", "", p_age_group)) + 2.5,
+             c_mid_age = as.numeric(gsub("-.*$", "", c_age_group)) + 2.5) %>% 
+      group_by(p_age_group, p_mid_age) %>% 
+      summarise(tot_n = sum(med_n), 
+                exp_age_diff = weighted.mean(x = abs(p_mid_age - c_mid_age),
+                                             w = med_n)) %>% 
+      arrange(p_mid_age) %>% 
+      left_join(imd_age %>% 
+                  filter(imd_q == i) %>% 
+                  mutate(p_age_group = case_when(age=='75+' ~ '77.5-', 
+                                                 age=='80+' ~ '82.5-', 
+                                                 T ~ age)) %>% 
+                  select(p_age_group, prop_imd), by = 'p_age_group') %>% 
+      ungroup() %>% 
+      summarise(m = weighted.mean(x = exp_age_diff, w = tot_n*prop_imd))
+    data[data$p_i==i & data$c_i==j,]$m <- filt$m
   }}
-data %>% 
-  ggplot() + 
-  geom_tile(aes(x=p_i, y=c_i, fill=r0)) +
-  theme_bw() + scale_fill_viridis() +
-  labs(x='Participant IMD quintile',
-       y='Contact IMD quintile',
-       fill = 'Dominant\neigenvalue')
+  
+  data
+  
+}
 
-## testing mean (mid-) age difference
-data <- CJ(p_i = 1:5, c_i = 1:5, m = 0)
-for(i in 1:5){for(j in 1:5){
-  filt <- agg %>% filter(p_imd_q==i, c_imd_q==j) %>% 
-    ungroup() %>% 
-    mutate(p_age_group = case_when(p_age_group=='75+' ~ '75-', T ~ p_age_group),
-           c_age_group = case_when(c_age_group=='75+' ~ '75-', T ~ c_age_group),
-           p_mid_age = as.numeric(gsub("-.*$", "", p_age_group)) + 2.5,
-           c_mid_age = as.numeric(gsub("-.*$", "", c_age_group)) + 2.5) %>% 
-    group_by(p_age_group, p_mid_age) %>% 
-    summarise(tot_n = sum(med_n), 
-              exp_age_diff = weighted.mean(x = abs(p_mid_age - c_mid_age),
-                                           w = med_n)) %>% 
-    arrange(p_mid_age) %>% 
-    left_join(imd_age %>% 
-                filter(imd_q == i) %>% 
-                mutate(p_age_group = case_when(age=='75+' ~ '75-', 
-                                               T ~ age)) %>% 
-                select(p_age_group, prop_imd), by = 'p_age_group') %>% 
-    ungroup() %>% 
-    summarise(m = weighted.mean(x = exp_age_diff, w = tot_n*prop_imd))
-  data[data$p_i==i & data$c_i==j,]$m <- filt$m
-}}
-data %>% 
+m_a_d <- mean_age_diff(agg)
+
+m_a_d %>% 
   ggplot() + 
   geom_tile(aes(x=p_i, y=c_i, fill=m)) +
   theme_bw() + scale_fill_viridis(option='A') +
+  theme(text = element_text(size = 12)) +
   labs(x='Participant IMD quintile',
        y='Contact IMD quintile',
-       fill = 'Mean age\ndifference')
+       fill = 'Mean age\ndifference') +
+  ggtitle("Mean age difference")
 
-#### PLOT ####
+ggsave(gsub('fitted_matrs.png','mean_age_diff.png',.args[3]), width = 8, height = 7)
+
+mean_age_diff_plot <- m_a_d %>% 
+  ggplot() + 
+  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
+  theme_bw() + scale_fill_viridis(option='A') +
+  theme(text = element_text(size = 12)) +
+  labs(x='Participant IMD quintile',
+       y='Contact IMD quintile',
+       fill = 'Mean age\ndifference'); mean_age_diff_plot
+
+m_a_d <- mean_age_diff(agg %>% filter(p_age_group != c_age_group))
+
+m_a_d %>% 
+  ggplot() + 
+  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
+  theme_bw() + scale_fill_viridis(option='A') +
+  theme(text = element_text(size = 12)) +
+  labs(x='Participant IMD quintile',
+       y='Contact IMD quintile',
+       fill = 'Mean age\ndifference') +
+  ggtitle("Mean age difference, excluding the age-diagonal")
+
+ggsave(gsub('fitted_matrs.png','mean_age_diff_no_diag.png',.args[3]), width = 8, height = 7)
+
+## children's contacts only
+m_a_d <- mean_age_diff(agg %>% 
+                         filter(p_age_group %notin% c("75+","80+")) %>% 
+                         filter(as.numeric(gsub("-.*$", "", p_age_group)) < 20))
+
+m_a_d %>% 
+  ggplot() + 
+  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
+  theme_bw() + scale_fill_viridis(option='A') +
+  theme(text = element_text(size = 12)) +
+  labs(x='Participant IMD quintile',
+       y='Contact IMD quintile',
+       fill = 'Mean age\ndifference') +
+  ggtitle("Mean age difference, children's contacts only")
+
+ggsave(gsub('fitted_matrs.png','mean_age_diff_only_kids.png',.args[3]), width = 8, height = 7)
 
 #### ASSORTATIVITY ####
 
@@ -322,7 +366,8 @@ if(sens_analysis != 'regional'){
     scale_fill_viridis() + 
     theme_bw() +
     labs(x = 'Participant IMD quintile', y = 'Contact IMD quintile', 
-         fill = 'Assortativity\nby age group') 
+         fill = 'Assortativity\nby age group') + 
+    theme(text = element_text(size = 12))
   
   age_assort_matr <- age_assort_df %>% 
     ggplot() + 
@@ -331,11 +376,18 @@ if(sens_analysis != 'regional'){
     theme_bw() +
     labs(x = 'Participant age group', y = 'Contact age group', 
          fill = 'Assortativity\nby IMD quintile') +
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+          text = element_text(size = 12))
   
   imd_assort_matr + age_assort_matr + plot_layout(nrow = 1)
   
   ggsave(gsub('.png','_assortativity_matrices.png',.args[3]), width = 12, height = 5)
+  
+  age_assort_matr + imd_assort_matr + mean_age_diff_plot + plot_layout(nrow = 1) +
+    plot_annotation(tag_levels = 'a',
+                    tag_prefix = '(', tag_suffix = ')')
+  
+  ggsave(gsub('.png','_summ_stats.png',.args[3]), width = 18, height = 5)
   
   age_assort_matr
   
@@ -623,7 +675,7 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
 }
 
-if(sens_analysis != 'regional'){
+if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
   #### UNCERTAINTY ####
   

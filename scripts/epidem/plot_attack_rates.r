@@ -39,11 +39,6 @@ sens_analysis <- .args[2]
     age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
   }
   age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
-  demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
-    group_by(age_grp) %>% summarise(population = sum(pop)) 
-  demog$age_grp <- factor(demog$age_grp, levels = age_labels)
-  demog <- demog %>% arrange(age_grp)
-  demog_population <- demog$population
   
   ## Set base levels for IMD and age
   base_imd_arr <- 5
@@ -61,11 +56,10 @@ sens_analysis <- .args[2]
 
 #### DEMOGRAPHY ####
 
-if(sens_analysis == 'regional'){
-  
-  ages_file <- ifelse(sens_analysis == 'nhs_ages', 2, 1)
+{
+
   imd_age_raw <- data.table(read_csv(file.path("data","imd_25",
-                                               paste0("imd_ages_",ages_file,".csv")), 
+                                               paste0("imd_ages_",age_structure_num,".csv")), 
                                      show_col_types = F))
   
   demog_allreg <- imd_age_raw %>% 
@@ -89,10 +83,6 @@ if(sens_analysis == 'regional'){
   demog_allreg <- demog_allreg %>% arrange(p_engreg, IMD, Age)
   
   demog_allreg <- data.table(demog_allreg)
-  
-}else{
-  
-  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
   
   demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
     group_by(imd_quintile, age_grp) %>% summarise(population = sum(pop)) %>% 
@@ -142,6 +132,51 @@ barchart_plot <- function(data_in, regional = F){
   }
   
   p
+  
+}
+
+age_spec_infections <- function(data_in){
+  
+  p1 <- data_in %>% 
+    group_by(age, imd) %>% 
+    summarise(med_ar = median(attack_rate),
+              l_ar = l95_func(attack_rate),
+              u_ar = u95_func(attack_rate)) %>% 
+    ggplot() +
+    geom_ribbon(aes(x = age, ymin = 1000*l_ar, ymax = 1000*u_ar,
+                    fill = as.factor(imd), group = as.factor(imd)),
+                alpha = 0.25) +
+    geom_line(aes(x = age, y = 1000*med_ar, col = as.factor(imd), group = as.factor(imd)),
+                lwd = 0.8) +
+    ylim(c(0,NA)) + 
+    scale_color_manual(values = imd_quintile_colors) +
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme_bw() + 
+    labs(x = 'Age group', y = 'Attack rate per 1000 population',
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    theme(text=element_text(size=12)); p1
+  
+  p2 <- data_in %>% 
+    group_by(age, imd) %>% 
+    summarise(med_inf = median(infections),
+              l_inf = l95_func(infections),
+              u_inf = u95_func(infections)) %>% 
+    ggplot() +
+    geom_ribbon(aes(x = age, ymin = l_inf/1000, ymax = u_inf/1000,
+                    fill = as.factor(imd), group = as.factor(imd)),
+                alpha = 0.25) +
+    geom_line(aes(x = age, y = med_inf/1000, col = as.factor(imd), group = as.factor(imd)),
+              lwd = 0.8) +
+    ylim(c(0,NA)) + 
+    scale_color_manual(values = imd_quintile_colors) +
+    scale_fill_manual(values = imd_quintile_colors) + 
+    theme_bw() + 
+    labs(x = 'Age group', y = 'Infections (thousands)',
+         col = 'IMD quintile', fill = 'IMD quintile') +
+    theme(text=element_text(size=12)); p2
+  
+  p1 + p2 + plot_layout(nrow = 2, guides = 'collect') + 
+    plot_annotation(tag_levels = 'a',tag_prefix = '(', tag_suffix = ')')
   
 }
 
@@ -257,7 +292,6 @@ rel_imd_violin_plot <- function(data_in,
     geom_violin(aes(x = imd, y = rel_ar, fill = imd, col = imd), alpha = 0.4)  +
     geom_point(aes(x = imd, y = median, col = imd), size = 4)  +
     theme_bw() +
-    # ylim(c(0.8, NA)) + 
     scale_fill_manual(values = imd_quintile_colors) + 
     scale_color_manual(values = imd_quintile_colors) + 
     theme(text=element_text(size=12),
@@ -323,7 +357,6 @@ age_standardised_rel_imd_violin_plot <- function(
     geom_violin(aes(x = imd, y = rel_ar, fill = imd, col = imd), alpha = 0.4)  +
     geom_point(aes(x = imd, y = median, col = imd), size = 4)  +
     theme_bw() +
-    # ylim(c(0.85, NA)) + 
     scale_fill_manual(values = imd_quintile_colors) + 
     scale_color_manual(values = imd_quintile_colors) + 
     theme(text=element_text(size=12),
@@ -353,6 +386,9 @@ if(sens_analysis != 'regional'){
   ggsave(.args[3], dpi=600, device = "png", width = 12, height = 6)
   
   final_size_vio <- imd_violin_plot(infections); final_size_vio
+  
+  age_spec_infections(infections)
+  ggsave(gsub('attack_rate_bars','imd_age_infs.png',.args[3]), dpi=600, device = "png", width = 12, height = 10)
   
   #### relative final size ########
   
@@ -406,15 +442,19 @@ if(sens_analysis != 'regional'){
     
     barchart_plot(nat_infections)
     ggsave(file.path(outdir,'attack_rate_bars.png'), dpi=600, device = "png", width = 12, height = 6)
+    ggsave(.args[3], dpi=600, device = "png", width = 12, height = 6)
     
     final_size_vio <- imd_violin_plot(nat_infections); final_size_vio
+    
+    age_spec_infections(nat_infections)
+    ggsave(file.path(outdir,'imd_age_infs.png'), dpi=600, device = "png", width = 12, height = 10)
     
     ## by age 
     arr_plot_age <- rel_age_violin_plot(nat_infections, base_age_arr); arr_plot_age
     ggsave(file.path(outdir,'age_spec_rel_attack_rate.png'), dpi=600, device = "png", width = 12, height = 6)
     
     ## by imd 
-    arr_plot_imd <- rel_imd_violin_plot(nat_infections, base_imd_arr); arr_plot_imd
+    arr_plot_imd <- rel_imd_violin_plot(nat_infections, base_imd_arr) + ylim(c(0.7, 1.55)); arr_plot_imd
     
     ## age-standardised 
     
@@ -422,7 +462,7 @@ if(sens_analysis != 'regional'){
       demog,
       nat_infections,
       base_imd_arr
-    ); arr_plot_imd_as
+    ) + ylim(c(0.7, 1.55)); arr_plot_imd_as
     
     final_size_vio + (arr_plot_imd + arr_plot_imd_as + plot_layout(nrow = 2)) + 
       plot_layout(nrow = 1) + plot_annotation(tag_levels = 'a',

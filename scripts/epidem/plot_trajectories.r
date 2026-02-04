@@ -276,7 +276,7 @@ if(sens_analysis != 'regional'){
   p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')
   
   ## save
-  ggsave(here::here('output','figures','epidem',sens_analysis,'time_series.png'), dpi=600, 
+  ggsave(.args[3], dpi=600, 
          device = "png", width = 12, height = 9)
   
   
@@ -333,6 +333,9 @@ if(sens_analysis != 'regional'){
       plot_layout(nrow = 2, heights = c(1,3))
     
     ggsave(here::here('output','figures','epidem',sens_analysis_sens_analysis,'time_series.png'), dpi=600, 
+           device = "png", width = 16, height = 12)
+    
+    ggsave(.args[3], dpi=600, 
            device = "png", width = 16, height = 12)
     
   }

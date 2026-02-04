@@ -43,7 +43,8 @@ part <- readRDS(.args[1])
 part_reconnect <- readRDS(file.path("data","reconnect","reconnect_part.rds"))
 
 # attach gender, day of week
-part <- part %>% left_join(part_reconnect %>% select(p_id, p_gender, day_week),
+part <- part %>% left_join(part_reconnect %>% 
+                             select(p_id, p_gender, day_week, p_income, p_engreg),
                            by = 'p_id') %>% 
   mutate(total_contacts = n_contacts + large_n)
 
@@ -69,7 +70,8 @@ eti95U <- function(x) quantile(x, 0.975)
 group_vars_list <- list(c('imd_quintile'),
                         c('imd_quintile','p_age_group'),
                         c('imd_quintile','p_gender'),
-                        c('imd_quintile','p_age_group','p_gender'))
+                        c('imd_quintile','p_age_group','p_gender'),
+                        c('imd_quintile','p_engreg'))
 
 ## function to fit data
 
@@ -210,6 +212,25 @@ plot_mean_contacts <- function(out_agg_raw, # dataframe
            y = 'Mean contacts', x = '',
            linetype = 'Gender')
   }
+  if(group_index == 5){
+    p <- plot_df %>% 
+      ggplot() + 
+      geom_errorbar(aes(ymin = lower, ymax = upper, x = p_engreg,
+                        group = interaction(as.factor(imd_quintile), p_engreg), 
+                        col = as.factor(imd_quintile)), 
+                    width = 0.4, position = position_dodge(width = 0.9)) + 
+      geom_point(aes(x = p_engreg, y = mean,
+                     group = interaction(as.factor(imd_quintile), p_engreg), 
+                     col = as.factor(imd_quintile)),
+                 position = position_dodge(width = 0.9)) +
+      scale_color_manual(values = imd_quintile_colors) + 
+      scale_linetype_manual(values = c(1,2)) + 
+      theme_bw() + 
+      ylim(c(0, NA)) + 
+      labs(col = 'IMD quintile', fill = 'IMD quintile',
+           y = 'Mean contacts', x = '',
+           linetype = 'Gender')
+  }
   
   p
   
@@ -286,6 +307,20 @@ plot_bootstrap_mean_contacts <- function(out_agg_raw, # dataframe
       labs(x = 'IMD quintile', y = 'Mean contacts',
            linetype = 'Gender', color = 'Gender') 
   }
+  if(group_index == 5){
+    p <- plot_df %>% 
+      ggplot() + 
+      geom_line(aes(x = imd_quintile, y = n, 
+                    color = p_engreg, group = bootstrap_index),
+                alpha = 0.02) +
+      theme_bw() + 
+      facet_wrap(. ~ p_engreg, scales = 'free') +
+      ylim(c(0, NA)) + 
+      scale_color_manual(values = colors_p_engreg) + 
+      labs(x = 'IMD quintile', y = 'Mean contacts',
+           linetype = 'Gender') +
+      theme(legend.position = 'none')
+  }
   
   p
   
@@ -304,7 +339,7 @@ read_or_calculate <- function(x){
 }
   
 ## fit data, or read in 
-read <- rep(T, 4)
+read <- rep(T, length(group_vars_list))
 
 data_list <- map(
   .x = 1:length(read), 
@@ -343,8 +378,8 @@ plots <- map(
   .f = ~{plot_mean_contacts(data_list[[.x]], .x)}
 )
 
-widths <- c(6, 12, 7, 14)
-heights <- c(4, 6, 5, 8)
+widths <- c(6, 12, 7, 14, 10)
+heights <- c(4, 6, 5, 8, 6)
 
 for(i in 1:length(plots)){
 
