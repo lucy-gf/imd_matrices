@@ -185,12 +185,9 @@ if(sens_analysis != 'regional'){
   
   #### REGIONAL ####
   
-  for(reg_sens_analysis in 1){# 1:4){ # only using main analysis (R0 = 1.5) for now
+  for(reg_sens_analysis in 4){# 1:4){ # only using main analysis (R0 variable) for now
     
-    if(reg_sens_analysis == 1){reg_sens_analysis_name <- 'R0_1.5'}
-    if(reg_sens_analysis == 2){reg_sens_analysis_name <- 'R0_1.1'}
-    if(reg_sens_analysis == 3){reg_sens_analysis_name <- 'R0_3'}
-    if(reg_sens_analysis == 4){reg_sens_analysis_name <- 'R0_variable'}
+    reg_sens_analysis_name <- c('R0_1.5','R0_1.1','R0_3','R0_variable')[reg_sens_analysis]
     
     # change input name
     input <- gsub('all', paste0('all_', reg_sens_analysis), .args[1])

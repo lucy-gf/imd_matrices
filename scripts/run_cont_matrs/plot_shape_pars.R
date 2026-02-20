@@ -21,6 +21,8 @@ library(patchwork)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
+sens_analysis <- .args[2]
+
 if(sens_analysis == 'nhs_ages'){
   age_limits <- c(5,12,18,26,35,50,70,80)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))

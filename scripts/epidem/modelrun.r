@@ -108,19 +108,9 @@ run_epidemic <- function(
     if(regional_SA == 2){pars$R0 <- 1.1} # lower R0
     if(regional_SA == 3){pars$R0 <- 3} # higher R0
     if(regional_SA == 4){ # fix beta, not R0 
+      # set beta to be the median *national* beta such that R0 = 1.5
       pset$R0fixed <- FALSE
-      cm_base <- data.table(suppressWarnings(read_csv(file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"), show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
-      cm_base_mean <- cm_base[, lapply(.SD, mean), by = c('p_age_group','p_imd_q','c_age_group','c_imd_q')]
-      source(paste0(source_dir,"/R0_.r")) 
-      cm <- cm_base_mean[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-      cm <- cm %>% 
-        mutate(p = paste0(p_imd_q, '_', p_age_group),
-               c = paste0(c_imd_q, '_', c_age_group)) %>% 
-        select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
-      pvec <- cm$p 
-      cm <- cm %>% select(!p) %>% as.matrix()
-      betanew <- R0(pars, cm_in = cm, R0assumed = as.numeric(pars$R0), printout = 0) #default 2.5
-      pars$beta <- betanew
+      pars$beta <- median(nat_beta$beta)
     }
   }
   
@@ -293,6 +283,11 @@ run_epidemic <- function(
     
   }
   
+  if(pset$R0fixed){
+    write_csv(data.table(beta=BETATRACK),
+              gsub('byall.rds','beta.csv', output_file))  
+  }
+  
   ## save files
   if(save){
     
@@ -334,7 +329,11 @@ if(!exists('cm1000')){
 
 if(sens_analysis == 'regional'){
   
-  for(regional_SA_i in 1:4){
+  for(regional_SA_i in 4){ # 1:4
+    
+    if(regional_SA_i == 4){
+      nat_beta <- read_csv(file.path("output","data","epidem","base","beta.csv"), show_col_types=F)
+    }
     
     for(reg in unique(cm1000$p_engreg)){
       

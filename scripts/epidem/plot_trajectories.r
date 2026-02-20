@@ -25,6 +25,7 @@ sens_analysis <- .args[2]
 # source colors etc.
 source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
 source(here::here('scripts','setup','colors.R'))
+source(here::here('scripts','epidem','plot_epidem_functions.R'))
 
 ### Basic setting
 source_dir <- "scripts/epidem"
@@ -133,125 +134,6 @@ if(sens_analysis == 'regional'){
   
 }
 
-#### PLOTTING FUNCTIONS ####
-
-plot_trajectory <- function(
-    data_in,
-    variables = c(),
-    cumulative = F,
-    regional = F
-    ){
-  
-  data_in <- data.table(data_in)
-  
-  ## column name checks
-  if('sim' %notin% colnames(data_in) | 'time' %notin% colnames(data_in)){
-    stop('Sim/time not in column names')
-  }
-  if(regional & 'p_engreg' %notin% colnames(data_in)){
-    stop('Region not in column names')
-  }
-  for(var in variables){
-    if(var %notin% colnames(data_in)){
-      stop(paste0(var, ' not in column names'))
-    }
-  }
-  
-  ## grouping vars
-  grouping_vars_in <- if(!regional){variables}else{c(variables, 'p_engreg')}
-  grouping_vars <- c('sim','time', grouping_vars_in)
-  time_var_vec <- c('time', grouping_vars_in)
-  
-  ## y axis label
-  y_lab <- if(cumulative){'Cumulative infections per 1000 population'}else{
-    'Infections per 1000 population'
-  }
-  
-  ## total population data table
-  pop_vec <- c(grouping_vars, 'pop')
-  tot_pop <- data_in[, ..pop_vec][, lapply(.SD, sum), by = grouping_vars]
-  
-  ## total infections data table
-  inf_vec <- c(grouping_vars, 'infections')
-  dat_inf <- data_in[, ..inf_vec][, lapply(.SD, sum), by = grouping_vars]
-  dat_inf <- dat_inf[tot_pop, on = grouping_vars]
-  dat_inf[, attack_rate := infections/pop]
-  
-  ## median and CI data table
-  attack_rate_vec <- c(time_var_vec, 'attack_rate')
-  dat_med <- dat_inf[, ..attack_rate_vec][, lapply(.SD, median), by = time_var_vec]
-  setnames(dat_med, 'attack_rate', 'median')
-  dat_l <- dat_inf[, ..attack_rate_vec][, lapply(.SD, l95_func), by = time_var_vec]
-  setnames(dat_l, 'attack_rate', 'l95')
-  dat_u <- dat_inf[, ..attack_rate_vec][, lapply(.SD, u95_func), by = time_var_vec]
-  setnames(dat_u, 'attack_rate', 'u95')
-  
-  dat_agg <- cbind(dat_med, l95 = dat_l$l95, u95 = dat_u$u95)
-  
-  ## basic plot
-  p <- ggplot(dat_agg, aes(x=time)) + 
-    theme_bw() +
-    theme(text=element_text(size=10),
-          legend.key.size = unit(2, 'mm'),
-          plot.title = element_text(size = 12),
-          axis.text.y = element_text(color=1),
-          axis.text.x = element_text(color=1)) +
-    labs(y = y_lab, x = "Day")
-  
-  ## no stratifications
-  if(length(variables) == 0){
-    
-    if(!regional){
-      
-      p <- p + 
-        geom_ribbon(aes(ymin = 1000*l95, ymax = 1000*u95), alpha=0.25, fill = 'darkgreen')  +
-        geom_line(aes(y = 1000*median), lwd=0.8, col = 'darkgreen') 
-      
-    }else{
-      
-      p <- p + 
-        geom_ribbon(aes(ymin = 1000*l95, ymax = 1000*u95, fill = p_engreg), alpha=0.25)  +
-        geom_line(aes(y = 1000*median, col = p_engreg), lwd=0.8) +
-        scale_fill_manual(values = colors_p_engreg) + 
-        scale_color_manual(values = colors_p_engreg) +
-        labs(col = 'Region', fill = 'Region')
-      
-    }
-    
-  }else{
-    
-    ## age-stratified
-    if(variables == c('age')){
-      p <- p + 
-        geom_ribbon(aes(ymin = 1000*l95, ymax = 1000*u95, 
-                        fill = age, group = age), alpha=0.25)  +
-        geom_line(aes(y = 1000*median, col = age, group = age), lwd=0.8) +
-        scale_fill_manual(values = age_colors) + 
-        scale_color_manual(values = age_colors) +
-        labs(col = 'Age', fill = 'Age')
-    }
-    
-    ## imd-stratified
-    if(variables == c('imd')){
-      p <- p + 
-        geom_ribbon(aes(ymin = 1000*l95, ymax = 1000*u95, 
-                        fill = imd, group = imd), alpha=0.25)  +
-        geom_line(aes(y = 1000*median, col = imd, group = imd), lwd=0.8) +
-        scale_fill_manual(values = imd_quintile_colors) + 
-        scale_color_manual(values = imd_quintile_colors) +
-        labs(col = 'IMD quintile', fill = 'IMD quintile')
-    }
-    
-  }
-  
-  ## facet if regional (and some other stratification)
-  if(regional & length(variables) > 0){p <- p + facet_wrap(. ~ p_engreg, scales = 'free')}
-  
-  p
-  
-}
-
-
 #### NOT REGIONAL ####
 ## If NOT in regional sensitivity analysis
 
@@ -284,7 +166,7 @@ if(sens_analysis != 'regional'){
   
   #### REGIONAL ####
   
-  for(reg_sens_analysis in 1){ # 1:4){ # only using main analysis (R0 = 1.5) for now
+  for(reg_sens_analysis in 4){ # 1:4){ # only using main analysis (R0 = 1.5) for now
     
     ## set input/output folder
     reg_sens_analysis_name <- c('R0_1.5','R0_1.1','R0_3','R0_variable')[reg_sens_analysis]

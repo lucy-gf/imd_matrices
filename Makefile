@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allepid allmatrsplots
+localdef: allepid allmatrsplots #allmeancontacts
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -70,6 +70,7 @@ NHSAGES ?= 0-4 5-11 12-17 18-25 26-34 35-49 50-69 70-79 80+
 # assignment sensitivity analyses
 A_SENS_ANALYSES ?= base regional old_imd
 A_SENS_ANALYSES_AND_NHS ?= base regional old_imd nhs_ages
+AGE_SENS_ANALYSES ?= base nhs_ages
 
 # matrix fitting sensitivity analyses
 M_SENS_ANALYSES ?= ${A_SENS_ANALYSES_AND_NHS} large_n_age no_cap_100 
@@ -369,17 +370,22 @@ ${CONTFIG}/%/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/%/fitte
 	
 allmatrsplots_agg: $(patsubst %,${CONTFIG}/%/fitted_matrs.png, ${E_SENS_ANALYSES}) 
 
+${CONTFIG}/%/summ_stats.png: ${CONTCODE}/plot_summ_stats.R ${CONTDATA}/%/fitted_matrs_balanced.csv
+	$(call R, $*)
+	
+allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summ_stats.png, ${E_SENS_ANALYSES}) 
+
 ${CONTFIG}/%/shape_pars.png: ${CONTCODE}/plot_shape_pars.R ${CONTDATA}/%/fitted_matrs.csv 
 	$(call R, $*)
 	
-allmatrsplots_shape: $(patsubst %,${CONTFIG}/%/shape_pars.png, ${E_SENS_ANALYSES}) 
+allmatrsplots_shape: $(patsubst %,${CONTFIG}/%/shape_pars.png, ${AGE_SENS_ANALYSES}) 
 	
 ${CONTFIG}/%/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/%/fitted_matrs.csv
 	$(call R, $*)
 
 allmatrsplots_locn: $(patsubst %,${CONTFIG}/%/fitted_matrs_locn.png, ${E_SENS_ANALYSES_NO_REG}) 
 
-allmatrsplots: allmatrsplots_agg allmatrsplots_locn
+allmatrsplots: allmatrsplots_agg allmatrsplots_summ allmatrsplots_shape allmatrsplots_locn
 
 ################################################################################
 
@@ -407,7 +413,12 @@ ${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_attack_rates.r ${EPIDDATA}/%
 	
 allepidarplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
 
-allepid: allepidtrajplots allepidarplots
+${EPIDFIG}/merged_attack_rates.png: ${EPIDCODE}/merged_attack_rates.r ${EPIDDATA}/base/epidemic_outputs.rds ${EPIDDATA}/regional/epidemic_outputs.rds
+	$(call R)
+
+epidmergedplot: ${EPIDFIG}/merged_attack_rates.png
+
+allepid: allepidtrajplots allepidarplots epidmergedplot
 
 
 

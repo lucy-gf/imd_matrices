@@ -111,328 +111,6 @@ agg <- agg %>%
 
 #### PLOT ####
 
-#### MEAN AGE DIFFERENCE ####
-## (using midpoint of each age group), 
-## 80 for 75+ age group
-## (or 85 for 80+ age group in nhs_ages)
-
-mean_age_diff <- function(agg_dat){
-  
-  data <- CJ(p_i = 1:5, c_i = 1:5, m = 0)
-  for(i in 1:5){for(j in 1:5){
-    filt <- agg_dat %>% filter(p_imd_q==i, c_imd_q==j) %>% 
-      ungroup() %>% 
-      mutate(p_age_group = case_when(p_age_group=='75+' ~ '77.5-', 
-                                     p_age_group=='80+' ~ '82.5-', 
-                                     T ~ p_age_group),
-             c_age_group = case_when(c_age_group=='75+' ~ '77.5-',
-                                     c_age_group=='80+' ~ '82.5-', 
-                                     T ~ c_age_group),
-             p_mid_age = as.numeric(gsub("-.*$", "", p_age_group)) + 2.5,
-             c_mid_age = as.numeric(gsub("-.*$", "", c_age_group)) + 2.5) %>% 
-      group_by(p_age_group, p_mid_age) %>% 
-      summarise(tot_n = sum(med_n), 
-                exp_age_diff = weighted.mean(x = abs(p_mid_age - c_mid_age),
-                                             w = med_n)) %>% 
-      arrange(p_mid_age) %>% 
-      left_join(imd_age %>% 
-                  filter(imd_q == i) %>% 
-                  mutate(p_age_group = case_when(age=='75+' ~ '77.5-', 
-                                                 age=='80+' ~ '82.5-', 
-                                                 T ~ age)) %>% 
-                  select(p_age_group, prop_imd), by = 'p_age_group') %>% 
-      ungroup() %>% 
-      summarise(m = weighted.mean(x = exp_age_diff, w = tot_n*prop_imd))
-    data[data$p_i==i & data$c_i==j,]$m <- filt$m
-  }}
-  
-  data
-  
-}
-
-m_a_d <- mean_age_diff(agg)
-
-m_a_d %>% 
-  ggplot() + 
-  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
-  theme_bw() + scale_fill_viridis(option='A') +
-  theme(text = element_text(size = 12)) +
-  labs(x='Participant IMD quintile',
-       y='Contact IMD quintile',
-       fill = 'Mean age\ndifference') +
-  ggtitle("Mean age difference")
-
-ggsave(gsub('fitted_matrs.png','mean_age_diff.png',.args[3]), width = 8, height = 7)
-
-mean_age_diff_plot <- m_a_d %>% 
-  ggplot() + 
-  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
-  theme_bw() + scale_fill_viridis(option='A') +
-  theme(text = element_text(size = 12)) +
-  labs(x='Participant IMD quintile',
-       y='Contact IMD quintile',
-       fill = 'Mean age\ndifference'); mean_age_diff_plot
-
-m_a_d <- mean_age_diff(agg %>% filter(p_age_group != c_age_group))
-
-m_a_d %>% 
-  ggplot() + 
-  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
-  theme_bw() + scale_fill_viridis(option='A') +
-  theme(text = element_text(size = 12)) +
-  labs(x='Participant IMD quintile',
-       y='Contact IMD quintile',
-       fill = 'Mean age\ndifference') +
-  ggtitle("Mean age difference, excluding the age-diagonal")
-
-ggsave(gsub('fitted_matrs.png','mean_age_diff_no_diag.png',.args[3]), width = 8, height = 7)
-
-## children's contacts only
-m_a_d <- mean_age_diff(agg %>% 
-                         filter(p_age_group %notin% c("75+","80+")) %>% 
-                         filter(as.numeric(gsub("-.*$", "", p_age_group)) < 20))
-
-m_a_d %>% 
-  ggplot() + 
-  geom_tile(aes(x=p_i, y=c_i, fill=m)) +
-  theme_bw() + scale_fill_viridis(option='A') +
-  theme(text = element_text(size = 12)) +
-  labs(x='Participant IMD quintile',
-       y='Contact IMD quintile',
-       fill = 'Mean age\ndifference') +
-  ggtitle("Mean age difference, children's contacts only")
-
-ggsave(gsub('fitted_matrs.png','mean_age_diff_only_kids.png',.args[3]), width = 8, height = 7)
-
-#### ASSORTATIVITY ####
-
-fcn_assortativity <- function(
-    var, # imd_quintile or age_group
-    matrix,
-    population_input,
-    order,
-    ci = 0.95
-){
-  
-  pop <- copy(population_input) 
-  
-  if(var == 'age_group'){
-    pop_var = 'age'
-    p_var = 'p_age_group'
-    c_var = 'c_age_group'
-  }
-  if(var == 'imd_quintile'){
-    pop_var = 'imd_q'
-    p_var = 'p_imd_q'
-    c_var = 'c_imd_q'
-  }
-  
-  pop_var_col <- which(colnames(pop) == pop_var)
-  setnames(pop, colnames(pop)[pop_var_col], 'p_var')
-  
-  pop <- pop %>% select('p_var','prop') %>% 
-    rename(proportion = prop)
-  
-  bs_vars <- c()
-  if('bootstrap_index' %in% colnames(matrix)){
-    if(n_distinct(matrix$bootstrap_index) > 1){
-      bs_vars <- c('bootstrap_index')
-    }
-  }
-  
-  matrix_rename <- copy(matrix)
-  
-  p_var_col <- which(colnames(matrix_rename) == p_var)
-  setnames(matrix_rename, colnames(matrix_rename)[p_var_col], 'p_var')
-  c_var_col <- which(colnames(matrix_rename) == c_var)
-  setnames(matrix_rename, colnames(matrix_rename)[c_var_col], 'c_var')
-  
-  selection_vars <- c('p_var','c_var','n')
-  
-  beta_thin <- matrix_rename %>% select(!!!syms(bs_vars), !!!syms(selection_vars))
-  
-  if(!is.null(bs_vars)){
-    if(nrow(beta_thin) != n_distinct(beta_thin$bootstrap_index)*n_distinct(beta_thin$p_var)*n_distinct(beta_thin$c_var)){
-      stop('Contact matrix defined by index other than bs.')
-    }
-  }else{
-    if(nrow(beta_thin) != n_distinct(beta_thin$p_var)*n_distinct(beta_thin$c_var)){
-      stop('Contact matrix defined by index other than bs.')
-    }
-  }
-  
-  beta_hat <- beta_thin %>% left_join(pop, by = 'p_var') %>% mutate(beta_hat_var = n*proportion)
-  
-  beta_hat$p_var <- factor(beta_hat$p_var, levels = order)
-  beta_hat$c_var <- factor(beta_hat$c_var, levels = order)
-  
-  B <- beta_hat %>% left_join(beta_hat %>% group_by(!!!syms(bs_vars), c_var) %>% summarise(sum_beta_hat_var = sum(beta_hat_var)),
-                              by = c(bs_vars,'c_var')) %>% 
-    mutate(B_var = beta_hat_var/sum_beta_hat_var)
-
-  # B %>% group_by(p_var, c_var) %>% summarise(mean_B = mean(B_var)) %>%
-  #   ggplot() + geom_tile(aes(x = p_var, y = c_var, fill = mean_B)) +
-  #   theme_minimal() + geom_text(aes(x = p_var, y = c_var, label = round(mean_B, 2)), col = 'white') +
-  #   labs(x = 'Participant', y = 'Contact', fill = 'Proportion of\ninfections') + theme(text = element_text(size = 14))
-
-  Q <- B %>% filter(p_var == c_var) %>% group_by(!!!syms(bs_vars)) %>% 
-    summarise(sum_Bii = sum(B_var)) %>% mutate(Q_var = (sum_Bii - 1)/(n_distinct(beta_thin$p_var) - 1)) %>% 
-    select(!!!syms(bs_vars), Q_var) %>% filter(!is.na(Q_var))
-  
-  return(data.table(
-    variable = c('Q'),
-    mean = c(mean(Q$Q_var)),
-    lower_ci = c(quantile(Q$Q_var, (1 - ci)/2)),
-    upper_ci = c(quantile(Q$Q_var, 1 - (1 - ci)/2))
-  ))
-
-}
-
-if(sens_analysis != 'regional'){
-  
-  ## assortativity by age group
-  
-  imd_dataframe <- CJ(p_imd_q = 1:5, c_imd_q = 1:5)
-  
-  imd_assortativity <- map(
-    .x = 1:nrow(imd_dataframe),
-    .f = ~fcn_assortativity(
-      var = 'age_group',
-      matrix = balanced_matr %>% 
-        filter(p_imd_q == imd_dataframe$p_imd_q[.x], 
-               c_imd_q == imd_dataframe$c_imd_q[.x]),
-      population_input = imd_age %>% filter(imd_q == imd_dataframe$p_imd_q[.x]),
-      order = age_labels
-    )
-  )
-  
-  imd_assort_df <- cbind(imd_dataframe, rbindlist(imd_assortativity))
-  
-  imd_assort_plot <- imd_assort_df %>% 
-    ggplot() + 
-    geom_point(aes(x = as.factor(p_imd_q), y = mean, col = as.factor(c_imd_q)),
-               position = position_dodge(width = 0.9), size = 2) + 
-    geom_errorbar(aes(x = as.factor(p_imd_q), ymin = lower_ci, ymax = upper_ci, 
-                      col = as.factor(c_imd_q)), width = 0.4, lwd = 0.8,
-                  position = position_dodge(width = 0.9)) + 
-    scale_color_manual(values = imd_quintile_colors) + 
-    ylim(c(0, NA)) +
-    labs(x = 'Participant IMD quintile', y = 'Assortativity', col = 'Contact IMD\nquintile') +
-    theme_bw()
-  
-  ## assortativity by IMD quintile
-  
-  age_dataframe <- CJ(p_age_group = age_labels, c_age_group = age_labels) 
-  age_dataframe$p_age_group <- factor(age_dataframe$p_age_group, levels = age_labels)
-  age_dataframe$c_age_group <- factor(age_dataframe$c_age_group, levels = age_labels)
-  age_dataframe <- age_dataframe %>% arrange(p_age_group, c_age_group)
-  
-  age_assortativity <- map(
-    .x = 1:nrow(age_dataframe),
-    .f = ~fcn_assortativity(
-      var = 'imd_quintile',
-      matrix = balanced_matr %>% 
-        filter(p_age_group == age_dataframe$p_age_group[.x], 
-               c_age_group == age_dataframe$c_age_group[.x]),
-      population_input = imd_age %>% filter(age == age_dataframe$p_age_group[.x]) %>% 
-        mutate(prop = population/sum(population)),
-      order = as.character(1:5)
-    )
-  )
-  
-  age_assort_df <- cbind(age_dataframe, rbindlist(age_assortativity))
-  
-  age_assort_plot <- age_assort_df %>% 
-    ggplot() + 
-    geom_point(aes(x = c_age_group, y = mean, col = c_age_group),
-               position = position_dodge(width = 0.9), size = 2) + 
-    geom_errorbar(aes(x = c_age_group, ymin = lower_ci, ymax = upper_ci, 
-                      col = c_age_group), width = 0.4, lwd = 0.8,
-                  position = position_dodge(width = 0.9)) + 
-    scale_color_manual(values = colors_p_age_group) + 
-    ylim(c(0, NA)) +
-    facet_wrap(p_age_group ~ .) +
-    labs(x = '', y = 'Assortativity', col = 'Contact age\ngroup') +
-    theme_bw() + theme(axis.text.x=element_blank(),
-                       axis.ticks.x=element_blank())
-  
-  imd_assort_plot + age_assort_plot + plot_layout(nrow = 2, heights = c(2, 3))
-  
-  ggsave(gsub('.png','_assortativity.png',.args[3]), width = 12, height = 10)
-  
-  imd_assort_matr <- imd_assort_df %>% 
-    ggplot() + 
-    geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = mean)) + 
-    scale_fill_viridis() + 
-    theme_bw() +
-    labs(x = 'Participant IMD quintile', y = 'Contact IMD quintile', 
-         fill = 'Assortativity\nby age group') + 
-    theme(text = element_text(size = 12))
-  
-  age_assort_matr <- age_assort_df %>% 
-    ggplot() + 
-    geom_tile(aes(x = p_age_group, y = c_age_group, fill = mean)) + 
-    scale_fill_viridis(limits = c(0,NA), trans='pseudo_log') + 
-    theme_bw() +
-    labs(x = 'Participant age group', y = 'Contact age group', 
-         fill = 'Assortativity\nby IMD quintile') +
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-          text = element_text(size = 12))
-  
-  imd_assort_matr + age_assort_matr + plot_layout(nrow = 1)
-  
-  ggsave(gsub('.png','_assortativity_matrices.png',.args[3]), width = 12, height = 5)
-  
-  age_assort_matr + imd_assort_matr + mean_age_diff_plot + plot_layout(nrow = 1) +
-    plot_annotation(tag_levels = 'a',
-                    tag_prefix = '(', tag_suffix = ')')
-  
-  ggsave(gsub('.png','_summ_stats.png',.args[3]), width = 18, height = 5)
-  
-  age_assort_matr
-  
-  ggsave(gsub('.png','_imd_assortativity_matrix.png',.args[3]), width = 6, height = 5)
-  
-  # ## assortativity by IMD quintile and setting
-  # 
-  # fitted <- suppressWarnings(data.table(read_csv(gsub('_balanced.csv','.csv',.args[1]), show_col_types = F)))
-  # fitted <- fitted[bootstrap_index != 'bootstrap_index']
-  # 
-  # age_dataframe <- CJ(p_age_group = age_labels, c_age_group = age_labels, setting = unique(fitted$c_location)) 
-  # age_dataframe <- age_dataframe %>% filter(setting != 'home')
-  # age_dataframe$p_age_group <- factor(age_dataframe$p_age_group, levels = age_labels)
-  # age_dataframe$c_age_group <- factor(age_dataframe$c_age_group, levels = age_labels)
-  # age_dataframe <- age_dataframe %>% arrange(p_age_group, c_age_group)
-  # 
-  # age_assortativity <- map(
-  #   .x = 1:nrow(age_dataframe),
-  #   .f = ~fcn_assortativity(
-  #     var = 'imd_quintile',
-  #     matrix = fitted %>% 
-  #       filter(p_age_group == age_dataframe$p_age_group[.x], 
-  #              c_age_group == age_dataframe$c_age_group[.x],
-  #              c_location == age_dataframe$setting[.x]),
-  #     population_input = imd_age %>% filter(age == age_dataframe$p_age_group[.x]) %>% 
-  #       mutate(prop = population/sum(population)),
-  #     order = as.character(1:5)
-  #   )
-  # )
-  # 
-  # age_assort_df <- cbind(age_dataframe, rbindlist(age_assortativity))
-  # 
-  # age_assort_matr <- age_assort_df %>% 
-  #   ggplot() + 
-  #   geom_tile(aes(x = p_age_group, y = c_age_group, fill = mean)) + 
-  #   scale_fill_viridis(limits = c(0,NA), trans='pseudo_log',
-  #                      na.value="white") + 
-  #   theme_bw() +
-  #   facet_wrap(. ~ setting) +
-  #   labs(x = 'Participant age group', y = 'Contact age group', 
-  #        fill = 'Assortativity\nby IMD quintile') +
-  #   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); age_assort_matr
-  
-}
-
 #### IMD x IMD ####
 
 ## balanced
@@ -632,6 +310,44 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
   ggsave(gsub('.png','_imd_mix_unbalanced.png',.args[3]), width = 12, height = 10)
   
+  group_vars <- c('bootstrap_index', 'p_imd_q', 'c_imd_q')
+  group_vars_locn <- c(group_vars, 'c_location')
+  group_vars_locn_no_bs <- group_vars_locn[!grepl('bootstrap', group_vars_locn)]
+  
+  imd_mix_locn <- fitted %>% filter(c_location!='total') %>% 
+    left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+              by = c('p_imd_q', 'p_age_group')) %>% 
+    group_by(!!!syms(group_vars_locn)) %>% 
+    summarise(weighted_sum = sum(n*prop_imd)) %>% 
+    group_by(!!!syms(group_vars_locn_no_bs)) %>% 
+    summarise(weighted_mean = mean(weighted_sum)) %>% 
+    ungroup() %>% rbind(imd_mix %>% mutate(c_location='total')) %>% 
+    group_by(c_location, p_imd_q) %>% mutate(tot_mean = sum(weighted_mean),
+                                             prop = weighted_mean/tot_mean) 
+  
+  imd_mix_locn$c_location <- factor(imd_mix_locn$c_location,
+                               levels = c('total','school','work','other'))
+  locn_names <- c('Total','School','Work','Other')
+  names(locn_names) <- c('total','school','work','other')
+  
+  imd_mix_locn %>% filter(c_location != 'home') %>% 
+    ggplot() + 
+    geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = prop)) +
+    geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(prop),
+                  col = (prop > 0.4)), size = 6) +
+    theme_bw() + facet_wrap(c_location ~ ., labeller = labeller(c_location=locn_names)) + 
+    scale_fill_viridis(option = 'A', limits=c(0,NA)) +
+    scale_color_manual(values = c('white', 'black'), guide = 'none') +
+    labs(
+      x = 'Participant IMD quintile',
+      y = 'Contact IMD quintile',
+      fill = 'Proportion of\ntotal contacts'
+    ) + 
+    theme(#strip.background = element_blank(),
+      strip.placement = "outside",
+      text = element_text(size = 18))
+  ggsave(gsub('.png','_imd_locn_prop.png',.args[3]), width = 11, height = 10)
+  
   ## balanced without home
   
   balanced_matr_no_home <- balancing_fcn(
@@ -699,57 +415,6 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
   ggsave(gsub('.png','_var.png',.args[3]), width = 16, height = 14)
   
-  #### IMD DIFFS ####
-  
-  gen_pop <- balanced_matr_no_home %>% 
-    group_by(p_age_group, c_age_group) %>% 
-    summarise(med_n_gp = mean(n)) 
-  
-  diff <- balanced_matr_no_home %>% 
-    group_by(!!!syms(group_vars)) %>% 
-    summarise(med_n = mean(n),
-              width = quantile(n, 0.975) - quantile(n, 0.025)) %>% 
-    left_join(gen_pop, by = c('p_age_group','c_age_group')) %>% 
-    mutate(diff = med_n - med_n_gp)
-  
-  diff$p_age_group <- factor(diff$p_age_group,
-                             levels = age_labels)
-  diff$c_age_group <- factor(diff$c_age_group,
-                             levels = age_labels)
-  diff$c_imd_q <- factor(diff$c_imd_q,
-                         levels = rev(as.character(1:5)))
-  
-  colorscale <- c('#045a8d', '#bdc9e1','#f1eef6','white','#fef0d9','#fdcc8a','#b30000')
-  breaks <- sort(c(0, quantile(diff$diff, c(0.75, 0.9, 0.99)), 
-                   -quantile(diff$diff, c(0.75, 0.9, 0.99))))
-  max_stat <- max(diff$diff)
-  
-  diff %>% 
-    ggplot() + 
-    geom_tile(aes(x = p_age_group, y = c_age_group, fill = med_n - med_n_gp)) +
-    theme_bw() + 
-    facet_grid(c_imd_q ~ p_imd_q, switch="both") +
-    scale_fill_gradientn(colors = colorscale, 
-                         values = scales::rescale(breaks),
-                         breaks = breaks,
-                         na.value = "#e5e5e5", 
-                         limits = c(- max_stat, max_stat),
-                         trans = 'pseudo_log') +
-    labs(
-      x = 'Participant IMD, age group',
-      y = 'Contact IMD, age group',
-      fill = 'Diff. from av.'
-    ) + 
-    theme(strip.background = element_blank(),
-          strip.placement = "outside",
-          text = element_text(size = 14),
-          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-          legend.position = 'none')
-  
-  #### SAVE PNG ####
-  
-  ggsave(gsub('.png','_diff.png',.args[3]), width = 14, height = 14)
-  
   #### IMD DIFFS: P_IMD_Q == C_IMD_Q ONLY ####
   
   diag_agg <- agg %>% 
@@ -798,8 +463,6 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
           legend.position = 'none')
   
-  #### IMD DIFFS: P_IMD_Q == C_IMD_Q ONLY ####
-  
   no_diag_agg <- agg %>% 
     filter(p_imd_q != c_imd_q)
   
@@ -846,7 +509,7 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
           legend.position = 'none')
   
-  # with the age diagonal removed
+  #### NO AGE DIAGONAL ####
   cm_limited <- agg %>% 
     mutate(med_n = case_when(p_age_group == c_age_group ~ NA,
                              T ~ med_n)) %>% 
