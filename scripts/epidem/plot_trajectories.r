@@ -151,8 +151,8 @@ if(sens_analysis != 'regional'){
   p1b <- plot_trajectory(cum_inf, cumulative = T)
   p2 <- plot_trajectory(daily_inf, c('age'))
   p2b <- plot_trajectory(cum_inf, c('age'), cumulative = T)
-  p3 <- plot_trajectory(daily_inf, c('age'))
-  p3b <- plot_trajectory(cum_inf, c('age'), cumulative = T)
+  p3 <- plot_trajectory(daily_inf, c('imd'))
+  p3b <- plot_trajectory(cum_inf, c('imd'), cumulative = T)
   
   ## patchwork
   p1 + p1b + p2 + p2b + p3 + p3b + plot_layout(nrow = 3, guides = 'collect')

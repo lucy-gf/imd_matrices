@@ -403,7 +403,7 @@ if(sens_analysis != 'regional'){
   
   age_assort_matr
   
-  ggsave(gsub('summ_stats.png','_imd_assortativity_matrix.png',.args[3]), width = 6, height = 5)
+  ggsave(gsub('summ_stats.png','imd_assortativity_matrix.png',.args[3]), width = 6, height = 5)
   
 }else{
   

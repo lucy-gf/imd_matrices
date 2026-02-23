@@ -14,7 +14,7 @@ library(purrr, warn.conflicts = FALSE)
   file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
   file.path("output", "data", "cont_matrs","balance_sett_spec","fitted_matrs_balanced.csv")
 ) else commandArgs(trailingOnly = TRUE)
- 
+   
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 if(!file.exists(file.path("output", "data", "cont_matrs","balance_sett_spec"))){dir.create(file.path("output", "data", "cont_matrs","balance_sett_spec"))}

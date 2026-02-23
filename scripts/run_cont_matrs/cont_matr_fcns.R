@@ -1078,7 +1078,7 @@ balancing_fcn <- function(
              fill = list(n = 0, k = 0))
   
   # select relevant population structure columns
-  pop_vec <- c('age', 'imd_q', 'prop_imd')
+  pop_vec <- c('age', 'imd_q', 'prop')
   pop_vec_names <- c('p_age_group','p_imd_q','proportion')
   if(regional_analysis){
     pop_vec <- c(pop_vec, 'p_engreg')
