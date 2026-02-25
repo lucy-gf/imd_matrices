@@ -113,11 +113,14 @@ final_size_vio <- imd_violin_plot(combined_infections,
 ggsave(gsub('merged_attack_rates.png','merged_final_size.png',.args[3]), dpi=600, device = "png", width = 10, height = 7)  
 
 ## by imd 
-arr_plot_imd <- rel_imd_violin_plot(combined_infections, base_imd_arr,
-                                    combined = T); arr_plot_imd
+cat('Crude rel. attack rates:\n')
+arr_plot_imd <- rel_imd_violin_plot(
+  data_in = combined_infections, 
+  base_imd = base_imd_arr,
+  combined = T); arr_plot_imd
 
 ## age-standardised 
-
+cat('\nAge-standardised rel. attack rates:\n')
 arr_plot_imd_as <- age_standardised_rel_imd_violin_plot(
   demog,
   combined_infections,
@@ -126,7 +129,7 @@ arr_plot_imd_as <- age_standardised_rel_imd_violin_plot(
 ) + theme(legend.position = 'none'); arr_plot_imd_as
 
 ## age-standardised by region
-
+cat('\nAge-standardised rel. attack rates by region:\n')
 arr_plot_imd_as_reg <- age_standardised_rel_imd_violin_plot(
   demog_allreg,
   infections_regional,
@@ -176,7 +179,7 @@ r0_track_df <- read_csv("output/data/epidem/regional/regional_r0.csv", show_col_
 false_legend <- imd_model_colors[c(3,8)]
 names(false_legend) <- c('National-level', 'Regional-level')
 
-cat('Warnings expected:\n')
+cat('\nWarnings expected:\n')
 national_beta_plot <- beta %>% 
   summarise(m = median(beta), 
             l = quantile(beta, 0.025), u = quantile(beta, 0.975)) %>% 

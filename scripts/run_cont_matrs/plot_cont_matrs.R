@@ -746,7 +746,7 @@ KKKKKKKKKKF
   
   #### SAVE PNG ####
   
-  ggsave(.args[3], width = 28, height = 24)
+  ggsave(gsub('.png','_regional.png',.args[3]), width = 28, height = 24)
   
   
 }

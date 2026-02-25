@@ -370,10 +370,10 @@ ${CONTFIG}/%/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/%/fitte
 	
 allmatrsplots_agg: $(patsubst %,${CONTFIG}/%/fitted_matrs.png, ${E_SENS_ANALYSES}) 
 
-${CONTFIG}/%/summ_stats.png: ${CONTCODE}/plot_summ_stats.R ${CONTDATA}/%/fitted_matrs_balanced.csv
+${CONTFIG}/%/summstats.png: ${CONTCODE}/plot_summ_stats.R ${CONTDATA}/%/fitted_matrs_balanced.csv
 	$(call R, $*)
 	
-allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summ_stats.png, ${E_SENS_ANALYSES}) 
+allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summstats.png, ${E_SENS_ANALYSES}) 
 
 ${CONTFIG}/%/shape_pars.png: ${CONTCODE}/plot_shape_pars.R ${CONTDATA}/%/fitted_matrs.csv 
 	$(call R, $*)

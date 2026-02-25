@@ -117,6 +117,7 @@ matr <- agg %>% ungroup() %>%
          c_var = paste0(c_imd_q, '_', c_age_group)) %>% 
   select(p_var, c_var, med_n)
   
+age_labels_orig <- age_labels
 var_labels <- paste0(rep(1:5, each=16), '_', rep(age_labels, 5))  
 matr$p_var <- factor(matr$p_var, levels = var_labels)
 matr$c_var <- factor(matr$c_var, levels = var_labels)
@@ -162,13 +163,6 @@ network <- as.network.matrix(matr_w_m,
                              )
 
 plot.network.default(network) 
-
-#### ASSORTATIVITY ####
-
-out <- assortment.discrete(matr_w_m, types=var_labels, weighted = T)
-
-heatmap(out$mixing_matrix, Colv = NA, Rowv = NA, scale="column")
-
 
 #### USING IGRAPH ####
 
@@ -266,6 +260,9 @@ assortativity(g, values = as.factor(V(g)$imd), directed = FALSE)
 
 assortativity(g, values = as.numeric(V(g)$age), directed = FALSE)
 ## same value as before ? what is the point of values
+
+assortativity(g, values = as.factor(V(g)$age), types = V(g)$age, directed = FALSE)
+assortativity(g, values = as.factor(V(g)$imd), types = V(g)$imd, directed = FALSE)
 
 node_strength <- strength(g, weights = E(g)$weight)
 prop_contacts <- node_strength / sum(node_strength)
@@ -389,6 +386,346 @@ line_plot <- strength_df_agg %>%
   theme(text = element_text(size=14)) + 
   scale_fill_manual(values = imd_quintile_colors) + 
   scale_color_manual(values = imd_quintile_colors); line_plot
+
+
+#### USING ASSORTNET ####
+
+imd_labels <- rep(1:5, each = 16)
+age_labels <- rep(1:16, 5)
+
+out_var <- assortment.discrete(matr_pc_w_m, types=var_labels, weighted = T)
+out_imd <- assortment.discrete(matr_pc_w_m, types=imd_labels, weighted = T)
+out_age <- assortment.discrete(matr_pc_w_m, types=age_labels, weighted = T)
+
+## assortativity values, with mixing 
+## defined across different variables
+out_var$r # = 0.07886954
+out_imd$r # = 0.2215598
+out_age$r # = 0.1815582
+
+## edge weight matrices
+
+var_weights <- data.frame(out_var$mixing_matrix) %>% 
+  mutate(var1 = rownames(out_var$mixing_matrix)) %>% 
+  pivot_longer(!var1) %>% 
+  rename(var2 = name) %>% 
+  mutate(var2 = gsub('X','',gsub('[.]','-',var2))) %>% 
+  mutate(var2 = gsub('75-','75+',var2)) 
+
+var_weights$var1 <- factor(var_weights$var1, levels = c(var_labels,'bi'))
+var_weights$var2 <- factor(var_weights$var2, levels = c(var_labels,'ai'))
+
+imd_weights <- data.frame(out_imd$mixing_matrix) %>% 
+  mutate(var1 = rownames(out_imd$mixing_matrix)) %>% 
+  pivot_longer(!var1) %>% 
+  rename(var2 = name) %>% 
+  mutate(var2 = gsub('X','',var2))
+
+age_weights <- data.frame(out_age$mixing_matrix) %>% 
+  mutate(var1 = rownames(out_age$mixing_matrix)) %>% 
+  pivot_longer(!var1) %>% 
+  rename(var2 = name) %>% 
+  mutate(var2 = gsub('X','',var2))
+
+## plot
+
+var_weights %>% 
+  filter(var1 %notin% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  ggplot() +
+  geom_tile(aes(x = var1, y = var2, fill = value)) +
+  scale_fill_viridis() + 
+  theme_bw() +
+  theme(text=element_text(size = 14))
+
+imd_weights %>% 
+  filter(var1 %notin% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  ggplot() +
+  geom_tile(aes(x = var1, y = var2, fill = value)) +
+  scale_fill_viridis() + 
+  theme_bw() +
+  theme(text=element_text(size = 14))
+
+age_weights_plot <- age_weights %>% 
+  filter(var1 %notin% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>%
+  mutate(across(c('var1','var2'), as.numeric)) %>% 
+  mutate(var1 = rep(age_labels_orig, each = 16),
+         var2 = rep(age_labels_orig, 16)) 
+age_weights_plot$var1 <- factor(age_weights_plot$var1, levels = age_labels_orig)
+age_weights_plot$var2 <- factor(age_weights_plot$var2, levels = age_labels_orig)
+
+age_weights_plot %>% 
+  ggplot() +
+  geom_tile(aes(x = var1, y = var2, fill = value)) +
+  scale_fill_viridis() + 
+  theme_bw() +
+  theme(text=element_text(size = 14))
+
+## plot colsums
+
+var_weights_line_plot <- var_weights %>% 
+  filter(var1 %in% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  mutate(imd = imd_labels, age = rep(age_labels_orig, 5))
+
+var_weights_line_plot$age <- factor(var_weights_line_plot$age, levels = age_labels_orig) 
+  
+var_weights_line_plot %>% 
+  ggplot() +
+  geom_line(aes(x = age, y = value, group = as.factor(imd), 
+                color = as.factor(imd)), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  labs(col = 'IMD') + 
+  scale_color_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size = 14))
+
+imd_weights %>% 
+  filter(var1 %in% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  ggplot() +
+  geom_line(aes(x = var2, y = value, group = var1), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  labs(x = 'IMD') + 
+  theme(text=element_text(size = 14))
+
+age_weights_line_plot <- age_weights %>% 
+  filter(var1 %in% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  mutate(age = age_labels_orig)
+age_weights_line_plot$age <- factor(age_weights_line_plot$age, levels = age_labels_orig)
+
+age_weights_line_plot %>% 
+  ggplot() +
+  geom_line(aes(x = age, y = value, group = var1), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  theme(text=element_text(size = 14))
+
+#### FOR EACH BOOTSTRAP ####
+
+var_weights_1000 <- data.frame(); imd_weights_1000 <- data.frame(); age_weights_1000 <- data.frame() 
+
+for(i in 1:1000){
+  
+  ## filter contact matrix
+  
+  matr <- balanced_matr %>% 
+    filter(bootstrap_index == i) %>% 
+    select(!bootstrap_index)
+  
+  matr$p_age_group <- factor(matr$p_age_group,levels = age_labels_orig)
+  matr$c_age_group <- factor(matr$c_age_group,levels = age_labels_orig)
+  matr$c_imd_q <- factor(matr$c_imd_q,levels = rev(as.character(1:5)))
+  
+  matr <- matr %>% 
+    arrange(p_imd_q, p_age_group, c_age_group, c_imd_q) %>% 
+    ungroup() %>% 
+    mutate(p_var = paste0(p_imd_q, '_', p_age_group),
+           c_var = paste0(c_imd_q, '_', c_age_group)) %>% 
+    select(p_var, c_var, n)
+  
+  var_labels <- paste0(rep(1:5, each=16), '_', rep(age_labels_orig, 5))  
+  matr$p_var <- factor(matr$p_var, levels = var_labels)
+  matr$c_var <- factor(matr$c_var, levels = var_labels)
+  
+  ## per capita
+  matr_pc <- matr %>% 
+    left_join(imd_age %>% mutate(c_var = paste0(imd_q, '_', age)) %>% 
+                select(c_var, population), by = 'c_var') %>% 
+    mutate(pc1mill = 1e6*n/population)
+  
+  matr_pc$p_var <- factor(matr_pc$p_var, levels = var_labels)
+  matr_pc$c_var <- factor(matr_pc$c_var, levels = var_labels)
+  
+  matr_pc_w <- matr_pc %>%   
+    arrange(p_var, c_var) %>% 
+    select(p_var, c_var, pc1mill) %>% 
+    pivot_wider(names_from = c_var, values_from = pc1mill) %>% 
+    select(!p_var)
+  
+  matr_pc_w_m <- as.matrix(matr_pc_w, nrow = length(var_labels))
+  
+  out_var <- assortment.discrete(matr_pc_w_m, types=var_labels, weighted = T)
+  out_imd <- assortment.discrete(matr_pc_w_m, types=imd_labels, weighted = T)
+  out_age <- assortment.discrete(matr_pc_w_m, types=age_labels, weighted = T)
+  
+  ## assortativity values, with mixing 
+  ## defined across different variables
+  out_var$r # = 0.07886954
+  out_imd$r # = 0.2215598
+  out_age$r # = 0.1815582
+  
+  ## edge weight matrices
+  
+  var_weights <- data.frame(out_var$mixing_matrix) %>% 
+    mutate(var1 = rownames(out_var$mixing_matrix)) %>% 
+    pivot_longer(!var1) %>% 
+    rename(var2 = name) %>% 
+    mutate(var2 = gsub('X','',gsub('[.]','-',var2))) %>% 
+    mutate(var2 = gsub('75-','75+',var2)) 
+  
+  var_weights$var1 <- factor(var_weights$var1, levels = c(var_labels,'bi'))
+  var_weights$var2 <- factor(var_weights$var2, levels = c(var_labels,'ai'))
+  
+  imd_weights <- data.frame(out_imd$mixing_matrix) %>% 
+    mutate(var1 = rownames(out_imd$mixing_matrix)) %>% 
+    pivot_longer(!var1) %>% 
+    rename(var2 = name) %>% 
+    mutate(var2 = gsub('X','',var2))
+  
+  age_weights <- data.frame(out_age$mixing_matrix) %>% 
+    mutate(var1 = rownames(out_age$mixing_matrix)) %>% 
+    pivot_longer(!var1) %>% 
+    rename(var2 = name) %>% 
+    mutate(var2 = gsub('X','',var2))
+  
+  var_weights_1000 <- rbind(var_weights_1000,
+                            var_weights %>% mutate(bootstrap = i))
+  imd_weights_1000 <- rbind(imd_weights_1000,
+                            imd_weights %>% mutate(bootstrap = i))
+  age_weights_1000 <- rbind(age_weights_1000,
+                            age_weights %>% mutate(bootstrap = i))
+  
+  if(i %% 50 == 0){cat(i, ', ', sep='')}
+  
+}
+
+## plot colsums
+
+var_weights_line_plot <- var_weights_1000 %>% 
+  filter(var1 %in% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  mutate(imd = rep(imd_labels,1000), age = rep(rep(age_labels_orig, 5),1000)) %>% 
+  group_by(imd, age) %>% 
+  summarise(m = median(value),
+            l = quantile(value, 0.025),
+            u = quantile(value, 0.975))
+
+var_weights_line_plot$age <- factor(var_weights_line_plot$age, levels = age_labels_orig) 
+
+var_weights_line_plot %>% 
+  ggplot() +
+  geom_ribbon(aes(x = age, ymin = l, ymax = u, group = as.factor(imd), 
+                fill = as.factor(imd)), alpha = 0.4) +
+  geom_line(aes(x = age, y = m, group = as.factor(imd), 
+                color = as.factor(imd)), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  labs(col = 'IMD', fill = 'IMD') + 
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size = 14))
+
+imd_weights_1000 %>% 
+  filter(var1 %in% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  group_by(var2) %>% 
+  summarise(m = median(value),
+            l = quantile(value, 0.025),
+            u = quantile(value, 0.975)) %>% 
+  ggplot() +
+  geom_ribbon(aes(x = var2, ymin=l, ymax=u, group=1), alpha = 0.4) +
+  geom_line(aes(x = var2, y = m, group=1), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  labs(x = 'IMD') + 
+  theme(text=element_text(size = 14))
+
+age_weights_line_plot <- age_weights_1000 %>% 
+  filter(var1 %in% c('ai','bi'),
+         var2 %notin% c('ai','bi')) %>% 
+  mutate(age = rep(age_labels_orig,1000)) %>% 
+  group_by(age) %>% 
+  summarise(m = median(value),
+            l = quantile(value, 0.025),
+            u = quantile(value, 0.975)) 
+
+age_weights_line_plot$age <- factor(age_weights_line_plot$age, levels = age_labels_orig)
+
+age_weights_line_plot %>% 
+  ggplot() +
+  geom_ribbon(aes(x = age, ymin=l, ymax=u, group=1), alpha = 0.4) +
+  geom_line(aes(x = age, y = m, group = 1), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  theme(text=element_text(size = 14))
+
+#### TESTING AGAINST MATRIX COLSUMS ####
+
+test_df_1000 <- data.frame()
+
+for(i in 1:1000){
+  
+  ## filter contact matrix
+  
+  matr <- balanced_matr %>% 
+    filter(bootstrap_index == i) %>% 
+    select(!bootstrap_index)
+  
+  matr$p_age_group <- factor(matr$p_age_group,levels = age_labels_orig)
+  matr$c_age_group <- factor(matr$c_age_group,levels = age_labels_orig)
+  matr$c_imd_q <- factor(matr$c_imd_q,levels = rev(as.character(1:5)))
+  
+  matr <- matr %>% 
+    arrange(p_imd_q, p_age_group, c_age_group, c_imd_q) %>% 
+    ungroup() %>% 
+    mutate(p_var = paste0(p_imd_q, '_', p_age_group),
+           c_var = paste0(c_imd_q, '_', c_age_group)) %>% 
+    select(p_var, c_var, n)
+  
+  var_labels <- paste0(rep(1:5, each=16), '_', rep(age_labels_orig, 5))  
+  matr$p_var <- factor(matr$p_var, levels = var_labels)
+  matr$c_var <- factor(matr$c_var, levels = var_labels)
+  
+  ## per capita
+  matr_pc <- matr %>% 
+    left_join(imd_age %>% mutate(c_var = paste0(imd_q, '_', age)) %>% 
+                select(c_var, population), by = 'c_var') %>% 
+    mutate(pc1mill = 1e6*n/population)
+  
+  matr_pc$p_var <- factor(matr_pc$p_var, levels = var_labels)
+  matr_pc$c_var <- factor(matr_pc$c_var, levels = var_labels)
+  
+  matr_pc_w <- matr_pc %>%   
+    arrange(p_var, c_var) %>% 
+    select(p_var, c_var, pc1mill) %>% 
+    pivot_wider(names_from = c_var, values_from = pc1mill) %>% 
+    select(!p_var)
+  
+  matr_pc_w_m <- as.matrix(matr_pc_w, nrow = length(var_labels))
+  
+  values <- unname(colSums(matr_pc_w_m)/sum(colSums(matr_pc_w_m)))
+  
+  test_df <- data.frame(
+    bootstrap = i,
+    var = var_labels,
+    value = values
+    )
+  
+  test_df_1000 <- rbind(test_df_1000, test_df)
+  
+  if(i %% 50 == 0){cat(i, ', ', sep='')}
+  
+}
+
+test_line_plot <- test_df_1000 %>% 
+  mutate(imd = rep(imd_labels,1000), age = rep(rep(age_labels_orig, 5),1000)) %>% 
+  group_by(imd, age) %>% 
+  summarise(m = median(value),
+            l = quantile(value, 0.025),
+            u = quantile(value, 0.975))
+
+test_line_plot$age <- factor(test_line_plot$age, levels = age_labels_orig) 
+
+test_line_plot %>% 
+  ggplot() +
+  geom_ribbon(aes(x = age, ymin = l, ymax = u, group = as.factor(imd), 
+                  fill = as.factor(imd)), alpha = 0.4) +
+  geom_line(aes(x = age, y = m, group = as.factor(imd), 
+                color = as.factor(imd)), lwd = 0.8) +
+  theme_bw() + ylim(c(0,NA)) + 
+  labs(col = 'IMD', fill = 'IMD') + 
+  scale_color_manual(values = imd_quintile_colors) + 
+  scale_fill_manual(values = imd_quintile_colors) + 
+  theme(text=element_text(size = 14))
 
 
 

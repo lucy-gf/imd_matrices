@@ -17,13 +17,13 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
   "base",
-  file.path("output", "figures", "cont_matrs","base","summ_stats.png")
+  file.path("output", "figures", "cont_matrs","base","summstats.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 source(here::here('scripts','setup','colors.R'))
 
-if(!file.exists(gsub('/fitted_matrs.png','',.args[3]))){dir.create(gsub('/fitted_matrs.png','',.args[3]))}
+if(!file.exists(gsub('/summstats.png','',.args[3]))){dir.create(gsub('/summstats.png','',.args[3]))}
 
 #### READ IN DATA ####
 
@@ -279,7 +279,7 @@ if(sens_analysis == 'regional'){
 
 mean_age_diff_plot + ggtitle("Mean age difference")
 
-ggsave(gsub('summ_stats.png','mean_age_diff.png',.args[3]), width = 8, height = 7)
+ggsave(gsub('summstats.png','mean_age_diff.png',.args[3]), width = 8, height = 7)
 
 m_a_d <- mean_age_diff(agg %>% filter(p_age_group != c_age_group))
 
@@ -300,7 +300,7 @@ if(sens_analysis == 'regional'){
 
 mean_age_diff_plot_nodiag  
 
-ggsave(gsub('summ_stats.png','mean_age_diff_no_diag.png',.args[3]), width = 8, height = 7)
+ggsave(gsub('summstats.png','mean_age_diff_no_diag.png',.args[3]), width = 8, height = 7)
 
 ## children's contacts only
 m_a_d <- mean_age_diff(agg %>% 
@@ -324,7 +324,7 @@ if(sens_analysis == 'regional'){
 
 mean_age_diff_plot_children  
 
-ggsave(gsub('summ_stats.png','mean_age_diff_only_kids.png',.args[3]), width = 8, height = 7)
+ggsave(gsub('summstats.png','mean_age_diff_only_kids.png',.args[3]), width = 8, height = 7)
 
 #### ASSORTATIVITY ####
 
@@ -399,82 +399,105 @@ if(sens_analysis != 'regional'){
     plot_annotation(tag_levels = 'a',
                     tag_prefix = '(', tag_suffix = ')')
   
-  ggsave(.args[3], width = 18, height = 5)
+  ggsave(file = .args[3], width = 18, height = 5)
   
   age_assort_matr
   
-  ggsave(gsub('summ_stats.png','imd_assortativity_matrix.png',.args[3]), width = 6, height = 5)
+  ggsave(gsub('summstats.png','imd_assortativity_matrix.png',.args[3]), width = 6, height = 5)
   
 }else{
   
   #### REGIONAL ####
   ## assortativity by age group
   
-  imd_assort_df <- data.frame()
+  ## switch to F if needing to rerun
+  imd_read <- T
+  age_read <- T
   
-  for(reg in unique(balanced_matr$p_engreg)){
+  if(!imd_read){
     
-    imd_dataframe <- CJ(p_imd_q = 1:5, c_imd_q = 1:5)
+    imd_assort_df <- data.frame()
     
-    imd_assortativity <- map(
-      .x = 1:nrow(imd_dataframe),
-      .f = ~fcn_assortativity(
-        var = 'age_group',
-        matrix = balanced_matr %>% 
-          filter(p_engreg == reg,
-                 p_imd_q == imd_dataframe$p_imd_q[.x], 
-                 c_imd_q == imd_dataframe$c_imd_q[.x]),
-        population_input = imd_age %>% filter(imd_q == imd_dataframe$p_imd_q[.x],
-                                              p_engreg == reg),
-        order = age_labels
+    for(reg in unique(balanced_matr$p_engreg)){
+      
+      imd_dataframe <- CJ(p_imd_q = 1:5, c_imd_q = 1:5)
+      
+      imd_assortativity <- map(
+        .x = 1:nrow(imd_dataframe),
+        .f = ~fcn_assortativity(
+          var = 'age_group',
+          matrix = balanced_matr %>% 
+            filter(p_engreg == reg,
+                   p_imd_q == imd_dataframe$p_imd_q[.x], 
+                   c_imd_q == imd_dataframe$c_imd_q[.x]),
+          population_input = imd_age %>% filter(imd_q == imd_dataframe$p_imd_q[.x],
+                                                p_engreg == reg),
+          order = age_labels
+        )
       )
-    )
+      
+      imd_assort_df <- rbind(imd_assort_df,
+                             cbind(imd_dataframe, rbindlist(imd_assortativity), p_engreg = reg))
+      
+      cat(reg, '-')
+      
+    }
     
-    imd_assort_df <- rbind(imd_assort_df,
-                           cbind(imd_dataframe, rbindlist(imd_assortativity), p_engreg = reg))
+    write_csv(imd_assort_df, gsub('summstats.png','imd_assortativity.csv',.args[3]))
     
-    cat(reg, '-')
+  }else{
+    
+    imd_assort_df <- read_csv(gsub('summstats.png','imd_assortativity.csv',.args[3]), show_col_types = F)
+    
+  }
+  
+  if(!age_read){
+    
+    age_assort_df <- data.table()
+    
+    for(reg in unique(balanced_matr$p_engreg)){
+      
+      age_dataframe <- CJ(p_age_group = age_labels, c_age_group = age_labels) 
+      age_dataframe$p_age_group <- factor(age_dataframe$p_age_group, levels = age_labels)
+      age_dataframe$c_age_group <- factor(age_dataframe$c_age_group, levels = age_labels)
+      age_dataframe <- age_dataframe %>% arrange(p_age_group, c_age_group)
+      
+      age_assortativity <- map(
+        .x = 1:nrow(age_dataframe),
+        .f = ~fcn_assortativity(
+          var = 'imd_quintile',
+          matrix = balanced_matr %>% 
+            filter(p_engreg == reg,
+                   p_age_group == age_dataframe$p_age_group[.x], 
+                   c_age_group == age_dataframe$c_age_group[.x]),
+          population_input = imd_age %>% filter(p_engreg == reg,
+                                                age == age_dataframe$p_age_group[.x]) %>% 
+            mutate(prop = population/sum(population)),
+          order = as.character(1:5)
+        )
+      )
+      
+      age_assort_df <- rbind(age_assort_df,
+                             cbind(age_dataframe, rbindlist(age_assortativity), p_engreg=reg))
+      
+      cat(reg, '-')
+      
+    }
+    
+    write_csv(age_assort_df, gsub('summstats.png','age_assortativity.csv',.args[3]))
+    
+  }else{
+    
+    age_assort_df <- read_csv(gsub('summstats.png','age_assortativity.csv',.args[3]), show_col_types = F)
+    
+    age_assort_df$p_age_group <- factor(age_assort_df$p_age_group,
+                                        levels = age_labels)
+    age_assort_df$c_age_group <- factor(age_assort_df$c_age_group,
+                                        levels = age_labels)
     
   }
   
   ## assortativity by IMD quintile
-  
-  age_assort_df <- data.table()
-  
-  for(reg in unique(balanced_matr$p_engreg)){
-    
-    age_dataframe <- CJ(p_age_group = age_labels, c_age_group = age_labels) 
-    age_dataframe$p_age_group <- factor(age_dataframe$p_age_group, levels = age_labels)
-    age_dataframe$c_age_group <- factor(age_dataframe$c_age_group, levels = age_labels)
-    age_dataframe <- age_dataframe %>% arrange(p_age_group, c_age_group)
-    
-    age_assortativity <- map(
-      .x = 1:nrow(age_dataframe),
-      .f = ~fcn_assortativity(
-        var = 'imd_quintile',
-        matrix = balanced_matr %>% 
-          filter(p_engreg == reg,
-                 p_age_group == age_dataframe$p_age_group[.x], 
-                 c_age_group == age_dataframe$c_age_group[.x]),
-        population_input = imd_age %>% filter(p_engreg == reg,
-                                              age == age_dataframe$p_age_group[.x]) %>% 
-          mutate(prop = population/sum(population)),
-        order = as.character(1:5)
-      )
-    )
-    
-    age_assort_df <- rbind(age_assort_df,
-                           cbind(age_dataframe, rbindlist(age_assortativity), p_engreg=reg))
-    
-    cat(reg, '-')
-    
-  }
-  
-  write_csv(imd_assort_df, gsub('summ_stats.png','imd_assortativity.csv',.args[3]))
-  write_csv(age_assort_df, gsub('summ_stats.png','age_assortativity.csv',.args[3]))
-  
-  imd_assort_df <- read_csv(gsub('summ_stats.png','imd_assortativity.csv',.args[3]), show_col_types = F)
-  age_assort_df <- read_csv(gsub('summ_stats.png','age_assortativity.csv',.args[3]), show_col_types = F)
   
   imd_assort_matr <- imd_assort_df %>% 
     ggplot() + 
@@ -498,7 +521,7 @@ if(sens_analysis != 'regional'){
   
   imd_assort_matr + age_assort_matr + plot_layout(nrow = 1)
   
-  ggsave(gsub('summ_stats.png','assortativity_matrices.png',.args[3]), width = 20, height = 10)
+  ggsave(gsub('summstats.png','assortativity_matrices.png',.args[3]), width = 20, height = 10)
   
   age_assort_matr + imd_assort_matr + mean_age_diff_plot + plot_layout(nrow = 1) +
     plot_annotation(tag_levels = 'a',
@@ -508,7 +531,7 @@ if(sens_analysis != 'regional'){
   
   age_assort_matr
   
-  ggsave(gsub('summ_stats.png','imd_assortativity_matrix.png',.args[3]), width = 10, height = 10)
+  ggsave(gsub('summstats.png','imd_assortativity_matrix.png',.args[3]), width = 10, height = 10)
   
 }
 

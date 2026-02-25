@@ -325,6 +325,24 @@ rel_imd_violin_plot <- function(data_in,
     left_join(base_imd_ars, by = vec_no_imd) %>% 
     mutate(rel_ar = attack_rate/base_attack_rate)
   
+  print_df <- rel_imd_ars %>% 
+    group_by(!!!syms(vec_no_sim)) %>% 
+    summarise(median = median(rel_ar),
+              l = l95_func(rel_ar),
+              u = u95_func(rel_ar),
+              neat = paste0(round(100*(median-1), 3), ' (', 
+                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')'))
+  
+  print_df <- if(combined){
+    print_df %>% arrange(model, imd)
+  }else{
+    print_df %>% arrange(imd)
+  }
+  
+  cat('\n')
+  cat(print_df$neat, sep = ', ')
+  cat('\n')
+  
   p <- rel_imd_ars %>% 
     group_by(!!!syms(vec_no_sim)) %>% 
     mutate(median = median(rel_ar)) %>% 
@@ -410,15 +428,22 @@ age_standardised_rel_imd_violin_plot <- function(
     left_join(base_imd_ars, by = vec_no_imd) %>% 
     mutate(rel_ar = as_attack_rate/base_as_attack_rate)
   
+  print_df <- rel_imd_ars_as %>% 
+    group_by(!!!syms(vec_no_sim)) %>% 
+    summarise(median = median(rel_ar),
+              l = l95_func(rel_ar),
+              u = u95_func(rel_ar),
+              neat = paste0(round(100*(median-1), 3), ' (', 
+                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')')) 
+  
+  print_df <- if(combined){
+    print_df %>% arrange(model, imd)
+  }else{
+    print_df %>% arrange(imd)
+  }
+    
   cat('\n')
-  cat((rel_imd_ars_as %>% 
-               group_by(!!!syms(vec_no_sim)) %>% 
-               summarise(median = median(rel_ar),
-                         l = l95_func(rel_ar),
-                         u = u95_func(rel_ar),
-                         neat = paste0(round(100*(median-1), 3), ' (', 
-                                       round(100*(l-1),3), ' - ', round(100*(u-1),3), ')')))$neat,
-      sep = ', ')
+  cat(print_df$neat,sep = ', ')
   cat('\n')
   
   p <- rel_imd_ars_as %>% 

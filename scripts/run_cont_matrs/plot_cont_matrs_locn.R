@@ -16,7 +16,7 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
   "base",
-  file.path("output", "figures", "cont_matrs","base","location","fitted_matrs_locn.png")
+  file.path("output", "figures", "cont_matrs","base","fitted_matrs_locn.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
@@ -34,7 +34,7 @@ if(!file.exists(gsub('/fitted_matrs_locn.png','',.args[3]))){dir.create(gsub('/f
 
 fitted <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
 
-agg <- fitted %>% 
+agg <- fitted %>% filter(c_location != 'total') %>% 
   group_by(c_location, p_age_group, c_age_group, p_imd_q, c_imd_q) %>% 
   summarise(med_n = mean(n),
             width = quantile(n, 0.975) - quantile(n, 0.025)) 
