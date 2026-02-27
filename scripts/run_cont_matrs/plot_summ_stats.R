@@ -157,6 +157,88 @@ mean_age_diff <- function(agg_dat){
   
 }
 
+mean_imd_diff <- function(agg_dat,
+                          abs_value = T){
+  
+  data <- if(sens_analysis != 'regional'){
+    CJ(p_a = age_labels, c_a = age_labels, m = 0)}else{
+      CJ(p_engreg=unique(agg_dat$p_engreg),
+         p_a = age_labels, c_a = age_labels, m = 0)
+    }
+  
+  if(sens_analysis != 'regional'){
+    for(i in age_labels){for(j in age_labels){
+      filt <- agg_dat %>% filter(p_age_group==i, c_age_group==j) %>% 
+        ungroup() %>% 
+        mutate(p_imd_q = as.numeric(p_imd_q),
+               c_imd_q = as.numeric(c_imd_q)) 
+      
+      if(abs_value){
+        filt <- filt %>% 
+          group_by(p_imd_q) %>% 
+          summarise(tot_n = sum(med_n), 
+                    exp_imd_diff = weighted.mean(x = abs(c_imd_q - p_imd_q),
+                                                 w = med_n)) %>% 
+          arrange(p_imd_q)
+      }else{
+        filt <- filt %>% 
+          group_by(p_imd_q) %>% 
+          summarise(tot_n = sum(med_n), 
+                    exp_imd_diff = weighted.mean(x = (c_imd_q - p_imd_q),
+                                                 w = med_n)) %>% 
+          arrange(p_imd_q)
+      }
+      
+      filt <- filt %>% 
+        left_join(imd_age %>% 
+                    rename(p_imd_q = imd_q) %>% 
+                    group_by(age) %>% mutate(age_pop=sum(population)) %>% 
+                    ungroup() %>% mutate(prop_age = population/age_pop) %>% 
+                    filter(age == i) %>%
+                    select(p_imd_q, prop_age), by = 'p_imd_q') %>% 
+        ungroup() %>% 
+        summarise(m = weighted.mean(x = exp_imd_diff, w = tot_n*prop_age))
+      data[data$p_a==i & data$c_a==j,]$m <- filt$m
+    }}}else{
+      for(reg in unique(data$p_engreg)){for(i in 1:5){for(j in 1:5){
+        filt <- agg_dat %>% filter(p_engreg==reg, p_age_group==i, c_age_group==j) %>% 
+          ungroup() %>% 
+          mutate(p_imd_q = as.numeric(p_imd_q),
+                 c_imd_q = as.numeric(c_imd_q)) 
+        
+        if(abs_value){
+          filt <- filt %>% 
+            group_by(p_imd_q) %>% 
+            summarise(tot_n = sum(med_n), 
+                      exp_imd_diff = weighted.mean(x = abs(c_imd_q - p_imd_q),
+                                                   w = med_n)) %>% 
+            arrange(p_imd_q)
+        }else{
+          filt <- filt %>% 
+            group_by(p_imd_q) %>% 
+            summarise(tot_n = sum(med_n), 
+                      exp_imd_diff = weighted.mean(x = (c_imd_q - p_imd_q),
+                                                   w = med_n)) %>% 
+            arrange(p_imd_q)
+        }
+        
+        filt <- filt %>% 
+          left_join(imd_age %>% 
+                      rename(p_imd_q = imd_q) %>% 
+                      group_by(age) %>% mutate(age_pop=sum(population)) %>% 
+                      ungroup() %>% mutate(prop_age = population/age_pop) %>% 
+                      filter(age == i) %>%
+                      select(p_imd_q, prop_age), by = 'p_imd_q') %>% 
+          ungroup() %>% 
+          summarise(m = weighted.mean(x = exp_imd_diff, w = tot_n*prop_age))
+        data[data$p_engreg==reg & data$p_a==i & data$c_a==j,]$m <- filt$m
+      }}}
+    }
+  
+  data
+  
+}
+
 fcn_assortativity <- function(
     var, # imd_quintile or age_group
     matrix,
@@ -234,6 +316,8 @@ fcn_assortativity <- function(
   ))
   
 }
+
+
 
 #### SUMMARISE ####
 
@@ -325,6 +409,55 @@ if(sens_analysis == 'regional'){
 mean_age_diff_plot_children  
 
 ggsave(gsub('summstats.png','mean_age_diff_only_kids.png',.args[3]), width = 8, height = 7)
+
+#### MEAN IMD DIFFERENCE ####
+
+m_i_d <- mean_imd_diff(agg)
+
+m_i_d$p_a <- factor(m_i_d$p_a, levels = age_labels)
+m_i_d$c_a <- factor(m_i_d$c_a, levels = age_labels)
+
+m_i_d_plot <- m_i_d %>% 
+  ggplot() + 
+  geom_tile(aes(x=p_a, y=c_a, fill=m)) +
+  theme_bw() + scale_fill_viridis(option='A') +
+  theme(text = element_text(size = 12)) +
+  labs(x='Participant age group',
+       y='Contact age group',
+       fill = 'Mean absolute\nIMD difference') + 
+  coord_fixed()
+
+if(sens_analysis == 'regional'){
+  m_i_d_plot <- m_i_d_plot + facet_wrap(.~p_engreg)
+}
+
+m_i_d_plot
+ggsave(gsub('summstats.png','mean_imd_diff.png',.args[3]), width = 8.5, height = 7)
+
+m_i_d <- mean_imd_diff(agg, abs_value = F)
+
+m_i_d$p_a <- factor(m_i_d$p_a, levels = age_labels)
+m_i_d$c_a <- factor(m_i_d$c_a, levels = age_labels)
+
+m_i_d_plot_no_abs <- m_i_d %>% 
+  ggplot() + 
+  geom_tile(aes(x=p_a, y=c_a, fill=m)) +
+  theme_bw() + 
+  scale_fill_gradientn(colours = c("blue", "dodgerblue", "white", "orange", "red"),
+                      rescaler = ~ scales::rescale_mid(.x, mid = 0)) +
+  theme(text = element_text(size = 12)) +
+  labs(x='Participant age group',
+       y='Contact age group',
+       fill = 'Mean IMD\ndifference') + 
+  coord_fixed(); m_i_d_plot_no_abs
+
+if(sens_analysis == 'regional'){
+  m_i_d_plot_no_abs <- m_i_d_plot_no_abs + facet_wrap(.~p_engreg)
+}
+
+m_i_d_plot_no_abs
+ggsave(gsub('summstats.png','mean_imd_diff_not_abs.png',.args[3]), width = 8, height = 7)
+
 
 #### ASSORTATIVITY ####
 
@@ -535,3 +668,99 @@ if(sens_analysis != 'regional'){
   
 }
 
+
+
+## proportion of contacts intra-group
+
+prop_in_group_df <- balanced_matr %>% 
+  mutate(p_var = paste0(p_imd_q, '_', p_age_group),
+         c_var = paste0(c_imd_q, '_', c_age_group),
+         flag = p_var==c_var) %>% 
+  group_by(bootstrap_index, p_var, flag) %>% 
+  mutate(n_flag = sum(n)) %>% 
+  ungroup() %>% 
+  select(bootstrap_index, p_age_group, p_imd_q, flag, n_flag) %>% 
+  unique() %>% 
+  pivot_wider(names_from = flag, values_from = n_flag) %>% 
+  mutate(prop_in_group = `TRUE`/(`TRUE` + `FALSE`))
+
+prop_in_group_df$p_age_group <- factor(prop_in_group_df$p_age_group,
+                                       levels = age_labels)
+
+prop_in_group_plot <- prop_in_group_df %>% 
+  group_by(p_age_group, p_imd_q) %>% 
+  summarise(m = median(prop_in_group),
+            l = quantile(prop_in_group, 0.025),
+            u = quantile(prop_in_group, 0.975)) %>% 
+  ggplot() + 
+  geom_ribbon(aes(x = p_age_group, ymin = l, ymax=u, fill = as.factor(p_imd_q),
+                  group = as.factor(p_imd_q)), alpha = 0.4) + 
+  geom_line(aes(x = p_age_group, y = m, col = as.factor(p_imd_q),
+                group = as.factor(p_imd_q)), lwd = 0.8) + 
+  theme_bw() + labs(x = 'Age',y='Proportion of contacts in\nage group and IMD quintile',
+                    col = 'IMD quintile', fill = 'IMD quintile') + 
+  scale_color_manual(values = imd_quintile_colors) +
+  scale_fill_manual(values = imd_quintile_colors) +
+  theme(text = element_text(size = 14)) + ylim(c(0,NA))
+
+prop_in_age_df <- balanced_matr %>% 
+  mutate(flag = p_age_group==c_age_group) %>% 
+  group_by(bootstrap_index, p_age_group, p_imd_q, flag) %>% 
+  mutate(n_flag = sum(n)) %>% 
+  ungroup() %>% 
+  select(bootstrap_index, p_age_group, p_imd_q, flag, n_flag) %>% 
+  unique() %>% 
+  pivot_wider(names_from = flag, values_from = n_flag) %>% 
+  mutate(prop_in_group = `TRUE`/(`TRUE` + `FALSE`))
+
+prop_in_age_df$p_age_group <- factor(prop_in_age_df$p_age_group,
+                                     levels = age_labels)
+
+prop_in_age_plot <- prop_in_age_df %>% 
+  group_by(p_age_group, p_imd_q) %>% 
+  summarise(m = median(prop_in_group),
+            l = quantile(prop_in_group, 0.025),
+            u = quantile(prop_in_group, 0.975)) %>% 
+  ggplot() + 
+  geom_ribbon(aes(x = p_age_group, ymin = l, ymax=u, fill = as.factor(p_imd_q),
+                  group = as.factor(p_imd_q)), alpha = 0.4) + 
+  geom_line(aes(x = p_age_group, y = m, col = as.factor(p_imd_q),
+                group = as.factor(p_imd_q)), lwd = 0.8) + 
+  theme_bw() + labs(x = 'Age',y='Proportion of contacts\nin age group',
+                    col = 'IMD quintile', fill = 'IMD quintile') + 
+  scale_color_manual(values = imd_quintile_colors) +
+  scale_fill_manual(values = imd_quintile_colors) +
+  theme(text = element_text(size = 14)) + ylim(c(0,NA))
+
+prop_in_imd_df <- balanced_matr %>% 
+  mutate(flag = p_imd_q==c_imd_q) %>% 
+  group_by(bootstrap_index, p_age_group, p_imd_q, flag) %>% 
+  mutate(n_flag = sum(n)) %>% 
+  ungroup() %>% 
+  select(bootstrap_index, p_age_group, p_imd_q, flag, n_flag) %>% 
+  unique() %>% 
+  pivot_wider(names_from = flag, values_from = n_flag) %>% 
+  mutate(prop_in_group = `TRUE`/(`TRUE` + `FALSE`))
+
+prop_in_imd_df$p_age_group <- factor(prop_in_imd_df$p_age_group,
+                                     levels = age_labels)
+
+prop_in_imd_plot <- prop_in_imd_df %>% 
+  group_by(p_age_group, p_imd_q) %>% 
+  summarise(m = median(prop_in_group),
+            l = quantile(prop_in_group, 0.025),
+            u = quantile(prop_in_group, 0.975)) %>% 
+  ggplot() + 
+  geom_ribbon(aes(x = p_age_group, ymin = l, ymax=u, fill = as.factor(p_imd_q),
+                  group = as.factor(p_imd_q)), alpha = 0.4) + 
+  geom_line(aes(x = p_age_group, y = m, col = as.factor(p_imd_q),
+                group = as.factor(p_imd_q)), lwd = 0.8) + 
+  theme_bw() + labs(x = 'Age',y='Proportion of contacts\nin IMD quintile',
+                    col = 'IMD quintile', fill = 'IMD quintile') + 
+  scale_color_manual(values = imd_quintile_colors) +
+  scale_fill_manual(values = imd_quintile_colors) +
+  theme(text = element_text(size = 14)) + ylim(c(0,NA))
+
+prop_in_group_plot + prop_in_age_plot + 
+  prop_in_imd_plot +
+  plot_layout(nrow=3, guides='collect')

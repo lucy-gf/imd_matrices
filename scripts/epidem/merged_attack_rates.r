@@ -141,6 +141,7 @@ arr_plot_imd_as_reg <- age_standardised_rel_imd_violin_plot(
 
 #### R0 by region ####
 # source(paste0(source_dir,"/parsF_.r"))
+# source(paste0(source_dir,"/R0_.r"))
 # beta <- read_csv("output/data/epidem/base/beta.csv",show_col_types=F)
 # beta_med <- median(beta$beta)
 # reg_cm <- data.table(suppressWarnings(read_csv("output/data/cont_matrs/regional/fitted_matrs_balanced.csv", show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
@@ -155,13 +156,13 @@ arr_plot_imd_as_reg <- age_standardised_rel_imd_violin_plot(
 #   R0TRACK <- c()
 #   for(bs_i in unique(cm$bootstrap_index)){
 #     cm_i <- cm_base %>% filter(bootstrap_index == bs_i)
-#     cm_i <- cm_i %>% 
+#     cm_i <- cm_i %>%
 #       mutate(p = paste0(p_imd_q, '_', p_age_group),
-#              c = paste0(c_imd_q, '_', c_age_group)) %>% 
-#       select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
-#     pvec <- cm$p 
+#              c = paste0(c_imd_q, '_', c_age_group)) %>%
+#       select(p,c,n) %>% pivot_wider(names_from = c, values_from = n)
+#     pvec <- cm$p
 #     cm_i <- cm_i %>% select(!p) %>% as.matrix()
-#     betanew <- R0(pars, cm_in = cm_i, R0assumed = 1.5, printout = 0) 
+#     betanew <- R0(pars, cm_in = cm_i, R0assumed = 1.5, printout = 0)
 #     R0TRACK <- c(R0TRACK, 1.5*beta_med/betanew)
 #   }
 #   r0_track_df <- rbind(r0_track_df,
@@ -198,20 +199,38 @@ national_beta_plot <- beta %>%
   theme(legend.position='bottom') +
   labs(x = '', y = 'Transmissibility', col = 'Model', fill = 'Model'); national_beta_plot
 
+r0_track_df <- r0_track_df %>% 
+  mutate(region = case_when(
+    region=='East of England' ~ 'East of\nEngland',
+    region=='North East' ~ 'North\nEast',
+    region=='Greater London' ~ 'Greater\nLondon',
+    region=='North West' ~ 'North\nWest',
+    region=='South West' ~ 'South\nWest',
+    region=='South East' ~ 'South\nEast',
+    region=='West Midlands' ~ 'West\nMidlands',
+    region=='East Midlands' ~ 'East\nMidlands',
+    region=='Yorkshire and the Humber' ~ 'Yorkshire and\nthe Humber',
+    T ~ region
+  ))
+
 regional_r0_plot <- r0_track_df %>% 
   group_by(region) %>% 
   summarise(m = median(r0), 
             l = quantile(r0, 0.025), u = quantile(r0, 0.975)) %>% 
+  mutate(model='National-level') %>% 
+  rbind(data.table(m=10,l=10,u=10,region='North\nEast',model='Regional-level')) %>% 
   ggplot() + 
   geom_errorbar(aes(x = region, ymin = l, ymax = u),
                 width = 0.4) + 
   geom_point(aes(x = region, y = m),
              size = 2) +
-  theme_bw() + ylim(c(0,NA)) + 
-  # scale_color_manual(values = colors_p_engreg) +
-  labs(x = '', y = 'R0') + 
-  theme(#axis.text.x=element_text(angle = 30, hjust = 1),
-        legend.position = 'none'); regional_r0_plot
+  geom_ribbon(aes(x = region, ymin=10,ymax=10, fill=model, col=model), alpha = 0.4) +
+  geom_point(aes(x = region, y=10, col=model), size = 4) +
+  theme_bw() + ylim(c(0,4)) + 
+  scale_fill_manual(values = false_legend) + 
+  scale_color_manual(values = false_legend) + 
+  labs(x = '', y = 'R0', col = 'Model', fill='Model') + 
+  theme(legend.position='bottom'); regional_r0_plot
 
 #### patchwork ####
 
@@ -224,6 +243,19 @@ DDDDEEEEE
 "
 
 national_beta_plot + regional_r0_plot + arr_plot_imd + arr_plot_imd_as + 
+  arr_plot_imd_as_reg + 
+  plot_layout(design = layout) + 
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+
+layout <- "
+AAAADDDDD
+BBBBDDDDD
+BBBBDDDDD
+CCCCDDDDD
+CCCCDDDDD
+"
+
+regional_r0_plot + arr_plot_imd + arr_plot_imd_as + 
   arr_plot_imd_as_reg + 
   plot_layout(design = layout) + 
   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
