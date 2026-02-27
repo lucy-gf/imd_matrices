@@ -15,7 +15,7 @@ participants <- readRDS(.args[1])
 sens_analysis <- .args[2]
 
 # change age groups if needed ##
-if(sens_analysis == 'nhs_ages'){
+if(grepl('nhs_ages',sens_analysis)){
   
   age_limits <- c(5,12,18,26,35,50,70,80)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))

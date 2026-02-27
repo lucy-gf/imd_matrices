@@ -10,13 +10,13 @@ library(dplyr, warn.conflicts = FALSE)
 library(purrr, warn.conflicts = FALSE)
 library(patchwork, warn.conflicts = FALSE)
 library(ggplot2)
-library(viridis)
+suppressPackageStartupMessages(library(viridis))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","indiv_contacts.rds"),
-  "base",
-  file.path("output", "data", "cont_matrs","base","cont_imd_distr.rds")
+  file.path("output", "data", "cont_matrs","regional_nhs_ages","indiv_contacts.rds"),
+  "regional_nhs_ages",
+  file.path("output", "data", "cont_matrs","regional_nhs_ages","cont_imd_distr.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -29,7 +29,7 @@ indiv_contacts <- readRDS(.args[1])
 sens_analysis <- .args[2]
 
 ## if NHS age groups, change age groups
-if(sens_analysis == 'nhs_ages'){
+if(grepl('nhs_ages',sens_analysis)){
   age_limits <- c(5,12,18,26,35,50,70,80)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
   
@@ -47,7 +47,7 @@ if(sens_analysis == 'nhs_ages'){
 
 #### TURN INTO DISTRIBUTION ####
 
-indiv_contacts_imd_props_empirical <- if(sens_analysis == 'regional'){
+indiv_contacts_imd_props_empirical <- if(grepl('regional',sens_analysis)){
   indiv_contacts %>% 
     group_by(p_engreg, p_age_group, c_age_group, c_location, p_imd_q, c_imd_q) %>% 
     summarise(n_imd_p_c = n()) %>% 
@@ -75,9 +75,9 @@ indiv_contacts_imd_props_empirical <- if(sens_analysis == 'regional'){
 
 year <- "25" 
 imd_year <- ifelse(sens_analysis == 'old_imd', 19, 25) 
-age_grouping <- ifelse(sens_analysis == 'nhs_ages', 2, 1) 
+age_grouping <- ifelse(grepl('nhs_ages',sens_analysis), 2, 1) 
 
-dfe_distr <- if(sens_analysis == 'regional'){
+dfe_distr <- if(grepl('regional',sens_analysis)){
   data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",paste0('imd',imd_year),year,
                                 paste0("cm_IMD5_Age",age_grouping,"Region_class.csv")), show_col_types = F)) %>% 
     rename(p_engreg = Region) %>% 
@@ -104,7 +104,7 @@ dfe_distr <- dfe_distr %>%
   mutate(p_age_group = case_when(p_age_group == '18-24' ~ '18-25', T ~ p_age_group),
          c_age_group = case_when(c_age_group == '18-24' ~ '18-25', T ~ c_age_group))
 
-indiv_contacts_imd_props_no_school <- if(sens_analysis == 'nhs_ages'){
+indiv_contacts_imd_props_no_school <- if(grepl('nhs_ages',sens_analysis)){
   
   indiv_contacts_imd_props_empirical %>% 
     filter(! (c_location == 'School' & 
@@ -125,7 +125,7 @@ indiv_contacts_imd_props <- rbind(indiv_contacts_imd_props_no_school,
 
 # check this is the right number of rows
 
-if(sens_analysis != 'regional'){
+if(!grepl('regional',sens_analysis)){
   if(nrow(indiv_contacts_imd_props) != (n_distinct(indiv_contacts_imd_props_empirical$p_age_group)^2)*
      (n_distinct(indiv_contacts_imd_props_empirical$p_imd_q)^2)*
      (n_distinct(indiv_contacts_imd_props_empirical$c_location))){
@@ -148,7 +148,7 @@ indiv_contacts_imd_props$p_age_group <- factor(indiv_contacts_imd_props$p_age_gr
 plot_imd_proportions <- function(filter_value, 
                                  sens_analysis){
   
-  filt <- if(sens_analysis == 'regional'){
+  filt <- if(grepl('regional',sens_analysis)){
     indiv_contacts_imd_props %>% 
       filter(p_engreg == filter_value) %>% 
       group_by(p_engreg, p_age_group, c_age_group, p_imd_q, c_imd_q) %>% 
@@ -178,11 +178,11 @@ plot_imd_proportions <- function(filter_value,
 }
 
 plots <- map(
-  .x = if(sens_analysis == 'regional'){unique(indiv_contacts_imd_props$p_engreg)}else{unique(indiv_contacts_imd_props$c_location)},
+  .x = if(grepl('regional',sens_analysis)){unique(indiv_contacts_imd_props$p_engreg)}else{unique(indiv_contacts_imd_props$c_location)},
   .f = ~plot_imd_proportions(.x, sens_analysis)
   )
 
-patchwork::wrap_plots(plots, nrow = ifelse(sens_analysis == 'regional',3,2),
+patchwork::wrap_plots(plots, nrow = ifelse(grepl('regional',sens_analysis),3,2),
                       guides = 'collect')
 
 if(!file.exists(file.path("output", "figures", "cont_matrs", sens_analysis))){dir.create(file.path("output", "figures", "cont_matrs", sens_analysis))}

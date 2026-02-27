@@ -21,10 +21,17 @@ source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 sens_analysis <- .args[2] 
   
 #### READ IN DATA ####
+
+age_structure_num <- ifelse(grepl('nhs_ages',sens_analysis), 2, 1)
+
+if(grepl('nhs_ages',sens_analysis)){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+
+imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
  
-if(sens_analysis == 'regional'){
-  
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+if(grepl('regional',sens_analysis)){
   
   imd_age <- imd_age_raw %>% 
     mutate(p_engreg = case_when(
@@ -49,15 +56,6 @@ if(sens_analysis == 'regional'){
   
 }else{
   
-  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
-  
-  if(sens_analysis == 'nhs_ages'){
-    age_limits <- c(5,12,18,26,35,50,70,80)
-    age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
-  }
-  
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
-  
   imd_age <- imd_age_raw %>% 
     mutate(
     imd_q = imd_quintile,
@@ -78,7 +76,7 @@ if(sens_analysis == 'regional'){
 
 #### BALANCE ####
 
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   
   balanced_matr <- data.table()
   

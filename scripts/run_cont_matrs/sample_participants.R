@@ -62,7 +62,7 @@ pcd1ageethn <- readr::read_csv(.args[3], show_col_types = F)
 pcd1ethnnssec <- readr::read_csv(.args[4], show_col_types = F)
 
 ## if in regional sensitivity analysis, use region-specific age distr ##
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   
   age_ethn_sex_raw <- data.frame(read_xlsx(file.path("data", "census", "region_age_ethn_sex.xlsx")))
   colnames(age_ethn_sex_raw) <- c('region_code','p_engreg','eg_c','p_ethnicity','age_c','p_age_group','sex_c','p_gender','observation')

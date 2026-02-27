@@ -130,7 +130,7 @@ matr_w <- matr %>%
 matr_w_m <- as.matrix(matr_w, nrow = length(var_labels))
 
 # plot :) 
-heatmap(matr_w_m, Colv = NA, Rowv = NA, scale="column")
+heatmap(matr_w_m, Colv = NA, Rowv = NA, scale="none")
 
 #### PER CAPITA ####
 matr_pc <- matr %>% 

@@ -11,12 +11,12 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","participants.rds"),
+  file.path("output", "data", "cont_matrs","regional","participants.rds"),
   file.path("data", "reconnect", "reconnect_contacts.rds"),
   file.path("data", "census", "utlaageethn.csv"),
   file.path("data", "census", "utlaethnnssec.csv"),
-  "base",
-  file.path("output", "data", "cont_matrs","base","indiv_contacts.rds")
+  "regional_nhs_ages",
+  file.path("output", "data", "cont_matrs","regional_nhs_ages","indiv_contacts.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -91,9 +91,9 @@ if(nrow(contacts_school) + nrow(contacts_not_home_not_school) != nrow(contacts_n
 
 year <- "25" 
 imd_year <- ifelse(sens_analysis == 'old_imd', 19, 25) 
-age_groupings <- ifelse(sens_analysis == 'nhs_ages', 2, 1) 
+age_groupings <- ifelse(grepl('nhs_ages',sens_analysis), 2, 1) 
 
-dfe_distr <- if(sens_analysis == 'regional'){
+dfe_distr <- if(grepl('regional',sens_analysis)){
   data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",paste0('imd',imd_year),year,
                                 paste0("cm_IMD5_Age",age_groupings,"Region_class.csv")), show_col_types = F)) %>% 
     rename(p_engreg = Region) %>% 
@@ -119,7 +119,7 @@ dfe_distr <- dfe_distr %>%
   mutate(p_age_group = case_when(p_age_group == '18-24' ~ '18-25', T ~ p_age_group),
          c_age_group = case_when(c_age_group == '18-24' ~ '18-25', T ~ c_age_group))
 
-if(sens_analysis == 'nhs_ages'){
+if(grepl('nhs_ages',sens_analysis)){
   
   age_limits_nhs <- c(5,12,18,26,35,50,70,80)
   age_labels_nhs <- paste0(c(0,age_limits_nhs), c(rep('-', length(age_limits_nhs)),''), c(age_limits_nhs - 1, '+'))
@@ -141,7 +141,7 @@ if(sens_analysis == 'nhs_ages'){
 sampled_imd_school <- fcn_assign_imd_dfe(
   contacts_school,
   dfe_distr,
-  regional = (sens_analysis == 'regional')
+  regional = (grepl('regional',sens_analysis))
 ) 
 
 # change age groups back (if changed ie in nhs_ages sensitivity analysis, else does nothing)

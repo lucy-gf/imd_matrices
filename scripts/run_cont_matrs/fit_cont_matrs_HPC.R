@@ -12,7 +12,7 @@ library(patchwork, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  "regional",
+  "regional_nhs_ages",
   "2"
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -29,12 +29,12 @@ start_time <- Sys.time()
 sens_analysis <- .args[1]
 if(!file.exists(file.path("output", "data", "cont_matrs", sens_analysis))){dir.create(file.path("output", "data", "cont_matrs", sens_analysis))}
 
-sens_analysis_folder <- if(sens_analysis == 'regional'){
+sens_analysis_folder <- if(grepl('regional',sens_analysis)){
   sens_analysis
 }else{
   'base'
 }
-sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages')){
+sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages','regional_nhs_ages')){
   sens_analysis
 }else{
   'base'
@@ -50,7 +50,7 @@ cont_imd_distr <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis
   mutate(c_location = tolower(c_location))
 poly_weights <- readRDS(file.path("data", "ons","polymod_weights.rds")) %>% 
   mutate(c_location = tolower(c_location))
-reconnect_weights <- if(sens_analysis != 'nhs_ages'){
+reconnect_weights <- if(!grepl('nhs_ages',sens_analysis)){
   readRDS(file.path("output", "data","cont_matrs","reconnect_weights.rds")) %>% 
   mutate(c_location = tolower(c_location))
 }else{
@@ -59,7 +59,7 @@ reconnect_weights <- if(sens_analysis != 'nhs_ages'){
 }
 
 ## change age groups if needed ##
-if(sens_analysis == 'nhs_ages'){
+if(grepl('nhs_ages',sens_analysis)){
   
   age_limits <- c(5,12,18,26,35,50,70,80)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
@@ -110,7 +110,7 @@ if(sens_analysis != 'no_cap_100'){
 }
 
 # use polymod individual weights unless in 'large_n_age' sens analysis
-weights <- if(sens_analysis %notin% c("nhs_ages","large_n_age")){
+weights <- if(sens_analysis %notin% c("nhs_ages","regional_nhs_ages","large_n_age")){
   poly_weights
 }else{
   reconnect_weights
@@ -171,7 +171,7 @@ fit_matr_parallel_regional <- function(imd){
 
 fitted_list <- map(
   .x = as.character(1:5),
-  .f = if(sens_analysis == 'regional'){fit_matr_parallel_regional}else{fit_matr_parallel}
+  .f = if(grepl('regional',sens_analysis)){fit_matr_parallel_regional}else{fit_matr_parallel}
 )
 
 fitted <- rbindlist(fitted_list)
