@@ -15,9 +15,9 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
-  "base",
-  file.path("output", "figures", "cont_matrs","base","summstats.png")
+  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv"),
+  "regional",
+  file.path("output", "figures", "cont_matrs","regional","summstats.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -33,9 +33,16 @@ sens_analysis <- .args[2]
 
 ## age distribution 
 
-if(sens_analysis == 'regional'){
-  
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+age_structure_num <- ifelse(!grepl('nhs_ages',sens_analysis), 1, 2)
+
+if(grepl('nhs_ages',sens_analysis)){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+
+imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
+
+if(grepl('regional',sens_analysis)){
   
   imd_age <- imd_age_raw %>% 
     mutate(p_engreg = case_when(
@@ -60,15 +67,6 @@ if(sens_analysis == 'regional'){
   
 }else{
   
-  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
-  
-  if(sens_analysis == 'nhs_ages'){
-    age_limits <- c(5,12,18,26,35,50,70,80)
-    age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
-  }
-  
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
-  
   imd_age <- imd_age_raw %>% 
     mutate(
       imd_q = imd_quintile,
@@ -92,13 +90,13 @@ if(sens_analysis == 'regional'){
 #### FUNCTIONS ####
 mean_age_diff <- function(agg_dat){
   
-  data <- if(sens_analysis != 'regional'){
+  data <- if(!grepl('regional',sens_analysis)){
     CJ(p_i = 1:5, c_i = 1:5, m = 0)}else{
       CJ(p_engreg=unique(agg_dat$p_engreg),
          p_i = 1:5, c_i = 1:5, m = 0)
     }
   
-  if(sens_analysis != 'regional'){
+  if(!grepl('regional',sens_analysis)){
     for(i in 1:5){for(j in 1:5){
       filt <- agg_dat %>% filter(p_imd_q==i, c_imd_q==j) %>% 
         ungroup() %>% 
@@ -160,13 +158,13 @@ mean_age_diff <- function(agg_dat){
 mean_imd_diff <- function(agg_dat,
                           abs_value = T){
   
-  data <- if(sens_analysis != 'regional'){
+  data <- if(!grepl('regional',sens_analysis)){
     CJ(p_a = age_labels, c_a = age_labels, m = 0)}else{
       CJ(p_engreg=unique(agg_dat$p_engreg),
          p_a = age_labels, c_a = age_labels, m = 0)
     }
   
-  if(sens_analysis != 'regional'){
+  if(!grepl('regional',sens_analysis)){
     for(i in age_labels){for(j in age_labels){
       filt <- agg_dat %>% filter(p_age_group==i, c_age_group==j) %>% 
         ungroup() %>% 
@@ -322,7 +320,7 @@ fcn_assortativity <- function(
 #### SUMMARISE ####
 
 group_vars <- c('p_age_group', 'c_age_group', 'p_imd_q', 'c_imd_q')
-if(sens_analysis == 'regional'){group_vars <- c(group_vars, 'p_engreg')}
+if(grepl('regional',sens_analysis)){group_vars <- c(group_vars, 'p_engreg')}
 
 agg <- balanced_matr %>% 
   group_by(!!!syms(group_vars)) %>% 
@@ -357,7 +355,7 @@ mean_age_diff_plot <- m_a_d %>%
        y='Contact IMD quintile',
        fill = 'Mean age\ndifference')
 
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   mean_age_diff_plot <- mean_age_diff_plot + facet_wrap(.~p_engreg)
 }
 
@@ -378,7 +376,7 @@ mean_age_diff_plot_nodiag <- m_a_d %>%
   ggtitle("Mean age difference") +
   ggtitle("Mean age difference, excluding the age-diagonal")
 
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   mean_age_diff_plot_nodiag <- mean_age_diff_plot_nodiag + facet_wrap(.~p_engreg)
 }
 
@@ -402,7 +400,7 @@ mean_age_diff_plot_children <- m_a_d %>%
   ggtitle("Mean age difference") +
   ggtitle("Mean age difference, children's contacts only")
 
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   mean_age_diff_plot_children <- mean_age_diff_plot_children + facet_wrap(.~p_engreg)
 }
 
@@ -427,7 +425,7 @@ m_i_d_plot <- m_i_d %>%
        fill = 'Mean absolute\nIMD difference') + 
   coord_fixed()
 
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   m_i_d_plot <- m_i_d_plot + facet_wrap(.~p_engreg)
 }
 
@@ -461,7 +459,7 @@ ggsave(gsub('summstats.png','mean_imd_diff_not_abs.png',.args[3]), width = 8, he
 
 #### ASSORTATIVITY ####
 
-if(sens_analysis != 'regional'){
+if(!grepl('regional',sens_analysis)){
   
   #### NOT REGIONAL ####
   

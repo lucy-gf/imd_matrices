@@ -33,9 +33,16 @@ sens_analysis <- .args[2]
 
 ## age distribution 
 
-if(sens_analysis == 'regional'){
-  
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25","imd_ages_1.csv"), show_col_types = F))
+age_structure_num <- ifelse(!grepl('nhs_ages',sens_analysis), 1, 2)
+
+if(grepl('nhs_ages',sens_analysis)){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+
+imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
+
+if(grepl('regional',sens_analysis)){
   
   imd_age <- imd_age_raw %>% 
     mutate(p_engreg = case_when(
@@ -60,15 +67,6 @@ if(sens_analysis == 'regional'){
   
 }else{
   
-  age_structure_num <- ifelse(sens_analysis != 'nhs_ages', 1, 2)
-  
-  if(sens_analysis == 'nhs_ages'){
-    age_limits <- c(5,12,18,26,35,50,70,80)
-    age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
-  }
-  
-  imd_age_raw <- data.table(read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F))
-  
   imd_age <- imd_age_raw %>% 
     mutate(
       imd_q = imd_quintile,
@@ -92,7 +90,7 @@ if(sens_analysis == 'regional'){
 #### SUMMARISE ####
 
 group_vars <- c('p_age_group', 'c_age_group', 'p_imd_q', 'c_imd_q')
-if(sens_analysis == 'regional'){group_vars <- c(group_vars, 'p_engreg')}
+if(grepl('regional',sens_analysis)){group_vars <- c(group_vars, 'p_engreg')}
 
 agg <- balanced_matr %>% 
   group_by(!!!syms(group_vars)) %>% 
@@ -116,9 +114,9 @@ agg <- agg %>%
 ## balanced
 
 join_vars_balanced <- c('p_imd_q', 'p_age_group')
-if(sens_analysis == 'regional'){join_vars_balanced <- c(join_vars_balanced, 'p_engreg')}
+if(grepl('regional',sens_analysis)){join_vars_balanced <- c(join_vars_balanced, 'p_engreg')}
 group_vars_balanced <- c('bootstrap_index', 'p_imd_q', 'c_imd_q')
-if(sens_analysis == 'regional'){group_vars_balanced <- c(group_vars_balanced, 'p_engreg')}
+if(grepl('regional',sens_analysis)){group_vars_balanced <- c(group_vars_balanced, 'p_engreg')}
 group_vars_balanced_no_bs <- group_vars_balanced[!grepl('bootstrap', group_vars_balanced)]
 
 imd_mix <- balanced_matr %>% 
@@ -159,7 +157,7 @@ imd_mix_plot <- imd_mix %>%
 imd_mix_distr$c_imd_q <- factor(imd_mix_distr$c_imd_q, 
                                 levels = rev(1:5))
 
-imd_mix_distr_plot <- if(sens_analysis != 'regional'){
+imd_mix_distr_plot <- if(!grepl('regional',sens_analysis)){
   
   imd_mix_distr %>% 
     ggplot() + 
@@ -204,7 +202,7 @@ imd_mix_distr_plot
 
 ggsave(gsub('.png','_imd_mix_distr.png',.args[3]), width = 11, height = 10)
     
-if(sens_analysis == 'regional'){
+if(grepl('regional',sens_analysis)){
   imd_mix_plot <- imd_mix_plot + facet_wrap(. ~ p_engreg)
   
   imd_mix_plot_pc <- imd_mix %>% 
@@ -273,7 +271,7 @@ ggsave(gsub('.png','_imd_mix.png',.args[3]), width = ifelse(sens_analysis == 're
 #         strip.placement = "outside",
 #         text = element_text(size = 14))
 
-if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
+if(sens_analysis %notin% c('balance_sett_spec', 'regional','regional_nhs_ages')){
   
   fitted <- suppressWarnings(data.table(read_csv(gsub('_balanced.csv','.csv',.args[1]), show_col_types = F)))
   fitted <- fitted[bootstrap_index != 'bootstrap_index']
@@ -391,7 +389,7 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
   
 }
 
-if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
+if(sens_analysis %notin% c('balance_sett_spec', 'regional', 'regional_nhs_ages')){
   
   #### UNCERTAINTY ####
   
@@ -534,7 +532,7 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional')){
 
 #### MEAN CONTACTS ####
 
-if(sens_analysis != 'regional'){
+if(!grepl('regional',sens_analysis)){
   
   # age distribution plots
   

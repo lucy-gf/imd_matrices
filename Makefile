@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: all_cm_inputs #allepid #allmatrsplots #allmeancontacts
+localdef: allepid allmatrsplots 
 
 ###### SUPPORT DEFINITIONS #####################################################
 

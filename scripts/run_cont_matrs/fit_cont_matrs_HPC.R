@@ -30,7 +30,7 @@ sens_analysis <- .args[1]
 if(!file.exists(file.path("output", "data", "cont_matrs", sens_analysis))){dir.create(file.path("output", "data", "cont_matrs", sens_analysis))}
 
 sens_analysis_folder <- if(grepl('regional',sens_analysis)){
-  sens_analysis
+  'regional'
 }else{
   'base'
 }

@@ -24,31 +24,62 @@ nimd <- pars$nimd
 #Erlang has no effect on R0 without vital dynamics (mu=0)
 #https://www.biorxiv.org/content/10.1101/319574v1.full.pdf
 
+R0_simp <- function(susceptibility,
+                    inf_period,
+                    beta_in,
+                    cm_in,
+                    R0assumed = 2.5,
+                    return_beta = T){
+  
+  ng    = dim(cm_in)[1]
+  ngm   = cm_in
+  
+  for (k in 1:ng){ 
+    for (j in 1:ng){
+      ngm[j,k] = beta_in*susceptibility*cm_in[j,k]*inf_period 
+    }
+  }
+  
+  # max EV
+  EVs = eigen(ngm)$values
+  R00 = max(Re(EVs[which(Im(EVs)==0)]))
+  
+  # beta given R0assumed
+  beta = R0assumed/(R00/beta0)
+  
+  if(return_beta){
+    return(beta)  
+  }else{
+    return(R00)
+  }
+  
+}
+
 R0 <- function(pars,cm_in,R0assumed=2.5,printout=1){
   
-ng    = na*nimd
-u45   = rep(pars$u,nimd)
-y45   = pars$y45
-orIR  = 1/pars$rIR          
-orUR  = 1/pars$rUR          
-beta0 = pars$beta            
-fu    = pars$f              
-ngm   = cm_in
-
-for (k in 1:ng){ 
-  y_k=y45[k]
-  for (j in 1:ng) {
-    ngm[j,k] = beta0*u45[j]*cm_in[j,k]*( y_k*orIR + fu*(1-y_k)*orUR) }}
-
-# max EV
-EVs = eigen(ngm)$values
-R00 = max(Re(EVs[which(Im(EVs)==0)]))
-
-# beta given R0assumed
-beta = R0assumed/(R00/beta0)
-if(printout==1) print(paste0("Assuming R0 = ", R0assumed, ", then beta = ", round(beta,4), " /day"))
-
-return(beta)
+  ng    = na*nimd
+  u45   = rep(pars$u,nimd)
+  y45   = pars$y45
+  orIR  = 1/pars$rIR          
+  orUR  = 1/pars$rUR          
+  beta0 = pars$beta            
+  fu    = pars$f              
+  ngm   = cm_in
+  
+  for (k in 1:ng){ 
+    y_k=y45[k]
+    for (j in 1:ng) {
+      ngm[j,k] = beta0*u45[j]*cm_in[j,k]*( y_k*orIR + fu*(1-y_k)*orUR) }}
+  
+  # max EV
+  EVs = eigen(ngm)$values
+  R00 = max(Re(EVs[which(Im(EVs)==0)]))
+  
+  # beta given R0assumed
+  beta = R0assumed/(R00/beta0)
+  if(printout==1) print(paste0("Assuming R0 = ", R0assumed, ", then beta = ", round(beta,4), " /day"))
+  
+  return(beta)
 }
 
 
