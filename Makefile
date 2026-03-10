@@ -378,12 +378,15 @@ allbalanced: $(patsubst %,${CONTDATA}/%/fitted_matrs_balanced.csv, ${M_SENS_ANAL
 ${CONTFIG}/%/fitted_matrs.png: ${CONTCODE}/plot_cont_matrs.R ${CONTDATA}/%/fitted_matrs_balanced.csv
 	$(call R, $*)
 	
-allmatrsplots_agg: $(patsubst %,${CONTFIG}/%/fitted_matrs.png, ${E_SENS_ANALYSES}) 
+allmatrsplots_agg: $(patsubst %,${CONTFIG}/%/fitted_matrs.png, ${M_SENS_ANALYSES_BALANCE}) 
 
-${CONTFIG}/%/summstats.png: ${CONTCODE}/plot_summ_stats.R ${CONTDATA}/%/fitted_matrs_balanced.csv
+${CONTDATA}/%/imd_assortativity.csv: ${CONTCODE}/make_summ_stats.R ${CONTDATA}/%/fitted_matrs_balanced.csv
+	$(call R, $*)
+
+${CONTFIG}/%/summstats.png: ${CONTCODE}/plot_summ_stats.R ${CONTDATA}/%/imd_assortativity.csv
 	$(call R, $*)
 	
-allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summstats.png, ${E_SENS_ANALYSES}) 
+allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summstats.png, ${M_SENS_ANALYSES_BALANCE}) 
 
 ${CONTFIG}/%/shape_pars.png: ${CONTCODE}/plot_shape_pars.R ${CONTDATA}/%/fitted_matrs.csv 
 	$(call R, $*)
