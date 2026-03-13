@@ -346,6 +346,35 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional','regional_nhs_ages'))
       text = element_text(size = 18))
   ggsave(gsub('.png','_imd_locn_prop.png',.args[3]), width = 11, height = 10)
   
+  weighted_ranges <- fitted %>% filter(c_location!='total') %>% 
+    left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+              by = c('p_imd_q', 'p_age_group')) %>% 
+    group_by(!!!syms(group_vars_locn)) %>% 
+    summarise(weighted_sum = sum(n*prop_imd)) %>% 
+    ungroup() %>% 
+    rbind(balanced_matr %>% 
+             left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+                       by = join_vars_balanced) %>% 
+             group_by(!!!syms(group_vars_balanced)) %>% 
+             summarise(weighted_sum = sum(n*prop_imd)) %>% 
+            mutate(c_location='total')) %>% 
+    group_by(bootstrap_index, c_location, p_imd_q) %>% 
+    mutate(tot_bs = sum(weighted_sum),
+           prop = weighted_sum/tot_bs) %>% 
+    group_by(!!!syms(group_vars_locn_no_bs)) %>% 
+    summarise(weighted_mean = mean(prop),
+              weighted_l = l95_func(prop),
+              weighted_u = u95_func(prop))
+  
+  weighted_ranges <- weighted_ranges %>% 
+    filter(c_location != 'home') %>% 
+    mutate(neat = paste0(round(weighted_mean, 2), ' (', 
+                         round(weighted_l, 2), ' - ',
+                         round(weighted_u, 2), ')')) %>% 
+    select(p_imd_q, c_imd_q, c_location, neat) %>% 
+    pivot_wider(names_from = c_location, values_from = neat)
+  write_csv(weighted_ranges, gsub('.png','proportions.csv',.args[3]))
+  
   ## balanced without home
   
   balanced_matr_no_home <- balancing_fcn(

@@ -17,8 +17,8 @@ library(patchwork, warn.conflicts = FALSE)
 #### set arguments ####
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","participants.rds"),
-  "nhs_ages",
-  file.path("output", "data", "cont_matrs","nhs_ages","mean_contacts","mean_contacts.csv")
+  "base",
+  file.path("output", "data", "cont_matrs","base","mean_contacts","mean_contacts.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
