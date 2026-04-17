@@ -108,7 +108,26 @@ if(grepl('regional',sens_analysis)){
 
 write_csv(balanced_matr, .args[3])
 
+# save mean and 95% CIs to put on Github
 
+grouping_vars <- c('p_imd_q','c_imd_q','p_age_group','c_age_group')
+if(grepl('regional', sens_analysis)){grouping_vars <- c('p_engreg', grouping_vars)}
+
+matrix_save <- balanced_matr %>% 
+  group_by(!!!syms(grouping_vars)) %>% 
+  summarise(mean = mean(n),
+            lower = quantile(n, 0.025), 
+            upper = quantile(n, 0.975)) %>% 
+  rename(Participant_IMD = p_imd_q,
+         Contact_IMD = c_imd_q,
+         Participant_age_group = p_age_group,
+         Contact_age_group = c_age_group)
+
+if(grepl('regional', sens_analysis)){
+  matrix_save <- matrix_save %>% rename(Region = p_engreg)
+}
+
+write_csv(matrix_save, gsub('fitted_matrs_balanced','matrix_github',.args[3]))
 
 
 

@@ -163,6 +163,10 @@ method_shapes <- c('det' = 1, 'prob' = 19)
 method_names <- c('Deterministic','Probabilistic')
 names(method_names) <- c('det','prob')
 
+sens_analysis_names <- c('IMD 2019','Reconnect for large group\ncontact age distribution',
+                         'No maximum\ncontact cap', 'Setting-specific\nmatrix balancing')
+names(sens_analysis_names) <- c('old_imd', 'large_n_age', 'no_cap_100', 'balance_sett_spec')
+
 variable_colors <- c('age_grp' = '#31a354', 'hh_size_nm' = '#7a0177', 
                   'hh_tenure_nm' = '#fd8d3c', 'p_ethnicity' = '#bdc9e1', 
                   'p_hiqual' = '#f768a1', 'p_sec_input' = '#2b8cbe', 

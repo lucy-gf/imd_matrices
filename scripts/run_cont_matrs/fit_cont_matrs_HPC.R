@@ -29,12 +29,17 @@ start_time <- Sys.time()
 sens_analysis <- .args[1]
 if(!file.exists(file.path("output", "data", "cont_matrs", sens_analysis))){dir.create(file.path("output", "data", "cont_matrs", sens_analysis))}
 
-sens_analysis_folder <- if(grepl('regional',sens_analysis)){
+sens_analysis_folder <- if(grepl('regional', sens_analysis)){
   'regional'
 }else{
-  'base'
+  if(sens_analysis == 'old_imd'){
+    'old_imd'
+  }else{
+    'base'
+  }
 }
-sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages','regional_nhs_ages')){
+
+sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages','regional_nhs_ages','old_imd')){
   sens_analysis
 }else{
   'base'

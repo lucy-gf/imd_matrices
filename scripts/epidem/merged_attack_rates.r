@@ -260,6 +260,19 @@ regional_r0_plot + arr_plot_imd + arr_plot_imd_as +
   plot_layout(design = layout) + 
   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
 
+layout <- "
+AAAAABBBB
+AAAAABBBB
+AAAAACCCC
+AAAAACCCC
+AAAAADDDD
+"
+
+arr_plot_imd_as_reg + 
+  regional_r0_plot + arr_plot_imd + arr_plot_imd_as +
+  plot_layout(design = layout) + 
+  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+
 ## save
 ggsave(.args[3], dpi=600, device = "png", width = 14, height = 10)  
 

@@ -17,8 +17,8 @@ library(patchwork, warn.conflicts = FALSE)
 #### set arguments ####
 .args <- if (interactive()) c(
   file.path("output", "data", "cont_matrs","base","participants.rds"),
-  "base",
-  file.path("output", "data", "cont_matrs","base","mean_contacts","mean_contacts.csv")
+  "nhs_ages",
+  file.path("output", "data", "cont_matrs","nhs_ages","mean_contacts","mean_contacts.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -66,6 +66,8 @@ if(sens_analysis == 'nhs_ages'){
 # confidence interval functions
 eti95L <- function(x) quantile(x, 0.025)
 eti95U <- function(x) quantile(x, 0.975)
+eti50L <- function(x) quantile(x, 0.25)
+eti50U <- function(x) quantile(x, 0.75)
 
 #### combination of variables ####
 
@@ -76,8 +78,9 @@ group_vars_list <- list(c('imd_quintile'),
                         c('imd_quintile','p_engreg'),
                         c('imd_quintile','p_income','p_age_group'),
                         c('imd_quintile','p_income','p_broad_age'),
-                        c('imd_quintile','p_income','p_broad_age','p_engreg'),
-                        c('imd_quintile','p_engreg','p_age_group'))
+                        c('imd_quintile','p_income','p_broad_age','p_engreg')
+                        # c('imd_quintile','p_engreg','p_age_group')
+                        )
 
 #### FUNCTIONS ####
 ## function to fit data
@@ -133,7 +136,9 @@ plot_mean_contacts <- function(out_agg_raw, # dataframe
   out_agg_raw[, bootstrap_index := NULL]
   out_agg <- rbind(out_agg_raw[, lapply(.SD, mean), by = group_vars][, measure := 'mean'],
                    out_agg_raw[, lapply(.SD, eti95L), by = group_vars][, measure := 'lower'],
-                   out_agg_raw[, lapply(.SD, eti95U), by = group_vars][, measure := 'upper'])
+                   out_agg_raw[, lapply(.SD, eti95U), by = group_vars][, measure := 'upper'],
+                   out_agg_raw[, lapply(.SD, eti50L), by = group_vars][, measure := 'lower50'],
+                   out_agg_raw[, lapply(.SD, eti50U), by = group_vars][, measure := 'upper50'])
   
   if('p_age_group' %in% group_vars_list[[group_index]]){
     out_agg$p_age_group <- factor(out_agg$p_age_group,
@@ -166,6 +171,10 @@ plot_mean_contacts <- function(out_agg_raw, # dataframe
     p <- plot_df %>% 
       ggplot() + 
       geom_errorbar(aes(ymin = lower, ymax = upper, x = p_age_group,
+                        group = as.factor(imd_quintile), 
+                        col = as.factor(imd_quintile)), 
+                    width = 0.4, position = position_dodge(width = 0.9), alpha = 1) + 
+      geom_errorbar(aes(ymin = lower50, ymax = upper50, x = p_age_group,
                         group = as.factor(imd_quintile), 
                         col = as.factor(imd_quintile)), 
                     width = 0.4, position = position_dodge(width = 0.9)) + 
@@ -427,7 +436,9 @@ dt <- data.table(data_list[[7]])
 dt[, bootstrap_index := NULL]
 out_agg <- rbind(dt[, lapply(.SD, mean), by = group_vars][, measure := 'mean'],
                  dt[, lapply(.SD, eti95L), by = group_vars][, measure := 'lower'],
-                 dt[, lapply(.SD, eti95U), by = group_vars][, measure := 'upper'])
+                 dt[, lapply(.SD, eti95U), by = group_vars][, measure := 'upper'],
+                 dt[, lapply(.SD, eti50L), by = group_vars][, measure := 'lower50'],
+                 dt[, lapply(.SD, eti50U), by = group_vars][, measure := 'upper50'])
 
 plot_df <- out_agg %>% 
   select(!k) %>% 
@@ -462,7 +473,10 @@ p <- plot_df %>%
   ggplot() + 
   geom_errorbar(aes(ymin = lower, ymax = upper, group = as.factor(imd_quintile),
                     x = p_income, col = as.factor(imd_quintile)), 
-                width = 0.4, position = position_dodge(width = 0.9)) + 
+                width = 0.4, position = position_dodge(width = 0.9), alpha = 1) + 
+  geom_errorbar(aes(ymin = lower50, ymax = upper50, group = as.factor(imd_quintile),
+                    x = p_income, col = as.factor(imd_quintile)),
+                width = 0.4, position = position_dodge(width = 0.9)) +
   geom_point(aes(group = as.factor(imd_quintile), y = mean,
                  x = p_income, col = as.factor(imd_quintile)),
              position = position_dodge(width = 0.9)) +
@@ -541,7 +555,7 @@ ggsave(filename = gsub('data','figures',gsub('.csv', paste0('_patch.png'),.args[
        width = 10, height = 10)
 
   
- ## and region 
+## and region 
   
 group_vars <- group_vars_list[[8]]
 dt <- data.table(data_list[[8]])
