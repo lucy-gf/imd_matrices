@@ -25,6 +25,8 @@ source(here::here('scripts','setup','colors.R'))
 
 if(!file.exists(gsub('/fitted_matrs.png','',.args[3]))){dir.create(gsub('/fitted_matrs.png','',.args[3]))}
 
+l95_func <- function(x){quantile(x, probs=0.025)}; u95_func <- function(x){quantile(x, probs=0.975)}
+
 #### READ IN DATA ####
 
 balanced_matr <- data.table(read_csv(.args[1], show_col_types = F))
