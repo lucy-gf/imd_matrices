@@ -46,9 +46,9 @@ Output is written to `output/`, with subdirectories for figures (`output/figures
 
 ---
 
-## Sensitivity Analyses
+## Analyses
 
-The following sensitivity analyses are implemented throughout the pipeline:
+The following sensitivity/alternative analyses are implemented throughout the pipeline:
 
 | Label | Description |
 |---|---|
