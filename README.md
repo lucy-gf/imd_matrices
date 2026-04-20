@@ -54,7 +54,7 @@ The following sensitivity/alternative analyses are implemented throughout the pi
 |---|---|
 | `base` | Baseline analysis |
 | `regional` | Regional contact matrices |
-| `old_imd` | 2019 IMD, instead of than 2025 |
+| `old_imd` | 2019 IMD, instead of 2025 |
 | `nhs_ages` | Secondary age bands |
 | `large_n_age` | Sample large group contacts' age from Reconnect |
 | `no_cap_100` | No cap on large group contact numbers |
