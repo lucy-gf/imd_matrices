@@ -417,7 +417,7 @@ fcn_rev_errorbarplot_imd <- function(
         filter(!p_ethnicity %like% 'Prefer')
     }
     if(var == 'p_sec_input'){
-      data_output <- data_output %>% 
+      data_output <- data_output %>%
         filter(p_sec_input %in% as.character(1:7))
       
       true_vals <- true_vals %>%
@@ -427,7 +427,7 @@ fcn_rev_errorbarplot_imd <- function(
     if(var == 'p_hiqual'){
       data_output <- data_output %>% 
         filter(p_hiqual != 'Other',
-               !p_hiqual %like% 'Child|apply')
+               !p_hiqual %like% 'Child|appl')
     }
     
     if(is.null(true_vals)){
@@ -526,6 +526,7 @@ fcn_rev_errorbarplot_imd <- function(
         if(facet){
           
           p <- plot_input %>% 
+            mutate(imd_quintile = paste0('IMD ', imd_quintile)) %>% 
             ggplot() + 
             geom_errorbar(aes(x = !!sym(var), ymin = lower_prop/general_data_prop, ymax = upper_prop/general_data_prop, 
                               col = !!sym(var)),
@@ -1230,6 +1231,7 @@ format_legend <- function(string){
   if(string == 'p_sec_input'){return('NS-SEC')}
   if(string == 'sec_input'){return('NS-SEC')}
   if(string == 'p_tenure_short'){return('Housing tenure')}
+  if(grepl('p_emp',string)){return('Employment status')}
   
   # else just try something
   out_str <- gsub('_short', '', string)

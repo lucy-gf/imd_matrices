@@ -13,9 +13,9 @@ suppressPackageStartupMessages(require(viridis))
 options(dplyr.summarise.inform = FALSE)
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "epidem","regional","byall.rds"),
-  "regional",
-  file.path('output','data','epidem','regional','epidemic_outputs.rds')
+  file.path("output", "data", "epidem","base","byall.rds"),
+  "base",
+  file.path('output','data','epidem','base','epidemic_outputs.rds')
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]

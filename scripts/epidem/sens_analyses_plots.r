@@ -22,7 +22,7 @@ source(here::here('scripts','setup','colors.R'))
 source(here::here('scripts','epidem','plot_epidem_functions.R'))
 
 ## load in epidemic outputs
-sens_analyses <- c('large_n_age', 'no_cap_100', 'balance_sett_spec')
+sens_analyses <- c('large_n_age', 'no_cap_100', 'balance_sett_spec', 'old_imd')
 read_epid_outputs <- function(str){
   readRDS(file.path("output", "data", "epidem", str, "epidemic_outputs.rds"))
 }
@@ -41,25 +41,48 @@ base_outputs <- read_epid_outputs("base")
 setnames(base_outputs, 'attack_rate', 'base_attack_rate')
 base_outputs[, c('infections','pop','imd_pop') := NULL]
 
-## merge data
-epid_outputs_l <- epid_outputs_l[base_outputs, on = c('sim','age','imd')]
+## merge data - paired for large_n_age, no_cap_100, balance_sett_spec
+epid_outputs_paired <- epid_outputs_l[base_outputs, on = c('sim','age','imd')][
+  analysis != 'old_imd'
+]
 
-epid_outputs_l[, relative_attack_rate := ((attack_rate/base_attack_rate) - 1)]
-epid_outputs_l[, absolute_change := 1000*(attack_rate - base_attack_rate)]
+epid_outputs_paired[, relative_attack_rate := ((attack_rate/base_attack_rate) - 1)]
+epid_outputs_paired[, absolute_change := 1000*(attack_rate - base_attack_rate)]
 
-epid_outputs_agg <- epid_outputs_l %>% 
+epid_outputs_agg <- epid_outputs_paired %>% 
   group_by(analysis, age, imd) %>% 
   summarise(mean_rel_ar = mean(relative_attack_rate),
             l95 = eti95L(relative_attack_rate),
-            u95 = eti95U(relative_attack_rate),
-            mean_abs_ar = mean(absolute_change),
-            l95_abs = eti95L(absolute_change),
-            u95_abs = eti95U(absolute_change))
+            u95 = eti95U(relative_attack_rate))
+            # mean_abs_ar = mean(absolute_change),
+            # l95_abs = eti95L(absolute_change),
+            # u95_abs = eti95U(absolute_change))
+
+# unpaired for old_imd
+nage <- n_distinct(epid_outputs_l$age); nimd <- n_distinct(epid_outputs_l$imd)
+epid_outputs_unpaired <- epid_outputs_l %>%
+  filter(analysis == 'old_imd') %>% 
+  arrange(age, imd, attack_rate) %>% 
+  mutate(order = rep(1:max(sim), nage*nimd)) %>% select(!sim) %>% 
+  left_join(base_outputs %>% 
+              arrange(age, imd, base_attack_rate) %>% 
+              mutate(order = rep(1:max(sim), nage*nimd)) %>% 
+              select(!sim),
+          by = c('order','age','imd')) %>% 
+  mutate(relative_attack_rate := ((attack_rate/base_attack_rate) - 1)) %>% 
+  group_by(analysis, age, imd) %>% 
+  summarise(mean_rel_ar = mean(relative_attack_rate),
+            l95 = eti95L(relative_attack_rate),
+            u95 = eti95U(relative_attack_rate))
+
+epid_outputs_agg <- epid_outputs_agg %>% 
+  rbind(epid_outputs_unpaired)
 
 ## plot
 
 p1 <- epid_outputs_agg %>% 
   ggplot() +
+  geom_hline(yintercept = 0, lty = 2, alpha = 0.6) +
   geom_point(aes(x = age, y = mean_rel_ar, col = imd),
              position = position_dodge(width = 0.9)) +
   geom_errorbar(aes(x = age, ymin = l95, ymax = u95, 
@@ -67,34 +90,32 @@ p1 <- epid_outputs_agg %>%
                 width = 0.4, position = position_dodge(width = 0.9), 
                 alpha= 0.75) +
   theme_bw() +
-  geom_hline(yintercept = 0, lty = 2, alpha = 0.6) +
-  facet_grid(analysis ~ ., scale = 'free',
+  facet_grid(analysis ~ ., scale = 'fixed',
              labeller = labeller(analysis = sens_analysis_names)) +
   scale_color_manual(values = imd_quintile_colors) +
-  scale_y_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent) + 
   labs(x = 'Age group', y = 'Percentage change in attack rate (compared to in base analysis)',
-       col = 'IMD quintile')
+       col = 'IMD quintile');p1
 
-p2 <- epid_outputs_agg %>% 
-  ggplot() +
-  geom_point(aes(x = age, y = mean_abs_ar, col = imd),
-             position = position_dodge(width = 0.9)) +
-  geom_errorbar(aes(x = age, ymin = l95_abs, ymax = u95_abs, 
-                    group = as.factor(imd), col = imd), 
-                width = 0.4, position = position_dodge(width = 0.9), 
-                alpha= 0.75) +
-  theme_bw() +
-  geom_hline(yintercept = 0, lty = 2, alpha = 0.6) +
-  facet_grid(analysis ~ ., scale = 'free',
-             labeller = labeller(analysis = sens_analysis_names)) +
-  scale_color_manual(values = imd_quintile_colors) +
-  labs(x = 'Age group', y = 'Change in attack rate per 1000 population (compared to in base analysis)',
-       col = 'IMD quintile')
+# p2 <- epid_outputs_agg %>% 
+#   ggplot() +
+#   geom_hline(yintercept = 0, lty = 2, alpha = 0.6) +
+#   geom_point(aes(x = age, y = mean_abs_ar, col = imd),
+#              position = position_dodge(width = 0.9)) +
+#   geom_errorbar(aes(x = age, ymin = l95_abs, ymax = u95_abs, 
+#                     group = as.factor(imd), col = imd), 
+#                 width = 0.4, position = position_dodge(width = 0.9), 
+#                 alpha= 0.75) +
+#   theme_bw() +
+#   facet_grid(analysis ~ ., scale = 'fixed',
+#              labeller = labeller(analysis = sens_analysis_names)) +
+#   scale_color_manual(values = imd_quintile_colors) +
+#   labs(x = 'Age group', y = 'Change in attack rate per 1000 population (compared to in base analysis)',
+#        col = 'IMD quintile')
 
-p1 + p2 + plot_layout(nrow = 1, 
-                      guides = 'collect')
+p1
 ggsave(file.path('output','figures','epidem','sens_analyses_comparison.png'),
-       width = 20, height = 10)
+       width = 12, height = 10)
 
 ## distribution of total infections across groups
 

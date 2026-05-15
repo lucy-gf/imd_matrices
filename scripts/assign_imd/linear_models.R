@@ -65,32 +65,32 @@ summ_n <- data.frame(cat = names(coef(summary(lm_n))[,4]),
                      st.err = unname(coef(summary(lm_n))[,2]),
                      p = unname(coef(summary(lm_n))[,4])) %>% 
   mutate(var = case_when(
-    grepl('age_grp',cat) ~ 'age',
-    grepl('sec_',cat) ~ 'nssec',
-    grepl('size',cat) ~ 'hh_size',
-    grepl('tenure',cat) ~ 'hh_tenure',
-    grepl('hiqual',cat) ~ 'hiqual',
-    grepl('ethnicity',cat) ~ 'ethnicity',
-    grepl('engreg',cat) ~ 'region',
-    grepl('urban',cat) ~ 'urban_rural'
+    grepl('age_grp',cat) ~ 'Age group',
+    grepl('sec_',cat) ~ 'NS-SEC class',
+    grepl('size',cat) ~ 'Household size',
+    grepl('tenure',cat) ~ 'Household tenure',
+    grepl('hiqual',cat) ~ 'Highest qualification',
+    grepl('ethnicity',cat) ~ 'Ethnicity',
+    grepl('engreg',cat) ~ 'Region',
+    grepl('urban',cat) ~ 'Urbanicity'
   ),
-  model = 'n_contacts')
+  model = 'Total number of contacts')
 
 summ_u <- data.frame(cat = names(coef(summary(lm_u))[,4]),
                      value = unname(coef(summary(lm_u))[,1]),
                      st.err = unname(coef(summary(lm_u))[,2]),
                      p = unname(coef(summary(lm_u))[,4])) %>% 
   mutate(var = case_when(
-    grepl('age_grp',cat) ~ 'age',
-    grepl('sec_',cat) ~ 'nssec',
-    grepl('size',cat) ~ 'hh_size',
-    grepl('tenure',cat) ~ 'hh_tenure',
-    grepl('hiqual',cat) ~ 'hiqual',
-    grepl('ethnicity',cat) ~ 'ethnicity',
-    grepl('engreg',cat) ~ 'region',
-    grepl('urban',cat) ~ 'urban_rural'
+    grepl('age_grp',cat) ~ 'Age group',
+    grepl('sec_',cat) ~ 'NS-SEC class',
+    grepl('size',cat) ~ 'Household size',
+    grepl('tenure',cat) ~ 'Household tenure',
+    grepl('hiqual',cat) ~ 'Highest qualification',
+    grepl('ethnicity',cat) ~ 'Ethnicity',
+    grepl('engreg',cat) ~ 'Region',
+    grepl('urban',cat) ~ 'Urbanicity'
   ),
-  model = 'prop_u18')
+  model = 'Proportion aged under 18')
 
 summ_df <- rbind(summ_n, summ_u) %>% filter(! cat %like% 'Interc')
 
@@ -122,7 +122,50 @@ plot_lm_values <- function(variable){
   summ_df_filt <- summ_df %>% 
     filter(var == variable) 
   
-  if(variable == 'age'){
+  # add in reference level
+  if(variable == 'Age group'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = 'Aged 10 to 14 years'))
+  }
+  if(variable == 'Ethnicity'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = 'White'))
+  }
+  if(variable == 'Household size'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = '1 person in household'))
+  }
+  if(variable == 'NS-SEC class'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = '1'))
+  }
+  if(variable == 'Household tenure'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = 'Owned: Owns outright')) %>% 
+      mutate(cat = gsub(':',':\n', cat))
+  }
+  if(variable == 'Highest qualification'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = '1-4 GCSEs'))
+  }
+  if(variable == 'Region'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = 'East Midlands'))
+  }
+  if(variable == 'Urbanicity'){
+    summ_df_filt <- summ_df_filt %>% 
+      rbind(summ_df_filt %>% filter(cat == summ_df_filt$cat[1]) %>% 
+              mutate(p=1,value=0,st.err=0,cat = 'Rural'))
+  }
+  
+  if(variable == 'Age group'){
     summ_df_filt$cat <- factor(summ_df_filt$cat,
                                levels = c('Aged 4 years and under', 'Aged 5 to 9 years',
                                           'Aged 10 to 14 years', 'Aged 15 to 19 years',
@@ -135,20 +178,22 @@ plot_lm_values <- function(variable){
   }
   
   plot <- summ_df_filt %>% 
-    ggplot(aes(y = cat, x = value, col = var)) + 
+    ggplot(aes(y = cat, x = value)) + 
     geom_vline(xintercept = 0, lty = 2, alpha = 0.5) +
-    geom_errorbar(aes(y = cat, xmin = value - 1.96*st.err, 
-                      xmax = value + 1.96*st.err)) + 
-    geom_point(size = 3) + 
+    geom_errorbar(aes(y = cat, xmin = value - 1.96*st.err,
+                      xmax = value + 1.96*st.err,
+                      col = p<0.05, alpha = (st.err==0))) +
+    geom_point(aes(col = p<0.05), size = 3) + 
     labs(x = '',
          y = 'p',
          col = '') +
-    scale_color_manual(values = variable_colors) + 
+    scale_color_manual(values = c(1,2)) +
+    scale_alpha_manual(values = c(1,0)) +
     theme_bw() + 
     xlim(c(min, max)) + 
     facet_grid(var ~ model, scales = 'free') + 
     scale_y_discrete(limits=rev) + 
-    theme(text = element_text(size = 14),
+    theme(text = element_text(size = 12),
           legend.position="none",
           axis.title.y=element_blank(),
           # axis.text.y=element_blank(),            
@@ -163,7 +208,7 @@ plot_lm_values <- function(variable){
     
   }
   
-  if(variable != unique(summ_df$var)[length(unique(summ_df$var))]){
+  if(variable %notin% c('urban_rural','hh_tenure')){
     
     plot <- plot + 
       theme(axis.title.x=element_blank(),

@@ -16,6 +16,7 @@ options(dplyr.summarise.inform = FALSE)
 .args <- if (interactive()) c(
   file.path("output", "data", "epidem","base","epidemic_outputs.rds"),
   file.path("output", "data", "epidem","regional","epidemic_outputs.rds"),
+  file.path("output", "data", "epidem","hom_mixing","epidemic_outputs.rds"),
   file.path('output','figures','epidem','merged_attack_rates.png')
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -103,14 +104,17 @@ reg_infections[, c('p_engreg', 'attack_rate') := NULL]
 reg_infections <- reg_infections[, lapply(.SD, sum), by = c('sim','age','imd')]
 reg_infections[, attack_rate := infections/pop]
 
+infections_hom <- data.table(readRDS(.args[3]))
+
 combined_infections <- rbind(
   infections_base %>% mutate(model = 'National-level'),
-  reg_infections %>% mutate(model = 'Regional-level')
+  reg_infections %>% mutate(model = 'Regional-level'),
+  infections_hom %>% mutate(model = 'Homogeneous mixing')
 )
 
 final_size_vio <- imd_violin_plot(combined_infections,
                                   combined = T); final_size_vio
-ggsave(gsub('merged_attack_rates.png','merged_final_size.png',.args[3]), dpi=600, device = "png", width = 10, height = 7)  
+ggsave(gsub('merged_attack_rates.png','merged_final_size.png',.args[4]), dpi=600, device = "png", width = 10, height = 7)  
 
 ## by imd 
 cat('Crude rel. attack rates:\n')
@@ -140,45 +144,65 @@ arr_plot_imd_as_reg <- age_standardised_rel_imd_violin_plot(
 
 
 #### R0 by region ####
-# source(paste0(source_dir,"/parsF_.r"))
-# source(paste0(source_dir,"/R0_.r"))
-# beta <- read_csv("output/data/epidem/base/beta.csv",show_col_types=F)
-# beta_med <- median(beta$beta)
-# reg_cm <- data.table(suppressWarnings(read_csv("output/data/cont_matrs/regional/fitted_matrs_balanced.csv", show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
-# reg_cm$p_age_group <- factor(reg_cm$p_age_group, levels = age_labels)
-# reg_cm$c_age_group <- factor(reg_cm$c_age_group, levels = age_labels)
-# 
-# r0_track_df <- data.frame()
-# for(reg in unique(reg_cm$p_engreg)){
-#   cm_base <- reg_cm[p_engreg==reg]
-#   cm_base[, p_engreg := NULL]
-#   cm <- cm_base[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-#   R0TRACK <- c()
-#   for(bs_i in unique(cm$bootstrap_index)){
-#     cm_i <- cm_base %>% filter(bootstrap_index == bs_i)
-#     cm_i <- cm_i %>%
-#       mutate(p = paste0(p_imd_q, '_', p_age_group),
-#              c = paste0(c_imd_q, '_', c_age_group)) %>%
-#       select(p,c,n) %>% pivot_wider(names_from = c, values_from = n)
-#     pvec <- cm$p
-#     cm_i <- cm_i %>% select(!p) %>% as.matrix()
-#     betanew <- R0(pars, cm_in = cm_i, R0assumed = 1.5, printout = 0)
-#     R0TRACK <- c(R0TRACK, 1.5*beta_med/betanew)
-#   }
-#   r0_track_df <- rbind(r0_track_df,
-#                        data.frame(region=reg,
-#                                   bootstrap_index = unique(cm$bootstrap_index),
-#                                   r0 = R0TRACK))
-#   cat(reg, '-')
-# }
-# 
-# write_csv(r0_track_df, "output/data/epidem/regional/regional_r0.csv")
+run_regional_r0_calculations <- F
+if(run_regional_r0_calculations){
+  source(paste0(source_dir,"/parsF_.r"))
+  source(paste0(source_dir,"/R0_.r"))
+  beta <- read_csv("output/data/epidem/base/beta.csv",show_col_types=F)
+  beta_med <- median(beta$beta)
+  reg_cm <- data.table(suppressWarnings(read_csv("output/data/cont_matrs/regional/fitted_matrs_balanced.csv", show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
+  reg_cm$p_age_group <- factor(reg_cm$p_age_group, levels = age_labels)
+  reg_cm$c_age_group <- factor(reg_cm$c_age_group, levels = age_labels)
+  
+  r0_track_df <- data.frame()
+  for(reg in unique(reg_cm$p_engreg)){
+    cm_base <- reg_cm[p_engreg==reg]
+    cm_base[, p_engreg := NULL]
+    cm_base <- cm_base[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
+    R0TRACK <- c()
+    for(bs_i in unique(cm$bootstrap_index)){
+      cm_i <- cm_base %>% filter(bootstrap_index == bs_i)
+      cm_i <- cm_i %>%
+        arrange(p_imd_q, p_age_group, c_imd_q, c_age_group) %>%
+        mutate(p = paste0(p_imd_q, '_', p_age_group),
+               c = paste0(c_imd_q, '_', c_age_group)) %>%
+        select(p,c,n) %>% pivot_wider(names_from = c, values_from = n)
+      pvec <- cm_i$p
+      cm_i <- cm_i %>% select(!p) %>% as.matrix()
+      betanew <- R0(pars, cm_in = cm_i, R0assumed = 1.5, printout = 0)
+      R0TRACK <- c(R0TRACK, 1.5*beta_med/betanew)
+    }
+    r0_track_df <- rbind(r0_track_df,
+                         data.frame(region=reg,
+                                    bootstrap_index = unique(cm$bootstrap_index),
+                                    r0 = R0TRACK))
+    cat(reg, '-')
+  }
+  write_csv(r0_track_df, "output/data/epidem/regional/regional_r0.csv")  
+  
+  r_agg <- reg_cm %>% group_by(p_engreg, p_imd_q, p_age_group, c_imd_q, c_age_group) %>% 
+    summarise(m = mean(n)) %>% as.data.table()
+  reg_r0s <- data.table(region = unique(reg_cm$p_engreg), r0 = 0)
+  for(reg in unique(reg_cm$p_engreg)){
+    cm_base <- r_agg[p_engreg==reg]
+    cm_base[, p_engreg := NULL]
+    cm_base <- cm_base[order(p_imd_q, p_age_group, c_imd_q, c_age_group)]
+    cm <- cm_base %>%
+      arrange(p_imd_q, p_age_group, c_imd_q, c_age_group) %>%
+      mutate(p = paste0(p_imd_q, '_', p_age_group),
+             c = paste0(c_imd_q, '_', c_age_group)) %>%
+      select(p,c,m) %>% pivot_wider(names_from = c, values_from = m)
+    cm <- cm %>% select(!p) %>% as.matrix()
+    betanew <- R0(pars, cm_in = cm, R0assumed = 1.5, printout = 0)
+    reg_r0s[region == reg, r0 := 1.5*beta_med/betanew]
+  }
+}else{
+  beta <- read_csv("output/data/epidem/base/beta.csv",show_col_types=F)
+  r0_track_df <- read_csv("output/data/epidem/regional/regional_r0.csv", show_col_types=F)
+}
 
-beta <- read_csv("output/data/epidem/base/beta.csv",show_col_types=F)
-r0_track_df <- read_csv("output/data/epidem/regional/regional_r0.csv", show_col_types=F)
-
-false_legend <- imd_model_colors[c(3,8)]
-names(false_legend) <- c('National-level', 'Regional-level')
+false_legend <- imd_model_colors[c(3,8,13)]
+names(false_legend) <- c('National-level', 'Regional-level', 'Homogeneous mixing')
 
 cat('\nWarnings expected:\n')
 national_beta_plot <- beta %>% 
@@ -213,39 +237,64 @@ r0_track_df <- r0_track_df %>%
     T ~ region
   ))
 
-regional_r0_plot <- r0_track_df %>% 
+false_df <- r0_track_df %>% 
   group_by(region) %>% 
   summarise(m = median(r0), 
             l = quantile(r0, 0.025), u = quantile(r0, 0.975)) %>% 
   mutate(model='National-level') %>% 
   rbind(data.table(m=10,l=10,u=10,region='North\nEast',model='Regional-level')) %>% 
+  rbind(data.table(m=10,l=10,u=10,region='North\nEast',model='Homogeneous mixing'))
+false_df$model <- factor(false_df$model, levels = names(false_legend))
+
+false_df_nonagg <- r0_track_df %>% 
+  mutate(region = gsub(' and',' &',region)) %>% 
+  mutate(model='National-level') %>% 
+  rbind(data.table(bootstrap_index = 1, r0=2,region='North\nEast',model='Regional-level')) %>% 
+  rbind(data.table(bootstrap_index = 1, r0=2,region='North\nEast',model='Homogeneous mixing'))
+false_df_nonagg$model <- factor(false_df_nonagg$model, levels = names(false_legend))
+
+regional_r0_plot <- false_df_nonagg %>% 
   ggplot() + 
-  geom_errorbar(aes(x = region, ymin = l, ymax = u),
-                width = 0.4) + 
-  geom_point(aes(x = region, y = m),
-             size = 2) +
-  geom_ribbon(aes(x = region, ymin=10,ymax=10, fill=model, col=model), alpha = 0.4) +
-  geom_point(aes(x = region, y=10, col=model), size = 4) +
-  theme_bw() + ylim(c(0,4)) + 
+  geom_density(aes(x = r0), fill = 'white', alpha=1) +
+  geom_density(aes(x = r0), fill=1, alpha=0.1) +
+  geom_vline(data = false_df_nonagg %>%
+               filter(model=='National-level') %>%
+               group_by(region) %>% summarise(m = median(r0)),
+             aes(xintercept = m),
+             size = 0.6, lty=2) +
+  coord_flip() +
+  geom_ribbon(aes(x = r0, ymin=-1,ymax=-1, fill=model, col=model), alpha = 0.4) +
+  geom_point(aes(x = r0, y=-1, col=model), size = 4) +
+  theme_bw() + facet_grid(.~region, scale = 'free_x', switch="both") + 
   scale_fill_manual(values = false_legend) + 
-  scale_color_manual(values = false_legend) + 
-  labs(x = '', y = 'R0', col = 'Model', fill='Model') + 
-  theme(legend.position='bottom'); regional_r0_plot
+  scale_color_manual(values = false_legend) +
+  scale_x_continuous(limits = c(NA,3.5)) +
+  scale_y_continuous(limits = c(0,NA), expand = expansion(c(0.00075, 0.08))) +
+  labs(x = 'R0', y = '', col = 'Model', fill='Model') + 
+  theme(legend.position='bottom',
+        axis.ticks = element_line(linewidth = 0.25),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        strip.text.x = element_text(size = 7),
+        strip.background = element_rect(colour="white", fill="white")); regional_r0_plot
 
 #### patchwork ####
 
-layout <- "
-ABBBBBBBB
-CCCCEEEEE
-CCCCEEEEE
-DDDDEEEEE
-DDDDEEEEE
-"
-
-national_beta_plot + regional_r0_plot + arr_plot_imd + arr_plot_imd_as + 
-  arr_plot_imd_as_reg + 
-  plot_layout(design = layout) + 
-  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+# layout <- "
+# ABBBBBBBB
+# CCCCEEEEE
+# CCCCEEEEE
+# DDDDEEEEE
+# DDDDEEEEE
+# "
+# 
+# national_beta_plot + regional_r0_plot + arr_plot_imd + arr_plot_imd_as + 
+#   arr_plot_imd_as_reg + 
+#   plot_layout(design = layout) + 
+#   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
 
 layout <- "
 AAAADDDDD
@@ -260,21 +309,22 @@ regional_r0_plot + arr_plot_imd + arr_plot_imd_as +
   plot_layout(design = layout) + 
   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
 
-layout <- "
-AAAAABBBB
-AAAAABBBB
-AAAAACCCC
-AAAAACCCC
-AAAAADDDD
-"
-
-arr_plot_imd_as_reg + 
-  regional_r0_plot + arr_plot_imd + arr_plot_imd_as +
-  plot_layout(design = layout) + 
-  plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+# layout <- "
+# AAAAABBBB
+# AAAAABBBB
+# AAAAACCCC
+# AAAAACCCC
+# AAAAADDDD
+# AAAAADDDD
+# "
+# 
+# arr_plot_imd_as_reg + 
+#   regional_r0_plot + arr_plot_imd + arr_plot_imd_as +
+#   plot_layout(design = layout) + 
+#   plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
 
 ## save
-ggsave(.args[3], dpi=600, device = "png", width = 14, height = 10)  
+ggsave(.args[4], dpi=600, device = "png", width = 14, height = 10)  
 
 
 

@@ -207,6 +207,10 @@ imd_violin_plot <- function(data_in, regional = F, combined = F){
   if(combined){vec <- c(vec, 'model')}
   vec_no_sim <- vec[!vec=='sim']
   
+  if(combined){
+    data_in$model <- factor(data_in$model, levels = unique(data_in$model))
+  }
+  
   p <- data_in %>% 
     group_by(!!!syms(vec)) %>% 
     summarise(infections = sum(infections),
@@ -218,7 +222,7 @@ imd_violin_plot <- function(data_in, regional = F, combined = F){
     theme_bw() + 
     ylim(c(0,NA)) + 
     theme(text=element_text(size=12)) +
-    labs(y = "Attack rate per 1000 population", x = "IMD Quintile", color = "IMD quintile", fill = 'IMD quintile')
+    labs(y = "Attack rate per 1000 population", x = "IMD quintile", color = "IMD quintile", fill = 'IMD quintile')
   
   if(!combined){
     p <- p + 
@@ -325,22 +329,27 @@ rel_imd_violin_plot <- function(data_in,
     left_join(base_imd_ars, by = vec_no_imd) %>% 
     mutate(rel_ar = attack_rate/base_attack_rate)
   
+  if(combined){
+    rel_imd_ars$model <- factor(rel_imd_ars$model, levels = unique(data_in$model))
+  }
+  
   print_df <- rel_imd_ars %>% 
     group_by(!!!syms(vec_no_sim)) %>% 
     summarise(median = median(rel_ar),
               l = l95_func(rel_ar),
               u = u95_func(rel_ar),
               neat = paste0(round(100*(median-1), 3), ' (', 
-                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')'))
+                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')')) 
   
   print_df <- if(combined){
-    print_df %>% arrange(model, imd)
+    print_df %>% arrange(model, imd) %>% 
+      mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat,'\n'))
   }else{
     print_df %>% arrange(imd)
   }
   
   cat('\n')
-  cat(print_df$neat, sep = ', ')
+  cat(print_df$neat_long, sep = ', ')
   cat('\n')
   
   p <- rel_imd_ars %>% 
@@ -351,7 +360,7 @@ rel_imd_violin_plot <- function(data_in,
     theme_bw() +
     theme(legend.position = 'none',
           text=element_text(size=12)) +
-    labs(y = "Relative attack rate", x = 'IMD Quintile')
+    labs(y = "Relative attack rate", x = 'IMD quintile')
   
   if(!combined){
     p <- p + 
@@ -362,7 +371,8 @@ rel_imd_violin_plot <- function(data_in,
   }else{
     p <- p + 
       geom_violin(aes(x = imd, y = rel_ar, fill = interaction(imd,model), 
-                      col = interaction(imd,model), group = interaction(model,imd)), alpha = 0.4)  +
+                      col = interaction(imd,model), group = interaction(model,imd)), 
+                  alpha = 0.4, , scale='width')  +
       geom_point(aes(x = imd, y = median, col = interaction(imd,model), group = model), 
                  size = 4, position = position_dodge(width = 0.9)) +
       ylim(c(0.7,1.3)) +
@@ -428,22 +438,27 @@ age_standardised_rel_imd_violin_plot <- function(
     left_join(base_imd_ars, by = vec_no_imd) %>% 
     mutate(rel_ar = as_attack_rate/base_as_attack_rate)
   
+  if(combined){
+    rel_imd_ars_as$model <- factor(rel_imd_ars_as$model, levels = unique(data_in$model))
+  }
+  
   print_df <- rel_imd_ars_as %>% 
     group_by(!!!syms(vec_no_sim)) %>% 
     summarise(median = median(rel_ar),
               l = l95_func(rel_ar),
               u = u95_func(rel_ar),
               neat = paste0(round(100*(median-1), 3), ' (', 
-                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')')) 
+                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')'))
   
   print_df <- if(combined){
-    print_df %>% arrange(model, imd)
+    print_df %>% arrange(model, imd) %>% 
+      mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat,'\n'))
   }else{
     print_df %>% arrange(imd)
   }
     
   cat('\n')
-  cat(print_df$neat,sep = ', ')
+  cat(print_df$neat_long,sep = ', ')
   cat('\n')
   
   p <- rel_imd_ars_as %>% 
@@ -453,7 +468,7 @@ age_standardised_rel_imd_violin_plot <- function(
     geom_hline(yintercept = 1, lty = 2, alpha = 0.5) + 
     theme_bw() +
     theme(text=element_text(size=12)) +
-    labs(y = "Relative attack rate (age-standardised)", x = 'IMD Quintile')
+    labs(y = "Relative attack rate (age-standardised)", x = 'IMD quintile')
   
   if(!combined){
     p <- p + 
@@ -465,7 +480,8 @@ age_standardised_rel_imd_violin_plot <- function(
   }else{
     p <- p + 
       geom_violin(aes(x = imd, y = rel_ar, fill = interaction(imd,model), 
-                      col = interaction(imd,model), group = interaction(model,imd)), alpha = 0.4)  +
+                      col = interaction(imd,model), group = interaction(model,imd)), 
+                  alpha = 0.4, scale='width')  +
       geom_point(aes(x = imd, y = median, col = interaction(imd,model), group = model), 
                  size = 4, position = position_dodge(width = 0.9)) +
       ylim(c(0.7,1.3)) +

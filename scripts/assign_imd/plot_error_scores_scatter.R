@@ -61,13 +61,13 @@ plot_df <- error_scores %>%
   arrange(mean_stat) %>% 
   mutate(rank = 1:n()) 
 
-## remove household tenure and urban/rural
+## remove region and urban/rural
 plot_df <- plot_df %>%
-  filter(! variable %like% 'engreg|tenure|urban') %>% 
+  filter(! variable %like% 'engreg|urban') %>% 
   mutate(predictors = gsub('pcd1','pcd',predictors))
 
-labs_vars <- c('Age group','Household size','Highest qualification','Ethnicity','NS-SEC')
-names(labs_vars) <- c("age_grp", "hh_size", "hiqual", "ethnicity", "sec_input")
+labs_vars <- c('Age group','Household size','Highest qualification','Ethnicity','NS-SEC','Household tenure')
+names(labs_vars) <- c("age_grp", "hh_size", "hiqual", "ethnicity", "sec_input", "hh_tenure")
 
 write_csv(
   plot_df %>% group_by(predictors, method) %>% summarise(mean_mean_stat = mean(mean_stat)) %>% arrange(mean_mean_stat),
@@ -102,7 +102,7 @@ plot_df %>%
 
 ## save
 ggsave(.args[3],
-       width = 14, height = 6)
+       width = 16, height = 6)
 
 
 

@@ -15,9 +15,9 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","regional","imd_assortativity.csv"),
-  "regional",
-  file.path("output", "figures", "cont_matrs","regional","summstats.png")
+  file.path("output", "data", "cont_matrs","base","imd_assortativity.csv"),
+  "base",
+  file.path("output", "figures", "cont_matrs","base","summstats.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -102,10 +102,13 @@ mean_age_diff_plot <- m_a_d %>%
   ggplot() + 
   geom_tile(aes(x=p_i, y=c_i, fill=m)) +
   theme_bw() + scale_fill_viridis(option='A') +
-  theme(text = element_text(size = 12)) +
   labs(x='Participant IMD quintile',
        y='Contact IMD quintile',
-       fill = 'Mean age\ndifference')
+       fill = 'Mean age\ndifference') +
+  scale_x_continuous(expand = expansion(c(0.00075, 0.00075))) +
+  scale_y_continuous(expand = expansion(c(0.00075, 0.00075))) +
+  theme(text = element_text(size = 14),
+        axis.ticks = element_line(linewidth = 0.25)) + coord_fixed()
 
 if(grepl('regional',sens_analysis)){
   mean_age_diff_plot <- mean_age_diff_plot + facet_wrap(.~p_engreg)
@@ -124,7 +127,7 @@ m_i_d_plot <- m_i_d %>%
   ggplot() + 
   geom_tile(aes(x=p_a, y=c_a, fill=m)) +
   theme_bw() + scale_fill_viridis(option='A') +
-  theme(text = element_text(size = 12)) +
+  theme(text = element_text(size = 14)) +
   labs(x='Participant age group',
        y='Contact age group',
        fill = 'Mean absolute\nIMD difference') + 
@@ -176,7 +179,10 @@ if(!grepl('regional',sens_analysis)){
     theme_bw() +
     labs(x = 'Participant IMD quintile', y = 'Contact IMD quintile', 
          fill = 'Assortativity\nby age group') + 
-    theme(text = element_text(size = 12))
+    scale_x_continuous(expand = expansion(c(0.00075, 0.00075))) +
+    scale_y_continuous(expand = expansion(c(0.00075, 0.00075))) +
+    theme(text = element_text(size = 14),
+          axis.ticks = element_line(linewidth = 0.25)) + coord_fixed()
   
   age_assort_matr <- age_assortativity %>% 
     ggplot() + 
@@ -185,8 +191,11 @@ if(!grepl('regional',sens_analysis)){
     theme_bw() +
     labs(x = 'Participant age group', y = 'Contact age group', 
          fill = 'Assortativity\nby IMD quintile') +
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-          text = element_text(size = 12))
+    scale_x_discrete(expand = expansion(c(0.00075, 0.00075))) +
+    scale_y_discrete(expand = expansion(c(0.00075, 0.00075))) +
+    theme(text = element_text(size = 14),
+          axis.ticks = element_line(linewidth = 0.25),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + coord_fixed()
   
   imd_assort_matr + age_assort_matr + plot_layout(nrow = 1)
   
@@ -213,7 +222,7 @@ if(!grepl('regional',sens_analysis)){
     theme_bw() + facet_wrap(.~p_engreg) +
     labs(x = 'Participant IMD quintile', y = 'Contact IMD quintile', 
          fill = 'Assortativity\nby age group') + 
-    theme(text = element_text(size = 12))
+    theme(text = element_text(size = 14)) + coord_fixed()
   
   age_assort_matr <- age_assortativity %>% 
     ggplot() + 
@@ -224,7 +233,7 @@ if(!grepl('regional',sens_analysis)){
     labs(x = 'Participant age group', y = 'Contact age group', 
          fill = 'Assortativity\nby IMD quintile') +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-          text = element_text(size = 12))
+          text = element_text(size = 14)) + coord_fixed()
   
   imd_assort_matr + age_assort_matr + plot_layout(nrow = 1)
   

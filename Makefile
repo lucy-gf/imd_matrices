@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allepid allmatrsplots 
+localdef: allepid allmatrsplots
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -78,9 +78,11 @@ M_SENS_ANALYSES ?= ${A_SENS_ANALYSES_AND_NHS} large_n_age no_cap_100
 M_SENS_ANALYSES_BALANCE ?= ${M_SENS_ANALYSES} balance_sett_spec
 
 # epidemic sensitivity analyses
-E_SENS_ANALYSES ?= base regional old_imd nhs_ages large_n_age no_cap_100 balance_sett_spec
+E_SENS_ANALYSES ?= base regional old_imd nhs_ages large_n_age no_cap_100 balance_sett_spec hom_mixing
 
-E_SENS_ANALYSES_NO_REG ?= base old_imd large_n_age no_cap_100 balance_sett_spec nhs_ages
+E_SENS_ANALYSES_NO_HOM ?= base regional old_imd nhs_ages large_n_age no_cap_100 balance_sett_spec
+
+E_SENS_ANALYSES_NO_REG ?= base old_imd large_n_age no_cap_100 balance_sett_spec nhs_ages hom_mixing
 
 # functions to make into assigned .rds
 makeagesuffix = $(addprefix ${CONTDATA}/fitted_matrs_,$(patsubst %,%.${DATAEXT},$(1))) 
@@ -296,7 +298,7 @@ all_cm_inputs: alldegdistr allmeancontacts allsampledcont sampledcont_nhs sample
 ########## Run contact matrix fitting ##########
 ################################################
 
-## Commented out as the fitting is run on the HPC as a separate job ##
+## Commented out as the fitting is run on the HPC as a separate job ##
 	
 #${CONTDATA}/base/fitted_matrs_%.csv: ${CONTCODE}/fit_cont_matrs.R ${CONTDATA}/base/participants.rds ${CONTDATA}/base/indiv_contacts.rds ${CONTDATA}/base/cont_imd_distr.rds ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds
 #	$(call R, base $*)
@@ -409,7 +411,14 @@ allmatrsplots: allmatrsplots_agg allmatrsplots_summ allmatrsplots_shape allmatrs
 ${EPIDDATA}/%/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/%/fitted_matrs_balanced.csv 
 	$(call R, $*)
 
-allepidout: $(patsubst %,${EPIDDATA}/%/byall.rds, ${E_SENS_ANALYSES}) 
+epidout: $(patsubst %,${EPIDDATA}/%/byall.rds, ${E_SENS_ANALYSES_NO_HOM}) 
+
+${EPIDDATA}/hom_mixing/byall.rds: ${EPIDCODE}/modelrun.r ${CONTDATA}/base/fitted_matrs_balanced.csv 
+	$(call R, $*)
+
+homepidout: $(patsubst %,${EPIDDATA}/%/byall.rds, hom_mixing) 
+
+allepidout: epidout homepidout
 
 ${EPIDDATA}/%/epidemic_outputs.rds: ${EPIDCODE}/process_epidem.r ${EPIDDATA}/%/byall.rds
 	$(call R, $*)
@@ -431,7 +440,11 @@ ${EPIDFIG}/merged_attack_rates.png: ${EPIDCODE}/merged_attack_rates.r ${EPIDDATA
 
 epidmergedplot: ${EPIDFIG}/merged_attack_rates.png
 
-allepid: allepidtrajplots allepidarplots epidmergedplot
+${EPIDFIG}/sens_analyses_comparison.png: ${EPIDCODE}/sens_analyses_plots.r 
+
+epidSAplot: ${EPIDFIG}/sens_analyses_comparison.png
+
+allepid: allepidtrajplots allepidarplots epidmergedplot epidSAplot
 
 
 

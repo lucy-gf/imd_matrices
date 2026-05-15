@@ -101,19 +101,24 @@ plot_imd <- function(data, imd){
   
   p <- data_plot %>% 
     ggplot() + 
-    geom_bar(aes(x = imd_id, y = value, fill = name),
+    geom_bar(aes(x = imd_id, y = value/100, fill = name),
              position = 'stack', stat='identity', width=1) +
     theme_bw() +
-    labs(fill = 'IMD quintile', x = '', y = 'Percentage assigned') + 
+    labs(fill = 'IMD quintile', x = 'Participant', y = 'Simulations assigned IMD quintile',
+         title = paste0('Participants mainly assigned IMD ', imd)) + 
     scale_fill_manual(values = imd_quintile_colors) + 
+    scale_x_continuous(expand = expansion(c(0.00075, 0.00075))) +
+    scale_y_continuous(labels = scales::percent) +
     facet_grid(max_imd ~ .) +
     theme(strip.background = element_blank(),
           strip.text = element_blank(),
-          axis.title.x=element_blank(),
+          # axis.title.x=element_blank(),
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank(),
+          axis.ticks.y = element_line(linewidth = 0.25),
           panel.border=element_blank(),
-          panel.spacing.x=unit(0, "lines"))
+          panel.spacing.x=unit(0, "lines"),
+          plot.title = element_text(size=12, face='bold', hjust=0.5))
   
   if(imd != 1){
     p <- p + theme(legend.position = 'none')
@@ -122,6 +127,10 @@ plot_imd <- function(data, imd){
   if(imd != 3){
     p <- p + labs(y = '')
   }
+  
+  # if(imd != 5){
+  #   p <- p + labs(x = '')
+  # }
   
   p
   

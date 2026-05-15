@@ -343,6 +343,8 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional','regional_nhs_ages'))
       y = 'Contact IMD quintile',
       fill = 'Proportion of\ntotal contacts'
     ) + 
+    scale_x_continuous(expand = expansion(c(0.00075, 0.00075))) +
+    scale_y_continuous(expand = expansion(c(0.00075, 0.00075))) +
     theme(#strip.background = element_blank(),
       strip.placement = "outside",
       text = element_text(size = 18))
@@ -620,10 +622,14 @@ if(!grepl('regional',sens_analysis)){
       y = 'Contact IMD, age group',
       fill = 'Mean daily\ncontacts'
     ) + 
+    scale_x_discrete(expand = expansion(c(0.00075, 0.00075))) + 
+    scale_y_discrete(expand = expansion(c(0.00075, 0.00075))) + 
     theme(strip.background = element_blank(),
           strip.placement = "outside",
-          text = element_text(size = 14),
-          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)); cm
+          text = element_text(size = 18),
+          axis.ticks = element_line(linewidth = 0),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12),
+          axis.text.y = element_text(size = 12)); cm
 
   layout <- '
 AABBCCDDEE#

@@ -129,6 +129,58 @@ if(sens_analysis != 'regional'){
   barchart_plot(infections)
   ggsave(.args[3], dpi=600, device = "png", width = 12, height = 6)
   
+  if(sens_analysis == 'base'){
+    
+    vec <- c('imd','age')
+    
+    base_dat <- infections %>% 
+      group_by(!!!syms(vec)) %>% 
+      summarise(median = median(attack_rate),
+                l95 = l95_func(attack_rate),
+                u95 = u95_func(attack_rate)) 
+    
+    dat <- readRDS(gsub('base','hom_mixing',.args[1])) %>% 
+      group_by(age,imd) %>% 
+      summarise(median = median(attack_rate),
+                l95 = l95_func(attack_rate),
+                u95 = u95_func(attack_rate))
+    
+    base_dat %>% 
+      mutate(model = 'Het. mixing') %>% 
+      rbind(dat %>% mutate(model = 'Hom. mixing')) %>% 
+      ggplot() +
+      geom_errorbar(aes(x = age, ymin = 1000*l95, ymax = 1000*u95, 
+                        group = interaction(model,as.factor(imd)), col = as.factor(imd),
+                        lty = model), 
+                    width = 0.4, position = position_dodge(width = 0.9), alpha = 1) +
+      geom_point(aes(x = age, y = 1000*median, col = as.factor(imd),
+                     group = interaction(model,as.factor(imd))),
+                 position = position_dodge(width = 0.9), col='white') +
+      geom_point(aes(x = age, y = 1000*median, col = as.factor(imd),
+                     shape = model,
+                     group = interaction(model,as.factor(imd))),
+                 position = position_dodge(width = 0.9)) +
+      theme_bw() +
+      scale_color_manual(values = imd_quintile_colors) + 
+      scale_shape_manual(values = c(19,1)) + 
+      scale_linetype_manual(values = c(1,2)) +
+      # scale_alpha_manual(values = c(1,0.5)) +
+      scale_y_continuous(limits = c(0,1000), expand = expansion(c(0.00075, 0.025))) +
+      theme(text=element_text(size=10),
+            legend.key.size = unit(2, 'mm'),
+            plot.title = element_text(size = 12),
+            axis.text.y = element_text(color=1),
+            axis.text.x = element_text(color=1),
+            axis.ticks = element_line(linewidth = 0.25)) +
+      labs(y = "Attack rate per 1000 population", x = "Age group", 
+           color = "IMD quintile", fill = 'IMD quintile',
+           lty='Mixing\nassumptions', shape='Mixing\nassumptions')
+      
+    ggsave(gsub('attack','mixing_attack',.args[3]), dpi=600, device = "png", width = 15, height = 6)
+  }
+  
+  
+  
   final_size_vio <- imd_violin_plot(infections); final_size_vio
   
   age_spec_infections(infections)

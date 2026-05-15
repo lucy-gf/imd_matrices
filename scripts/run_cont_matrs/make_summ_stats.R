@@ -15,9 +15,9 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv"),
-  "regional",
-  file.path("output", "data", "cont_matrs","regional","imd_assortativity.csv")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
+  "base",
+  file.path("output", "data", "cont_matrs","base","imd_assortativity.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))

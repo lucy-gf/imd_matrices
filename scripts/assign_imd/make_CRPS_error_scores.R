@@ -20,9 +20,9 @@ source(file.path("scripts", "assign_imd", "load_true_data.R"))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "assignment","connect_prob_pcd1.rds"),
+  file.path("output", "data", "assignment","connect_prob_pcd.rds"),
   'prob_pcd1',
-  file.path("output", "data", "assignment","crps","prob_pcd1_scores.csv")
+  file.path("output", "data", "assignment","crps","prob_pcd_scores.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 directory <- file.path("output", "data", "assignment","crps")

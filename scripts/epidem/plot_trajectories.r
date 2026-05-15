@@ -19,6 +19,7 @@ options(dplyr.summarise.inform = FALSE)
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
+if(!file.exists(gsub('/time_series.png','',.args[3]))){dir.create(gsub('/time_series.png','',.args[3]))}
 
 #### RUN ALL SETUP ####
 {

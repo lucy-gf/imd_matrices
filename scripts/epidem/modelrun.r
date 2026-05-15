@@ -19,6 +19,9 @@ library(purrr)
 
 sens_analysis <- .args[2]
 
+HOM_MIXING <- ifelse(sens_analysis == 'hom_mixing',
+                     T, F)
+
 if(!file.exists(gsub('/byall.rds','',.args[3]))){dir.create(gsub('/byall.rds','',.args[3]))}
 
 # source colors etc.
@@ -193,19 +196,65 @@ run_epidemic <- function(
   ## run model x1000
   for(sim_num in 1:n_bs){
     
-    cm <- cm_1000[bootstrap_index == sim_num,] 
-    cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages)
-    cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
-    cm <- cm[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
-    cm <- cm %>% 
-      mutate(p = paste0(p_imd_q, '_', p_age_group),
-             c = paste0(c_imd_q, '_', c_age_group)) %>% 
-      select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
-    pvec <- cm$p 
-    cm <- cm %>% select(!p) %>% as.matrix()
-    if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
-    if(grepl('14', pvec[2])){warning('CM names wrong')}
-    cmdim1 = dim(cm)[1]
+    if(!HOM_MIXING){
+      cm <- cm_1000[bootstrap_index == sim_num,] 
+      cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages)
+      cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
+      cm <- cm[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
+      cm <- cm %>% 
+        mutate(p = paste0(p_imd_q, '_', p_age_group),
+               c = paste0(c_imd_q, '_', c_age_group)) %>% 
+        select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
+      pvec <- cm$p 
+      cm <- cm %>% select(!p) %>% as.matrix()
+      if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
+      if(grepl('14', pvec[2])){warning('CM names wrong')}
+      cmdim1 = dim(cm)[1]
+    }
+    
+    if(HOM_MIXING){
+      
+      ## random mixing (age-specific, proportionate to IMD age size): 
+      
+      cm <- cm_1000[bootstrap_index == sim_num,] 
+      cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages)
+      cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
+      
+      # weighted sum over IMD quintiles by age groups
+      nimd <- n_distinct(cm$p_imd_q)
+      cm <- cm %>% select(!bootstrap_index) %>% 
+        left_join(demog %>% select(IMD, Age, Population) %>% 
+                               rename(p_imd_q = IMD,
+                                      p_age_group = Age),
+                             by = c('p_imd_q','p_age_group')) %>% 
+        group_by(p_age_group, c_imd_q, c_age_group) %>% 
+        mutate(age_spec_pop = sum(Population),
+               age_spec_imd_prop = Population/age_spec_pop) %>% 
+        ungroup() %>% 
+        group_by(p_imd_q, p_age_group, age_spec_imd_prop, c_imd_q, c_age_group) %>% 
+        summarise(n = sum(n)) %>% 
+        group_by(p_age_group, c_age_group) %>% 
+        mutate(weighted_mean = weighted.mean(x = n, w = age_spec_imd_prop)) %>% 
+        group_by(p_imd_q, p_age_group, c_imd_q, c_age_group) %>% 
+        summarise(n = age_spec_imd_prop*weighted_mean) %>% 
+        ungroup() %>% 
+        mutate(p = paste0(p_imd_q, '_', p_age_group),
+               c = paste0(c_imd_q, '_', c_age_group)) %>% 
+        select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
+      
+      pvec <- cm$p 
+      cm <- cm %>% select(!p) %>% as.matrix()
+      
+      ## plot contact matrix
+      # heatmap(cm, Colv = NA, Rowv = NA, scale = 'none')
+      ## plot per capita contact matrix (independent of IMD quintile)
+      # heatmap(cm/demog$Population, Colv = NA, Rowv = NA, scale = 'none')
+      
+      if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
+      if(grepl('14', pvec[2])){warning('CM names wrong')}
+      cmdim1 = dim(cm)[1]
+      
+    }
     
     ## R0, set new beta
     if(!pset$R0fixed){betanew <- pars$beta}else{

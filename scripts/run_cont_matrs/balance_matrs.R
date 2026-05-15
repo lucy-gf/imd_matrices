@@ -11,9 +11,9 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
-  "base",
-  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv")
+  file.path("output", "data", "cont_matrs","regional","fitted_matrs.csv"),
+  "regional",
+  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -122,6 +122,14 @@ matrix_save <- balanced_matr %>%
          Contact_IMD = c_imd_q,
          Participant_age_group = p_age_group,
          Contact_age_group = c_age_group)
+
+matrix_save$Participant_age_group <- factor(matrix_save$Participant_age_group,
+                                            levels = age_labels)
+matrix_save$Contact_age_group <- factor(matrix_save$Contact_age_group,
+                                            levels = age_labels)
+
+matrix_save <- matrix_save %>% 
+  arrange(Participant_IMD, Contact_IMD, Participant_age_group, Contact_age_group)
 
 if(grepl('regional', sens_analysis)){
   matrix_save <- matrix_save %>% rename(Region = p_engreg)
