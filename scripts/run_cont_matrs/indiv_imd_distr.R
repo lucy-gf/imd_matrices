@@ -105,7 +105,7 @@ plot_imd <- function(data, imd){
              position = 'stack', stat='identity', width=1) +
     theme_bw() +
     labs(fill = 'IMD quintile', x = 'Participant', y = 'Simulations assigned IMD quintile',
-         title = paste0('Participants mainly assigned IMD ', imd)) + 
+         title = paste0('Mainly assigned IMD ', imd)) + 
     scale_fill_manual(values = imd_quintile_colors) + 
     scale_x_continuous(expand = expansion(c(0.00075, 0.00075))) +
     scale_y_continuous(labels = scales::percent) +
