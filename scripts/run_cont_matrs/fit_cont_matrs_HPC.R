@@ -114,11 +114,11 @@ if(sens_analysis != 'no_cap_100'){
   
 }
 
-# use polymod individual weights unless in 'large_n_age' sens analysis
-weights <- if(sens_analysis %notin% c("nhs_ages","regional_nhs_ages","large_n_age")){
-  poly_weights
-}else{
+# use reconnect individual weights unless in 'large_n_age' sens analysis
+weights <- if(sens_analysis %notin% c("large_n_age")){
   reconnect_weights
+}else{
+  poly_weights
 }
 
 # parallelised function

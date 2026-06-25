@@ -168,7 +168,7 @@ method_shapes <- c('det' = 1, 'prob' = 19)
 method_names <- c('Deterministic','Probabilistic')
 names(method_names) <- c('det','prob')
 
-sens_analysis_names <- c('IMD 2019','Reconnect for large group\ncontact age distribution',
+sens_analysis_names <- c('IMD 2019','POLYMOD for large group\ncontact age distribution',
                          'No maximum\ncontact cap', 'Setting-specific\nmatrix balancing')
 names(sens_analysis_names) <- c('old_imd', 'large_n_age', 'no_cap_100', 'balance_sett_spec')
 
