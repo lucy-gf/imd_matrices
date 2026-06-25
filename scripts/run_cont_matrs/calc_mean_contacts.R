@@ -87,19 +87,19 @@ make_panel <- function(plot_df,
                   width = 0, linewidth = 2,
                   position = position_dodge(0.9), alpha = shade95) +
     geom_errorbar(aes(ymin = lower50,          ymax = upper50),
-                  width = 0, linewidth = 2,
+                  width = 0, linewidth = 3,
                   position = position_dodge(0.9), alpha = shade50) +
     geom_errorbar(aes(ymin = mean - updown,    ymax = mean + updown),
-                  width = 0, linewidth = 3,
+                  width = 0, linewidth = 4,
                   position = position_dodge(0.9), alpha = 1) +
     geom_errorbar(aes(ymin = mean - updown,    ymax = mean + updown),
-                  width = 0, linewidth = 3,
+                  width = 0, linewidth = 4,
                   position = position_dodge(0.9), alpha = black_alpha, col = "black") +
     scale_color_manual(values = imd_quintile_colors) +
     scale_y_continuous(limits = y_limits, expand = expansion(c(0.00075, 0.025))) +
     theme_bw() +
     theme(
-      text          = element_text(size = 14),
+      text          = element_text(size = 16),
       axis.ticks    = element_line(linewidth = 0.25),
       legend.position = if (legend) "top" else "none"
     ) +
@@ -159,8 +159,8 @@ panel_specs <- list(
     csv_suffix   = "imd_quintile_p_income_p_broad_age",
     x_var        = "p_income",
     x_label      = "Household income",
-    y_limits     = c(0, NA),
-    legend       = TRUE,
+    y_limits     = c(0, 25),
+    legend       = F,
     pre_process  = function(dt) {
       income_levels <- c("Less than £20,000", "£20,000 - £39,999",
                          "£40,000 - £59,999", "£60,000 - £100,000", "Over £100,000")
@@ -184,8 +184,8 @@ panel_specs <- list(
     csv_suffix   = "imd_quintile_p_age_group",
     x_var        = "p_age_group",
     x_label      = "Age group",
-    y_limits     = c(0, NA),
-    legend       = FALSE,
+    y_limits     = c(0, 25),
+    legend       = T,
     pre_process  = function(dt) {
       dt %>% mutate(p_age_group = factor(p_age_group, levels = age_labels))
     }

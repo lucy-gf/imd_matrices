@@ -107,9 +107,9 @@ reg_infections[, attack_rate := infections/pop]
 infections_hom <- data.table(readRDS(.args[3]))
 
 combined_infections <- rbind(
+  infections_hom %>% mutate(model = 'Homogeneous mixing'),
   infections_base %>% mutate(model = 'National-level'),
-  reg_infections %>% mutate(model = 'Regional-level'),
-  infections_hom %>% mutate(model = 'Homogeneous mixing')
+  reg_infections %>% mutate(model = 'Regional-level')
 )
 
 final_size_vio <- imd_violin_plot(combined_infections,

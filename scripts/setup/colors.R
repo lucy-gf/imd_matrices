@@ -185,15 +185,18 @@ variable_colors <- c('nssec' = '#66c2a4', 'age' = '#7a0177',
 gender_colors <- c('Female' = '#31a354', 'Male' = '#7a0177')
 
 
-imd_model_colors <- c(imd_quintile_colors,rev(c('#c6dbef','#6baed6','#4292c6','#2171b5','#08519c')),
-                      rev(c('#d9f0a3', '#78c679','#41ab5d','#006837','#004529')))
-names(imd_model_colors) <- paste0(rep(1:5,3), '.', c(rep('National-level',5),
-                                                     rep('Regional-level',5),
-                                                     rep('Homogeneous mixing',5)))
+imd_model_colors <- c(rev(c('#d9f0a3', '#78c679','#41ab5d','#006837','#004529')),
+                      imd_quintile_colors,rev(c('#c6dbef','#6baed6','#4292c6','#2171b5','#08519c'))
+                      )
+names(imd_model_colors) <- paste0(rep(1:5,3), '.', c(rep('Homogeneous mixing',5),
+                                                     rep('National-level',5),
+                                                     rep('Regional-level',5)
+                                                     ))
 
-imd_model_labels <- paste0(c(rep('National-level',5),
-                             rep('Regional-level',5),
-                             rep('Homogeneous mixing',5)),
+imd_model_labels <- paste0(c(rep('Homogeneous mixing',5),
+                             rep('National-level',5),
+                             rep('Regional-level',5)
+                             ),
                            ', IMD ', rep(1:5,3))
 
 

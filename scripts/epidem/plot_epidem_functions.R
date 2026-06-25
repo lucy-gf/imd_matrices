@@ -345,11 +345,12 @@ rel_imd_violin_plot <- function(data_in,
     print_df %>% arrange(model, imd) %>% 
       mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat,'\n'))
   }else{
-    print_df %>% arrange(imd)
+    print_df %>% arrange(imd) %>% 
+      mutate(neat_long = paste0('IMD ', imd, ': ', neat,'\n'))
   }
   
   cat('\n')
-  cat(print_df$neat_long, sep = ', ')
+  cat(print_df$neat_long, sep = '')
   cat('\n')
   
   p <- rel_imd_ars %>% 
@@ -454,11 +455,12 @@ age_standardised_rel_imd_violin_plot <- function(
     print_df %>% arrange(model, imd) %>% 
       mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat,'\n'))
   }else{
-    print_df %>% arrange(imd)
+    print_df %>% arrange(imd) %>% 
+      mutate(neat_long = paste0('IMD ', imd, ': ', neat,'\n'))
   }
     
   cat('\n')
-  cat(print_df$neat_long,sep = ', ')
+  cat(print_df$neat_long,sep = '')
   cat('\n')
   
   p <- rel_imd_ars_as %>% 

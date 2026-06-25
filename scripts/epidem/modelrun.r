@@ -39,6 +39,56 @@ pset$Disease <- "Influenza"
 # set seed
 set.seed(120)
 
+## functions for homogeneous mixing
+
+agg_cm_over_imd <- function(
+    contact_matrix, demography){
+  
+  contact_matrix %>% 
+    left_join(
+      demography %>% rename(p_imd_q = IMD, p_age_group = Age) %>% 
+        group_by(p_age_group) %>% 
+        mutate(age_pop = sum(Population),
+               imd_prop_of_age = Population/age_pop) %>% 
+        select(!c(tot_pop, Population, Proportion)), 
+      by = c('p_imd_q','p_age_group')
+    ) %>% 
+    group_by(p_imd_q, p_age_group, c_age_group, imd_prop_of_age) %>% 
+    summarise(n = sum(n)) %>% # sum over c_imd_q
+    group_by(p_age_group, c_age_group) %>% 
+    summarise(n = weighted.mean(x = n, w = imd_prop_of_age)) # weighted mean over p_imd_q
+  
+}
+
+disagg_cm_over_imd <- function(
+    contact_matrix, demography){
+  
+  cm_contact_imd <- rbind(
+    contact_matrix %>% mutate(c_imd_q = 1),
+    contact_matrix %>% mutate(c_imd_q = 2),
+    contact_matrix %>% mutate(c_imd_q = 3),
+    contact_matrix %>% mutate(c_imd_q = 4),
+    contact_matrix %>% mutate(c_imd_q = 5)
+  ) %>% 
+    left_join(demography %>% 
+                rename(c_imd_q = IMD, c_age_group = Age) %>% 
+                group_by(c_age_group) %>% 
+                mutate(age_pop = sum(Population),
+                       imd_prop_of_age = Population/age_pop) %>% 
+                select(!c(tot_pop, Population, Proportion)), 
+              by = c('c_imd_q','c_age_group')) %>% 
+    mutate(n = n*imd_prop_of_age)
+  
+  cm_full_imd <- rbind(
+    cm_contact_imd %>% mutate(p_imd_q = 1),
+    cm_contact_imd %>% mutate(p_imd_q = 2),
+    cm_contact_imd %>% mutate(p_imd_q = 3),
+    cm_contact_imd %>% mutate(p_imd_q = 4),
+    cm_contact_imd %>% mutate(p_imd_q = 5)
+  ) 
+  
+}
+
 #### FUNCTION ####
 
 run_epidemic <- function(
@@ -220,23 +270,12 @@ run_epidemic <- function(
       cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages)
       cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
       
-      # weighted sum over IMD quintiles by age groups
-      nimd <- n_distinct(cm$p_imd_q)
-      cm <- cm %>% select(!bootstrap_index) %>% 
-        left_join(demog %>% select(IMD, Age, Population) %>% 
-                               rename(p_imd_q = IMD,
-                                      p_age_group = Age),
-                             by = c('p_imd_q','p_age_group')) %>% 
-        group_by(p_age_group, c_imd_q, c_age_group) %>% 
-        mutate(age_spec_pop = sum(Population),
-               age_spec_imd_prop = Population/age_spec_pop) %>% 
-        ungroup() %>% 
-        group_by(p_imd_q, p_age_group, age_spec_imd_prop, c_imd_q, c_age_group) %>% 
-        summarise(n = sum(n)) %>% 
-        group_by(p_age_group, c_age_group) %>% 
-        mutate(weighted_mean = weighted.mean(x = n, w = age_spec_imd_prop)) %>% 
-        group_by(p_imd_q, p_age_group, c_imd_q, c_age_group) %>% 
-        summarise(n = age_spec_imd_prop*weighted_mean) %>% 
+      # aggregate over IMD
+      agg_cm <- agg_cm_over_imd(cm, demog)
+      # disaggregate randomly over IMD
+      hom_cm <- disagg_cm_over_imd(agg_cm, demog)
+      
+      cm <- hom_cm %>% 
         ungroup() %>% 
         mutate(p = paste0(p_imd_q, '_', p_age_group),
                c = paste0(c_imd_q, '_', c_age_group)) %>% 
@@ -245,10 +284,34 @@ run_epidemic <- function(
       pvec <- cm$p 
       cm <- cm %>% select(!p) %>% as.matrix()
       
+      ## make reciprocal
+      pop_vec <- demog$Population
+      mu_ij_p_i <- cm*pop_vec
+      mu_ji_p_j <- t(mu_ij_p_i)
+      cm <- (mu_ij_p_i + mu_ji_p_j) / (2*pop_vec)
+      # check:
+      if(sum(abs(cm*pop_vec - t(cm*pop_vec))) > 0.001){warning('Hom mixing not reciprocal')}
+      per_cap_cm <- t(t(cm)/pop_vec)
+      indiv_per_cap_cms <- c()
+      for(k1 in 1:5){
+        for(k2 in 1:5){
+           
+          values <- c(per_cap_cm[(16*(k1) - 15):(16*(k1)), (16*(k2) - 15):(16*(k2))])
+          
+          if(k1 == 1 & k2 == 1){
+            test_values <- values
+            indiv_per_cap_cms <- values
+            }
+          
+          indiv_per_cap_cms <- (indiv_per_cap_cms + values)/2
+        }
+      }
+      if(all.equal(test_values,indiv_per_cap_cms) != T){warning('Hom mixing per capita matrices wrong')}
+      
       ## plot contact matrix
       # heatmap(cm, Colv = NA, Rowv = NA, scale = 'none')
       ## plot per capita contact matrix (independent of IMD quintile)
-      # heatmap(cm/demog$Population, Colv = NA, Rowv = NA, scale = 'none')
+      # heatmap(per_cap_cm, Colv = NA, Rowv = NA, scale = 'none')
       
       if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
       if(grepl('14', pvec[2])){warning('CM names wrong')}

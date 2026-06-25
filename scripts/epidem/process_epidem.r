@@ -161,6 +161,13 @@ if(sens_analysis != 'regional'){
   
   byall <- readRDS(.args[1])
   
+  if(any(byall[nrow(byall),3:(ncol(byall)-2)] > 1)){
+    warning('Final day of epidemic not small enough')
+  }
+  if(any(byall[nrow(byall),3:(ncol(byall)-2)] > byall[nrow(byall) - 1,3:(ncol(byall)-2)])){
+    warning('Final day of epidemic not decreasing')
+  }
+  
   data1000 <- copy(byall)
   if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
   data1000[, iW := NULL]
@@ -199,8 +206,17 @@ if(sens_analysis != 'regional'){
       
       region_collapsed <- gsub(' ', '_', region)
       
-      byall <- rbind(byall,
-                     readRDS(gsub('.rds',paste0('_', region_collapsed, '.rds'),input)))
+      byall_regional <- readRDS(gsub('.rds',paste0('_', region_collapsed, '.rds'),input))
+      
+      if(any(byall_regional[nrow(byall_regional),3:(ncol(byall_regional)-3)] > 1)){
+        warning('Final day of epidemic not small enough')
+      }
+      if(any(byall_regional[nrow(byall_regional),3:(ncol(byall_regional)-3)] > 
+             byall_regional[nrow(byall_regional) - 1,3:(ncol(byall_regional)-3)])){
+        warning('Final day of epidemic not decreasing')
+      }
+      
+      byall <- rbind(byall, byall_regional)
       
     }
     

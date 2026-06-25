@@ -179,8 +179,6 @@ if(sens_analysis != 'regional'){
     ggsave(gsub('attack','mixing_attack',.args[3]), dpi=600, device = "png", width = 15, height = 6)
   }
   
-  
-  
   final_size_vio <- imd_violin_plot(infections); final_size_vio
   
   age_spec_infections(infections)
