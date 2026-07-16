@@ -120,7 +120,7 @@ ggsave(file.path('output','figures','epidem','sens_analyses_comparison.png'),
 ## distribution of total infections across groups
 
 inf_distr <- epid_outputs_l %>% 
-  select(!c(base_attack_rate, relative_attack_rate, absolute_change)) %>% 
+  # select(!c(base_attack_rate, relative_attack_rate, absolute_change)) %>% 
   bind_rows(read_epid_outputs("base") %>% mutate(analysis = 'base')) %>% 
   group_by(analysis, sim) %>% 
   mutate(total_infections = sum(infections)) %>% 

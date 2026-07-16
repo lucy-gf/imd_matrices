@@ -22,6 +22,7 @@ library(purrr, warn.conflicts = FALSE)
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
 sens_analysis <- .args[5]
+message(paste0('Sensitivity analysis: ', sens_analysis))
 
 #### MAKE OUTPUT DIRS IF DON'T EXIST ####
 
@@ -171,13 +172,16 @@ sampled <- rbindlist(sampled_list) %>%
 #   variables = c('pcd1','p_age_group','p_ethnicity')
 # )
 
+modal_input <- grepl('deterministic', sens_analysis)
+
 parallelised_fcn_assign_imd_cm <- function(ethn){
   
   fcn_assign_imd_cm(
     data_input = sampled %>% filter(p_age < 18 | p_age >= 65,
                                     p_ethnicity == ethn),
     census_data = pcd1ageethn %>% filter(p_ethnicity == ethn),
-    variables = c('pcd1','p_age_group','p_ethnicity')
+    variables = c('pcd1','p_age_group','p_ethnicity'),
+    modal = modal_input
   )
   
 }
@@ -194,7 +198,8 @@ sampled_imd_age_ethn <- rbindlist(sampled_imd_age_ethn_list)
 sampled_imd_ethn_nssec <- fcn_assign_imd_cm(
   data_input = sampled %>% filter(p_age %in% 18:64),
   census_data = pcd1ethnnssec,
-  variables = c('pcd1','p_ethnicity','p_sec_input')
+  variables = c('pcd1','p_ethnicity','p_sec_input'),
+  modal = modal_input
 )
 
 sampled_imd <- rbind(sampled_imd_age_ethn,

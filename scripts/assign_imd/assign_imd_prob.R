@@ -13,7 +13,7 @@ source(file.path("scripts", "assign_imd", "assign_imd_fcns.R"))
 .args <- if (interactive()) c(
   file.path("data", "reconnect", "reconnect_part.rds"),
   file.path("data", "census", "pcdagehiqualnssec.csv"),
-  "pcd1agehiqualnssec",
+  "pcdagehiqualnssec",
   file.path("output", "data", "assignment","connect_prob_pcdagehiqualnssec.rds")
 ) else commandArgs(trailingOnly = TRUE)
 

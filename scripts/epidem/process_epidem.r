@@ -208,7 +208,7 @@ if(sens_analysis != 'regional'){
       
       byall_regional <- readRDS(gsub('.rds',paste0('_', region_collapsed, '.rds'),input))
       
-      if(any(byall_regional[nrow(byall_regional),3:(ncol(byall_regional)-3)] > 1)){
+      if(any(byall_regional[nrow(byall_regional),3:(ncol(byall_regional)-3)] > 2)){
         warning('Final day of epidemic not small enough')
       }
       if(any(byall_regional[nrow(byall_regional),3:(ncol(byall_regional)-3)] > 

@@ -53,11 +53,21 @@ utlaethnnssec <- read_csv(.args[4], show_col_types = F) %>%
 
 #### LINK SAMPLED PARTICIPANTS TO CONTACTS ####
 
-merged <- sampled_parts %>% 
-  filter(n_contacts > 0) %>% 
-  full_join(contacts %>% 
-              filter(p_id %in% unique(sampled_parts$p_id)), 
-            by = 'p_id', relationship = 'many-to-many') 
+# merged <- sampled_parts %>% 
+#   filter(n_contacts > 0) %>% 
+#   full_join(contacts %>% 
+#               filter(p_id %in% unique(sampled_parts$p_id)), 
+#             by = 'p_id', relationship = 'many-to-many') 
+
+setDT(sampled_parts)
+setDT(contacts)
+
+valid_ids <- sampled_parts[, unique(p_id)]
+
+parts_f    <- sampled_parts[n_contacts > 0]
+contacts_f <- contacts[p_id %in% valid_ids]  
+
+merged <- merge(parts_f, contacts_f, by = "p_id", all = TRUE, allow.cartesian = TRUE)
 
 #### ASSIGN IMD TO CONTACTS ####
 

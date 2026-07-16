@@ -1,15 +1,15 @@
 #### MEAN CONTACTS BY IMD — PATCH FIGURE ####
 
-library(data.table)
-library(readr)
-library(readxl)
-library(tidyr)
-library(dplyr)
-library(purrr)
-library(MASS)
-library(ggplot2)
-library(patchwork)
-library(viridis)
+library(data.table, warn.conflicts = FALSE)
+library(readr, warn.conflicts = FALSE)
+library(readxl, warn.conflicts = FALSE)
+library(tidyr, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+library(MASS, warn.conflicts = FALSE)
+library(ggplot2, warn.conflicts = FALSE)
+library(patchwork, warn.conflicts = FALSE)
+library(viridis, warn.conflicts = FALSE)
 
 #### arguments & sources ####
 
@@ -24,10 +24,12 @@ source(here::here("scripts", "setup", "colors.R"))
 
 sens_analysis <- .args[2]
 
-colors <- if (sens_analysis == "nhs_ages") colors_p_age_group_nhs else colors_p_age_group
+message(paste0('Sensitivity analysis: ', sens_analysis))
+
+colors <- if (grepl('nhs_ages', sens_analysis)) colors_p_age_group_nhs else colors_p_age_group
 
 ## if NHS age groups, change age groups
-if(sens_analysis == 'nhs_ages'){
+if(grepl('nhs_ages', sens_analysis)){
   age_limits <- c(5,12,18,26,35,50,70,80)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
 }
@@ -42,7 +44,7 @@ eti50U <- function(x) quantile(x, 0.75)
 summarise_boots <- function(dt, group_vars) {
   dt <- data.table(dt)[, bootstrap_index := NULL]
   rbind(
-    dt[, lapply(.SD, mean),   by = group_vars][, measure := "mean"],
+    dt[, lapply(.SD, median),   by = group_vars][, measure := "mean"],
     dt[, lapply(.SD, eti95L), by = group_vars][, measure := "lower"],
     dt[, lapply(.SD, eti95U), by = group_vars][, measure := "upper"],
     dt[, lapply(.SD, eti50L), by = group_vars][, measure := "lower50"],
@@ -55,7 +57,7 @@ summarise_boots <- function(dt, group_vars) {
 updown      <- 0.07
 black_alpha <- 0.05
 shade95     <- 0.4
-shade50     <- 0.7
+shade50     <- 0.8 #0.7
 
 #### core plot function ####
 # Draws one panel in the shared style.
@@ -74,6 +76,38 @@ make_panel <- function(plot_df,
   
   x_sym <- sym(x_var)
   
+  if('p_age_group' %in% colnames(plot_df)){
+    plot_df$p_age_group <- factor(plot_df$p_age_group, 
+                                  levels = age_labels)
+  }
+  if(x_label %like% 'requency'){
+    plot_df$variable <- factor(plot_df$variable,
+                               levels = c("Daily or almost daily",
+                                          "At least once per week",
+                                          "At least once per month",
+                                          "Less than once per month",
+                                          "Never met before",
+                                          "Dont know"))
+  }
+  if(x_label %like% 'ype of'){
+    plot_df <- plot_df %>% mutate(
+      variable = case_when(variable == 'n_contacts' ~ 'Individual',
+                           T ~ 'Group'))
+  }
+  
+  if(max(plot_df$upper) < 10) {updown <- max(plot_df$upper)*0.003}
+  updown_mult <- 0.05; cutoff <- 0.4
+  func_up <- function(t){
+    t[t < cutoff] <- (1 + updown_mult)*t[t < cutoff]
+    t[t >= cutoff] <- t[t >= cutoff] + updown
+    t
+  }
+  func_down <- function(t){
+    t[t < cutoff] <- (1 - updown_mult)*t[t < cutoff]
+    t[t >= cutoff] <- t[t >= cutoff] - updown
+    t
+  }
+  
   p <- plot_df %>%
     ggplot(aes(
       x     = !!x_sym,
@@ -89,12 +123,23 @@ make_panel <- function(plot_df,
     geom_errorbar(aes(ymin = lower50,          ymax = upper50),
                   width = 0, linewidth = 3,
                   position = position_dodge(0.9), alpha = shade50) +
-    geom_errorbar(aes(ymin = mean - updown,    ymax = mean + updown),
-                  width = 0, linewidth = 4,
-                  position = position_dodge(0.9), alpha = 1) +
-    geom_errorbar(aes(ymin = mean - updown,    ymax = mean + updown),
-                  width = 0, linewidth = 4,
-                  position = position_dodge(0.9), alpha = black_alpha, col = "black") +
+    geom_point(aes(y = mean,
+                   group = as.factor(imd_quintile),
+                   col   = as.factor(imd_quintile)),
+               shape = '\u2014', 
+               size = 4.5,
+               position = position_dodge(0.9), alpha = 1) +
+    geom_point(aes(y = mean,
+                   group = as.factor(imd_quintile)),
+               shape = '\u2014', 
+               size = 4.5, col = 'black',
+               position = position_dodge(0.9), alpha = black_alpha) +
+    # geom_errorbar(aes(ymin = func_down(mean),    ymax = func_up(mean)),
+    #               width = 0, linewidth = 4,
+    #               position = position_dodge(0.9), alpha = 1) +
+    # geom_errorbar(aes(ymin = func_down(mean),    ymax = func_up(mean)),
+    #               width = 0, linewidth = 4,
+    #               position = position_dodge(0.9), alpha = black_alpha, col = "black") +
     scale_color_manual(values = imd_quintile_colors) +
     scale_y_continuous(limits = y_limits, expand = expansion(c(0.00075, 0.025))) +
     theme_bw() +
@@ -106,6 +151,8 @@ make_panel <- function(plot_df,
     labs(col = "IMD quintile", y = "Mean contacts", x = x_label)
   
   if (!is.null(facet_var)) p <- p + facet_wrap(reformulate(facet_var), scales = "free")
+  
+  if (x_label %like% 'etting|requency') p <- p + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
   
   p
 }
@@ -241,18 +288,18 @@ csv_path <- function(suffix) gsub(".csv", paste0("_", suffix, ".csv"), .args[3])
 
 #### load & prepare participant data ####
 
-part <- readRDS(.args[1])
+part <- readRDS(.args[1]) 
 
 part_reconnect <- readRDS(file.path("data", "reconnect", "reconnect_part.rds"))
 
 part <- part %>%
-  left_join(
-    part_reconnect %>% select(p_id, p_gender, day_week, p_income, p_engreg, p_broad_age, p_hiqual),
-    by = "p_id"
-  ) %>%
+    left_join(
+      part_reconnect %>% select(p_id, p_gender, day_week, p_income, p_engreg, p_broad_age, p_hiqual),
+      by = "p_id"
+    ) %>% 
   mutate(total_contacts = n_contacts + large_n)
 
-if (sens_analysis == "nhs_ages") {
+if (grepl('nhs_ages', sens_analysis)) {
   part <- part %>%
     mutate(p_age_group = cut(p_age,
                              breaks = c(0, age_limits, Inf),
@@ -263,6 +310,7 @@ if (sens_analysis == "nhs_ages") {
 #### fit or read each panel's data ####
 
 fit_panel <- function(spec) {
+  # message(paste0('Fitting: ', spec$csv_suffix))
   group_vars_bs <- c(spec$group_vars, "bootstrap_index")
   part_dt <- data.table(part)[, .SD, .SDcols = c(group_vars_bs, "total_contacts")]
   out <- part_dt[, lapply(.SD, neg_bin_fcn), by = group_vars_bs]
@@ -272,9 +320,12 @@ fit_panel <- function(spec) {
   out
 }
 
+fit_all_new <- F
+if(fit_all_new){message('Fitting all analyses from scratch')}
+
 get_panel_data <- function(spec) {
   f <- csv_path(spec$csv_suffix)
-  if (file.exists(f)) {
+  if (file.exists(f) & !fit_all_new) {
     data.table(read_csv(f, show_col_types = FALSE))
   } else {
     dt <- fit_panel(spec)
@@ -302,6 +353,8 @@ build_panel_plot <- function(spec, dt) {
              y_limits  = spec$y_limits,
              legend    = spec$legend)
 }
+
+message('Plotting')
 
 plots <- map2(panel_specs, panel_data, build_panel_plot)
 
@@ -336,14 +389,18 @@ plots <- map2(panel_specs, panel_data, build_panel_plot)
                   width = 0.4) +
     geom_point(aes(x=imd_quintile, y=m, col=as.factor(imd_quintile)),
                size = 2) + 
-    scale_y_continuous(limits = c(0.15, 0.25), breaks = c(0.15,0.2,0.25),
-                       expand = expansion(c(0.00075, 0.00075))) + 
     theme_bw() + scale_color_manual(values = imd_quintile_colors) +
     labs(x = 'IMD quintile', y = 'Proportion of participants') +
     theme(
       text = element_text(size = 14),
       axis.ticks = element_line(linewidth = 0.25),
       legend.position='none')
+  
+  if(sens_analysis == 'nhs_ages'){
+    imd_props <- imd_props + scale_y_continuous(limits = c(0.15, 0.25), breaks = c(0.15,0.2,0.25),
+                                                expand = expansion(c(0.00075, 0.00075))) 
+  }
+  
 }
 
 #### patchwork layout & save ####
@@ -364,12 +421,168 @@ ggsave(
 )
 
 ## regional age- and IMD-specific contacts
-plots[[4]]
+
 ggsave(
   filename = gsub("data", "figures", gsub(".csv", "_age_region.png", .args[3])),
+  plot = plots[[4]],
   width = 18, height = 11
 )
 
+
+#### by type of contact ####
+
+message('Mean contacts, by type of contact')
+
+contacts <- readRDS(file.path('data','reconnect','reconnect_contacts.rds'))
+
+# variables all analyses will stratify by
+always_vars <- c('imd_quintile','p_age_group')
+
+panel_specs_contacts <- list(
+  
+  individual = list(
+    participant_vars  = always_vars,
+    group_vars_plot   = c("imd_quintile"),
+    facet_var   = c("p_age_group"),
+    contact_vars      = c("individual"),
+    csv_suffix   = "individual",
+    x_var        = "variable",
+    x_label      = "Type of contact",
+    y_limits     = c(0, NA),
+    legend       = TRUE
+  ),
+  
+  physical = list(
+    participant_vars  = always_vars,
+    group_vars_plot   = c("imd_quintile"),
+    facet_var   = c("p_age_group"),
+    contact_vars      = c("c_physical"),
+    csv_suffix   = "physical",
+    x_var        = "variable",
+    x_label      = "Physical contact",
+    y_limits     = c(0, NA),
+    legend       = TRUE
+  ),
+  
+  frequency = list(
+    participant_vars  = always_vars,
+    group_vars_plot   = c("imd_quintile"),
+    facet_var   = c("p_age_group"),
+    contact_vars      = c("c_freq"),
+    csv_suffix   = "frequency",
+    x_var        = "variable",
+    x_label      = "Frequency of contact",
+    y_limits     = c(0, NA),
+    legend       = TRUE
+  ),
+  
+  location = list(
+    participant_vars  = always_vars,
+    group_vars_plot   = c("imd_quintile"),
+    facet_var   = c("variable"),
+    contact_vars      = c("c_location_long_long"),
+    csv_suffix   = "location",
+    x_var        = "p_age_group",
+    x_label      = "Contact setting",
+    y_limits     = c(0, NA),
+    legend       = TRUE
+  )
+  
+)
+
+fit_panel_contacts <- function(spec) {
+  
+  if(length(spec$contact_vars) > 1){stop('Not set up for multiple contact variables')}
+  
+  if(spec$contact_vars == 'individual'){
+    
+    part_vars <- c('p_id', 'bootstrap_index', spec$participant_vars, 'n_contacts', 'large_n')
+    part_dt <- part[, ..part_vars]
+    
+  }else{
+    
+    formula <- as.formula(gsub('XXX', paste(spec$contact_vars, collapse = ' + '), "p_id ~ XXX"))
+    contacts_summ <- contacts %>% group_by(p_id, !!!syms(spec$contact_vars)) %>% count() %>% drop_na()
+    contacts_summ_w <- dcast.data.table(data.table(contacts_summ), formula = formula,
+                                        value.var = 'n')
+    contacts_summ_w[is.na(contacts_summ_w)] <- 0
+    contact_var_values <- colnames(contacts_summ_w)[colnames(contacts_summ_w) != 'p_id']
+    part_vars <- c('p_id', 'bootstrap_index', spec$participant_vars)
+    part_filt <- part[, ..part_vars]
+    part_dt <- part_filt[contacts_summ_w[p_id %in% unique(part$p_id),], on = 'p_id']
+    
+  }
+  
+  part_dt[, p_id := NULL]
+  group_vars_bs <- c("bootstrap_index", spec$participant_vars)
+  out <- part_dt[, lapply(.SD, neg_bin_fcn), by = group_vars_bs]
+  out_l <- melt(out, id.vars = group_vars_bs, value.name = 'text_k_n')
+  out_l[, k := as.numeric(sub("^[^_]*_", "",  text_k_n))]
+  out_l[, n := as.numeric(sub("(.*)_.*", "\\1", text_k_n))]
+  out_l[, text_k_n := NULL]
+  out_l
+  
+}
+
+fit_all_new_contacts <- F
+if(fit_all_new_contacts){message('Fitting all contact analyses from scratch')}
+
+get_panel_data_contacts <- function(spec) {
+  f <- csv_path(spec$csv_suffix)
+  if (file.exists(f) & !fit_all_new_contacts) {
+    data.table(read_csv(f, show_col_types = FALSE))
+  } else {
+    dt <- fit_panel_contacts(spec)
+    write_csv(as.data.frame(dt), f)
+    dt
+  }
+}
+
+panel_data_contacts <- map(panel_specs_contacts, get_panel_data_contacts)
+
+#### build plot for each panel ####
+
+build_panel_plot_contacts <- function(spec, dt) {
+  if (!is.null(spec$pre_process)) dt <- spec$pre_process(dt)
+  
+  if('k' %in% colnames(dt)) dt <- dt %>% select(!k)
+  
+  plot_df <- summarise_boots(dt, c(spec$participant_vars, 'variable')) %>%
+    pivot_wider(names_from = measure, values_from = n)
+  
+  make_panel(plot_df,
+             x_var     = spec$x_var,
+             x_label   = spec$x_label,
+             facet_var = spec$facet_var %||% NULL,
+             y_limits  = spec$y_limits,
+             legend    = spec$legend)
+}
+
+message('Plotting contacts')
+
+plots_contacts <- map2(panel_specs_contacts, panel_data_contacts, build_panel_plot_contacts)
+
+#### saving contact plots ####
+
+save_contact_plot <- function(i){
+  spec <- panel_specs_contacts[[i]]
+  p <- plots_contacts[[i]]
+  ext <- spec$csv_suffix
+  fig_ext <- paste0(output_folder_figs, '/mean_contacts_', ext, '.png')
+  
+  width_v <- ifelse(ext %in% c('location', 'frequency'), 24, 12)
+  height_v <- ifelse(ext %in% c('location', 'frequency'), 16, 10)
+  
+  ggsave(filename = fig_ext, plot = p, 
+         width = width_v, height = height_v)
+
+  }
+
+map(1:length(panel_specs_contacts), save_contact_plot)
+
 #### dummy output for Makefile ####
 
+message('Saving dummy data')
+
 write_csv(data.table(x = 0), .args[3])
+

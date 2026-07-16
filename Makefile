@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allepid allmatrsplots
+localdef: all_cm_inputs
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -71,11 +71,16 @@ NHSAGES ?= 0-4 5-11 12-17 18-25 26-34 35-49 50-69 70-79 80+
 A_SENS_ANALYSES ?= base regional old_imd
 NHS_SENS_ANALYSES ?= nhs_ages regional_nhs_ages
 A_SENS_ANALYSES_AND_NHS ?= ${A_SENS_ANALYSES} ${NHS_SENS_ANALYSES}
+A_SENS_ANALYSES_AND_DET ?= ${A_SENS_ANALYSES} deterministic
 AGE_SENS_ANALYSES ?= base nhs_ages
+
+MEAN_C_SENS_ANALYSES ?= nhs_ages deterministic_nhs_ages
 
 # matrix fitting sensitivity analyses
 M_SENS_ANALYSES ?= ${A_SENS_ANALYSES_AND_NHS} large_n_age no_cap_100 
 M_SENS_ANALYSES_BALANCE ?= ${M_SENS_ANALYSES} balance_sett_spec
+
+LOCN_ANALYSES ?= base old_imd large_n_age no_cap_100 balance_sett_spec nhs_ages
 
 # epidemic sensitivity analyses
 E_SENS_ANALYSES ?= base regional old_imd nhs_ages large_n_age no_cap_100 balance_sett_spec hom_mixing
@@ -246,35 +251,35 @@ allassignplots: alltruedistplots allageplots allCMplots allevalplots allerrorplo
 ${CONTDATA}/%/participants.rds: ${CONTCODE}/sample_participants.R ${CONNECTDIR}/reconnect_part.rds ${ONSDIR}/age_ethn_sex.xlsx ${CENSUSDIR}/pcdageethn.csv ${CENSUSDIR}/pcdethnnssec.csv
 	$(call R, $*)
 
-allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES})
+allsampledpart: $(patsubst %,${CONTDATA}/%/participants.rds, ${A_SENS_ANALYSES_AND_DET})
 
 ${CONTFIG}/%/degree_distribution.png: ${CONTCODE}/plot_degree_distibution.R ${CONTDATA}/%/participants.rds
 	$(call R, $*)
 
 alldegdistr: $(patsubst %,${CONTFIG}/%/degree_distribution.png, base)
 
-${CONTDATA}/base/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/base/participants.rds
-	$(call R, base)
-
 ${CONTDATA}/nhs_ages/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/base/participants.rds
-	$(call R, nhs_ages)
+	$(call R, $*)
 
-allmeancontacts: $(patsubst %,${CONTDATA}/%/mean_contacts/mean_contacts.csv, ${AGE_SENS_ANALYSES})
+${CONTDATA}/deterministic_nhs_ages/mean_contacts/mean_contacts.csv: ${CONTCODE}/calc_mean_contacts.R ${CONTDATA}/deterministic/participants.rds
+	$(call R, deterministic_nhs_ages)
+
+allmeancontacts: $(patsubst %,${CONTDATA}/%/mean_contacts/mean_contacts.csv, ${MEAN_C_SENS_ANALYSES})
 
 ${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/%/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
 	$(call R, $*)
-	
+
 allsampledcont: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, ${A_SENS_ANALYSES})
 
-${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/base/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
-	$(call R, $*)
-	
-sampledcont_nhs: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, nhs_ages)
+${CONTDATA}/nhs_ages/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/base/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
+	$(call R, nhs_ages)
 
-${CONTDATA}/%/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/regional/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
-	$(call R, $*)
-	
-sampledcont_regionalnhs: $(patsubst %,${CONTDATA}/%/indiv_contacts.rds, regional_nhs_ages)
+sampledcont_nhs: ${CONTDATA}/nhs_ages/indiv_contacts.rds
+
+${CONTDATA}/regional_nhs_ages/indiv_contacts.rds: ${CONTCODE}/individual_contacts.R ${CONTDATA}/regional/participants.rds ${CONNECTDIR}/reconnect_contacts.rds ${CENSUSDIR}/utlaageethn.csv ${CENSUSDIR}/utlaethnnssec.csv
+	$(call R, regional_nhs_ages)
+
+sampledcont_regionalnhs: ${CONTDATA}/regional_nhs_ages/indiv_contacts.rds
 
 ${CONTDATA}/%/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/%/indiv_contacts.rds 
 	$(call R, $*)
@@ -292,7 +297,7 @@ ${CONTDATA}/reconnect_weights_nhs_ages.rds: ${CONTCODE}/reconnect_weights_nhs_ag
 
 allweights: ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds ${CONTDATA}/reconnect_weights_nhs_ages.rds
 
-all_cm_inputs: alldegdistr allmeancontacts allsampledcont sampledcont_nhs sampledcont_regionalnhs allcontdistr allweights
+all_cm_inputs: allsampledpart alldegdistr allmeancontacts allsampledcont sampledcont_nhs sampledcont_regionalnhs allcontdistr allweights
 
 ################################################
 ########## Run contact matrix fitting ##########
@@ -398,7 +403,7 @@ allmatrsplots_shape: $(patsubst %,${CONTFIG}/%/shape_pars.png, ${AGE_SENS_ANALYS
 ${CONTFIG}/%/fitted_matrs_locn.png: ${CONTCODE}/plot_cont_matrs_locn.R ${CONTDATA}/%/fitted_matrs.csv
 	$(call R, $*)
 
-allmatrsplots_locn: $(patsubst %,${CONTFIG}/%/fitted_matrs_locn.png, ${E_SENS_ANALYSES_NO_REG}) 
+allmatrsplots_locn: $(patsubst %,${CONTFIG}/%/fitted_matrs_locn.png, ${LOCN_ANALYSES}) 
 
 allmatrsplots: allmatrsplots_agg allmatrsplots_summ allmatrsplots_shape allmatrsplots_locn
 
@@ -435,12 +440,12 @@ ${EPIDFIG}/%/attack_rate_bars.png: ${EPIDCODE}/plot_attack_rates.r ${EPIDDATA}/%
 	
 allepidarplots: $(patsubst %,${EPIDFIG}/%/attack_rate_bars.png, ${E_SENS_ANALYSES}) 
 
-${EPIDFIG}/merged_attack_rates.png: ${EPIDCODE}/merged_attack_rates.r ${EPIDDATA}/base/epidemic_outputs.rds ${EPIDDATA}/regional/epidemic_outputs.rds
+${EPIDFIG}/merged_attack_rates.png: ${EPIDCODE}/merged_attack_rates.r ${EPIDDATA}/base/epidemic_outputs.rds ${EPIDDATA}/regional/epidemic_outputs.rds ${EPIDDATA}/hom_mixing/epidemic_outputs.rds
 	$(call R)
 
 epidmergedplot: ${EPIDFIG}/merged_attack_rates.png
 
-${EPIDFIG}/sens_analyses_comparison.png: ${EPIDCODE}/sens_analyses_plots.r 
+${EPIDFIG}/sens_analyses_comparison.png: ${EPIDCODE}/sens_analyses_plots.r
 
 epidSAplot: ${EPIDFIG}/sens_analyses_comparison.png
 

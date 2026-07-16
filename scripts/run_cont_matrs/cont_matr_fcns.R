@@ -250,6 +250,9 @@ fcn_assign_imd_cm <- function(
     mutate(probability = n/n_tot) %>% 
     ungroup() %>% filter(probability > 0)
   
+  # set start time
+  time <- Sys.time()
+  
   if(!modal){
     
     data <- data.table(data)
@@ -258,9 +261,6 @@ fcn_assign_imd_cm <- function(
     # for each possible combination of predictors,
     # only using those present in the survey data
     probs_unique <- unique(data[, ..variables])
-    
-    # set start time
-    time <- Sys.time()
     
     for(i_row in 1:nrow(probs_unique)){
       
@@ -440,7 +440,7 @@ polymod_weights <- function(
     out <- c()
     for(char in chars){
       if(char == paste0(max(fine_ages), '+')){
-        out <- c(out, char)
+        out <- c(out, paste0('[', max(fine_ages), ',Inf)'))
       }else{
         vals <- as.numeric(unlist(strsplit(char, '-')))
         val <- paste0('[',vals[1], ',', vals[2] + 1,')')

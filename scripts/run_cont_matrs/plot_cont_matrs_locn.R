@@ -130,7 +130,7 @@ plot_locn_cm <- function(locn){
           strip.placement = "outside",
           text = element_text(size = 14),
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-    ggtitle(firstup(locn))
+    ggtitle(firstup(locn)) + coord_fixed()
   
 }
 

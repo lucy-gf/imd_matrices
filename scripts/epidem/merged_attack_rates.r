@@ -202,7 +202,7 @@ if(run_regional_r0_calculations){
 }
 
 false_legend <- imd_model_colors[c(3,8,13)]
-names(false_legend) <- c('National-level', 'Regional-level', 'Homogeneous mixing')
+names(false_legend) <- c('Homogeneous mixing', 'National-level', 'Regional-level')
 
 cat('\nWarnings expected:\n')
 national_beta_plot <- beta %>% 
@@ -246,11 +246,11 @@ false_df <- r0_track_df %>%
   rbind(data.table(m=10,l=10,u=10,region='North\nEast',model='Homogeneous mixing'))
 false_df$model <- factor(false_df$model, levels = names(false_legend))
 
-false_df_nonagg <- r0_track_df %>% 
+false_df_nonagg <- data.table(bootstrap_index = 1, r0=2,region='North\nEast',model='Homogeneous mixing') %>% 
+  rbind(r0_track_df %>% 
   mutate(region = gsub(' and',' &',region)) %>% 
-  mutate(model='National-level') %>% 
-  rbind(data.table(bootstrap_index = 1, r0=2,region='North\nEast',model='Regional-level')) %>% 
-  rbind(data.table(bootstrap_index = 1, r0=2,region='North\nEast',model='Homogeneous mixing'))
+  mutate(model='National-level')) %>% 
+  rbind(data.table(bootstrap_index = 1, r0=2,region='North\nEast',model='Regional-level'))
 false_df_nonagg$model <- factor(false_df_nonagg$model, levels = names(false_legend))
 
 regional_r0_plot <- false_df_nonagg %>% 
