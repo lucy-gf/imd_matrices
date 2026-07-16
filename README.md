@@ -60,4 +60,4 @@ The following sensitivity/alternative analyses are implemented throughout the pi
 | `large_n_age` | Sample large group contacts' age from Reconnect |
 | `no_cap_100` | No cap on large group contact numbers |
 | `balance_sett_spec` | Setting-specific matrix balancing |
-| `hom_mixing` | Homogeneous IMD mixing |
+| `hom_mixing` | Random mixing by IMD quintiles |
