@@ -56,6 +56,8 @@ The following sensitivity/alternative analyses are implemented throughout the pi
 | `regional` | Regional contact matrices |
 | `old_imd` | 2019 IMD, instead of 2025 |
 | `nhs_ages` | Secondary age bands |
+| `regional` | Regional with secondary age bands |
 | `large_n_age` | Sample large group contacts' age from Reconnect |
 | `no_cap_100` | No cap on large group contact numbers |
 | `balance_sett_spec` | Setting-specific matrix balancing |
+| `hom_mixing` | Homogeneous IMD mixing |
