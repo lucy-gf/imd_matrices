@@ -203,7 +203,7 @@ plot_dfe_data <- function(dat_raw, dat_name = ''){
     scale_fill_viridis(begin = 0, end = 1, breaks = seq(0, 1, by = 0.25)) +
     labs(x = format_colname(x_var), y = format_colname(y_var), fill = 'Probability') +
     # ggtitle(dat_name) +
-    theme(text = element_text(size = 16))
+    theme(text = element_text(size = 16)) + coord_fixed()
   
   if(strata_exist){
     if(length(strata) == 1){
@@ -291,7 +291,7 @@ plot_dfe_data_per_capita <- function(dat_raw, dat_name = ''){
                       guide = guide_legend(reverse = T)) +
     labs(x = format_colname(x_var), y = format_colname(y_var), fill = '') +
     ggtitle(paste0(dat_name, ', relative to random mixing')) +
-    theme(text = element_text(size = 14)); plot
+    theme(text = element_text(size = 14)) + coord_fixed(); plot
   
   if(strata_exist){
     if(length(strata) == 1){

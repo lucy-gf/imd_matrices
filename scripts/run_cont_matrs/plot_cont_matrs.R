@@ -101,6 +101,7 @@ agg <- balanced_matr %>%
 
 agg$p_age_group <- factor(agg$p_age_group,
                           levels = age_labels)
+
 agg$c_age_group <- factor(agg$c_age_group,
                           levels = age_labels)
 agg$c_imd_q <- factor(agg$c_imd_q,
@@ -136,6 +137,26 @@ imd_mix_distr <- balanced_matr %>%
   summarise(weighted_sum = sum(n*prop_imd)) %>% 
   group_by(!!!syms(group_vars_balanced_no_bs)) %>% 
   mutate(weighted_mean = mean(weighted_sum))
+
+imd_mix_cis <- imd_mix_distr %>% 
+  group_by(bootstrap_index, p_imd_q) %>% 
+  mutate(total_contacts = sum(weighted_sum)) %>% 
+  ungroup() %>% 
+  mutate(val = weighted_sum/total_contacts) %>% 
+  group_by(!!!syms(group_vars_balanced_no_bs)) %>% 
+  summarise(weighted_mean = mean(val),
+            l_ci = quantile(val, 0.025),
+            u_ci = quantile(val, 0.975)) %>% 
+  mutate(neat = paste0(100*round(weighted_mean, 4),
+                       '% (', 100*round(l_ci, 4),
+                       '%, ', 100*round(u_ci, 4), '%)')) %>% 
+  select(p_imd_q, c_imd_q, neat) %>% 
+  mutate(p_imd_q = as.numeric(p_imd_q),
+         c_imd_q = as.numeric(as.character(c_imd_q))) %>% 
+  arrange(p_imd_q, c_imd_q) %>% 
+  pivot_wider(names_from = c_imd_q, values_from = neat)
+write_csv(imd_mix_cis, 
+          gsub('fitted_matrs.png','mixing_props.csv', .args[3]))
 
 max_imd_mix <- max(imd_mix$weighted_mean)
 
