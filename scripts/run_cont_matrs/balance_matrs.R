@@ -22,10 +22,16 @@ sens_analysis <- .args[2]
   
 #### READ IN DATA ####
 
-age_structure_num <- ifelse(grepl('nhs_ages',sens_analysis), 2, 1)
+age_structure_num <- if(grepl('nhs_ages',sens_analysis)){2}else{
+  if(sens_analysis == 'new_ages'){3}else{1}
+}
 
 if(grepl('nhs_ages',sens_analysis)){
   age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+if(grepl('new_ages',sens_analysis)){
+  age_limits <- c(5,12,18,30,50,65,75,85)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
 }
 

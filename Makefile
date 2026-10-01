@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: all_cm_inputs
+localdef: allmatrsplots_agg
 
 ###### SUPPORT DEFINITIONS #####################################################
 
@@ -66,11 +66,12 @@ makeassignprob = $(addprefix ${DATDIR}/assignment/connect_prob_,$(patsubst %,%.$
 # ages for fitting contact matrices
 ALLAGES ?= 0-4 5-9 10-14 15-19 20-24 25-29 30-34 35-39 40-44 45-49 50-54 55-59 60-64 65-69 70-74 75+
 NHSAGES ?= 0-4 5-11 12-17 18-25 26-34 35-49 50-69 70-79 80+
+NEWAGES ?= 0-4 5-11 12-17 18-29 30-49 50-64 65-74 75-84 85+
 
 # assignment sensitivity analyses
 A_SENS_ANALYSES ?= base regional old_imd
 NHS_SENS_ANALYSES ?= nhs_ages regional_nhs_ages
-A_SENS_ANALYSES_AND_NHS ?= ${A_SENS_ANALYSES} ${NHS_SENS_ANALYSES}
+A_SENS_ANALYSES_AND_NHS ?= ${A_SENS_ANALYSES} ${NHS_SENS_ANALYSES} new_ages
 A_SENS_ANALYSES_AND_DET ?= ${A_SENS_ANALYSES} deterministic
 AGE_SENS_ANALYSES ?= base nhs_ages
 
@@ -79,6 +80,7 @@ MEAN_C_SENS_ANALYSES ?= nhs_ages deterministic_nhs_ages
 # matrix fitting sensitivity analyses
 M_SENS_ANALYSES ?= ${A_SENS_ANALYSES_AND_NHS} large_n_age no_cap_100 
 M_SENS_ANALYSES_BALANCE ?= ${M_SENS_ANALYSES} balance_sett_spec
+M_SENS_ANALYSES_BALANCE_EX_NEW ?= ${A_SENS_ANALYSES} ${NHS_SENS_ANALYSES} large_n_age no_cap_100 balance_sett_spec
 
 LOCN_ANALYSES ?= base old_imd large_n_age no_cap_100 balance_sett_spec nhs_ages
 
@@ -281,6 +283,11 @@ ${CONTDATA}/regional_nhs_ages/indiv_contacts.rds: ${CONTCODE}/individual_contact
 
 sampledcont_regionalnhs: ${CONTDATA}/regional_nhs_ages/indiv_contacts.rds
 
+${CONTDATA}/new_ages/indiv_contacts.rds: ${CONTDATA}/nhs_ages/indiv_contacts.rds
+	cat $^> $@
+
+sampledcont_new: ${CONTDATA}/new_ages/indiv_contacts.rds
+
 ${CONTDATA}/%/cont_imd_distr.rds: ${CONTCODE}/cont_imd_distr.R ${CONTDATA}/%/indiv_contacts.rds 
 	$(call R, $*)
 	
@@ -295,7 +302,10 @@ ${CONTDATA}/reconnect_weights.rds: ${CONTCODE}/reconnect_weights.R ${ONSDIR}/age
 ${CONTDATA}/reconnect_weights_nhs_ages.rds: ${CONTCODE}/reconnect_weights_nhs_ages.R ${ONSDIR}/age_ethn_sex.xlsx
 	$(call R, $*)
 
-allweights: ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds ${CONTDATA}/reconnect_weights_nhs_ages.rds
+${CONTDATA}/reconnect_weights_new_ages.rds: ${CONTCODE}/reconnect_weights_new_ages.R ${ONSDIR}/age_ethn_sex.xlsx
+	$(call R, $*)
+
+allweights: ${ONSDIR}/polymod_weights.rds ${CONTDATA}/reconnect_weights.rds ${CONTDATA}/reconnect_weights_nhs_ages.rds ${CONTDATA}/reconnect_weights_new_ages.rds
 
 all_cm_inputs: allsampledpart alldegdistr allmeancontacts allsampledcont sampledcont_nhs sampledcont_regionalnhs allcontdistr allweights
 
@@ -347,6 +357,9 @@ ${CONTDATA}/base/fitted_matrs.csv: $(patsubst %,${CONTDATA}/base/fitted_matrs_%.
 ${CONTDATA}/nhs_ages/fitted_matrs.csv: $(patsubst %,${CONTDATA}/nhs_ages/fitted_matrs_%.csv, ${NHSAGES})
 	cat $^> $@
 
+${CONTDATA}/new_ages/fitted_matrs.csv: $(patsubst %,${CONTDATA}/new_ages/fitted_matrs_%.csv, ${NEWAGES})
+	cat $^> $@
+
 ${CONTDATA}/old_imd/fitted_matrs.csv: $(patsubst %,${CONTDATA}/old_imd/fitted_matrs_%.csv, ${ALLAGES})
 	cat $^> $@
 
@@ -393,7 +406,7 @@ ${CONTDATA}/%/imd_assortativity.csv: ${CONTCODE}/make_summ_stats.R ${CONTDATA}/%
 ${CONTFIG}/%/summstats.png: ${CONTCODE}/plot_summ_stats.R ${CONTDATA}/%/imd_assortativity.csv
 	$(call R, $*)
 	
-allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summstats.png, ${M_SENS_ANALYSES_BALANCE}) 
+allmatrsplots_summ: $(patsubst %,${CONTFIG}/%/summstats.png, ${M_SENS_ANALYSES_BALANCE_EX_NEW}) 
 
 ${CONTFIG}/%/shape_pars.png: ${CONTCODE}/plot_shape_pars.R ${CONTDATA}/%/fitted_matrs.csv 
 	$(call R, $*)

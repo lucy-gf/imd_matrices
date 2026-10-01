@@ -14,17 +14,21 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
-  "base",
-  file.path("output", "figures", "cont_matrs","base","fitted_matrs_locn.png")
+  file.path("output", "data", "cont_matrs","new_ages","fitted_matrs.csv"),
+  "new_ages",
+  file.path("output", "figures", "cont_matrs","new_ages","fitted_matrs_locn.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
 
-if(sens_analysis == 'nhs_ages'){
+if(grepl('nhs_ages',sens_analysis)){
   age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+if(grepl('new_ages',sens_analysis)){
+  age_limits <- c(5,12,18,30,50,65,75,85)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
 }
 

@@ -44,6 +44,22 @@ if(grepl('nhs_ages',sens_analysis)){
                              right = F))
   
 }
+## if new age groups, change age groups
+if(grepl('new_ages',sens_analysis)){
+  age_limits <- c(5,12,18,30,50,65,75,85)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+  
+  indiv_contacts <- indiv_contacts %>% 
+    mutate(p_age_group = cut(p_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F),
+           c_age_group = cut(c_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F))
+  
+}
 
 #### TURN INTO DISTRIBUTION ####
 
@@ -75,7 +91,7 @@ indiv_contacts_imd_props_empirical <- if(grepl('regional',sens_analysis)){
 
 year <- "25" 
 imd_year <- ifelse(sens_analysis == 'old_imd', 19, 25) 
-age_grouping <- ifelse(grepl('nhs_ages',sens_analysis), 2, 1) 
+age_grouping <- ifelse(grepl('nhs_ages|new_ages',sens_analysis), 2, 1) 
 
 dfe_distr <- if(grepl('regional',sens_analysis)){
   data.table(read_csv(file.path("output", "data", "cont_matrs","dfe",paste0('imd',imd_year),year,
@@ -104,6 +120,11 @@ dfe_distr <- dfe_distr %>%
   mutate(p_age_group = case_when(p_age_group == '18-24' ~ '18-25', T ~ p_age_group),
          c_age_group = case_when(c_age_group == '18-24' ~ '18-25', T ~ c_age_group))
 
+if(sens_analysis == 'new_ages'){
+  dfe_distr <- dfe_distr %>% filter(p_age_group != '18-25',
+                                    c_age_group != '18-25')
+}
+
 indiv_contacts_imd_props_no_school <- if(grepl('nhs_ages',sens_analysis)){
   
   indiv_contacts_imd_props_empirical %>% 
@@ -113,10 +134,21 @@ indiv_contacts_imd_props_no_school <- if(grepl('nhs_ages',sens_analysis)){
   
 }else{
   
-  indiv_contacts_imd_props_empirical %>% 
-    filter(! (c_location == 'School' & 
-                p_age_group == c_age_group & 
-                p_age_group %in% c('0-4','5-9','10-14','15-19'))) 
+  if(grepl('new_ages',sens_analysis)){
+    
+    indiv_contacts_imd_props_empirical %>% 
+      filter(! (c_location == 'School' & 
+                  p_age_group == c_age_group & 
+                  p_age_group %in% c('0-4','5-11','12-17'))) 
+    
+  }else{
+    
+    indiv_contacts_imd_props_empirical %>% 
+      filter(! (c_location == 'School' & 
+                  p_age_group == c_age_group & 
+                  p_age_group %in% c('0-4','5-9','10-14','15-19'))) 
+    
+  }
   
 }
 

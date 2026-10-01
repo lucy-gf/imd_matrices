@@ -59,6 +59,10 @@ ages_2 <- c(0,5,12,18,26,35,50,70,80)
 ages_2_names <- paste0(ages_2, '-', lead(ages_2) - 1)
 ages_2_names[length(ages_2_names)] <- '80+'
 
+ages_3 <- c(0,5,12,18,30,50,65,75,85)
+ages_3_names <- paste0(ages_3, '-', lead(ages_3) - 1)
+ages_3_names[length(ages_3_names)] <- '85+'
+
 ##
 
 imd_dat_long <- imd_dat %>% 
@@ -159,16 +163,23 @@ imd_age_2 <- imd_dat_long %>%
   group_by(p_engreg, imd_quintile, age_grp) %>% 
   summarise(pop = sum(pop))
 
+imd_age_3 <- imd_dat_long %>% 
+  mutate(age_grp = cut(age, c(ages_3, Inf), right = F, labels = ages_3_names)) %>% 
+  group_by(p_engreg, imd_quintile, age_grp) %>% 
+  summarise(pop = sum(pop))
+
 
 ## check sums
 
 sum(imd_age_1$pop)
 sum(imd_age_2$pop)
+sum(imd_age_3$pop)
 
 ## save 
 
 write_csv(imd_age_1, here::here('data','imd_25','imd_ages_1.csv'))
 write_csv(imd_age_2, here::here('data','imd_25','imd_ages_2.csv'))
+write_csv(imd_age_3, here::here('data','imd_25','imd_ages_3.csv'))
 
 ## regional and IMD-specific median age
 

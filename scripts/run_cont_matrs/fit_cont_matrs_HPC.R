@@ -12,7 +12,7 @@ library(patchwork, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  "regional_nhs_ages",
+  "new_ages",
   "2"
 ) else commandArgs(trailingOnly = TRUE)
 
@@ -39,7 +39,7 @@ sens_analysis_folder <- if(grepl('regional', sens_analysis)){
   }
 }
 
-sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages','regional_nhs_ages','old_imd')){
+sens_analysis_folder_contacts <- if(sens_analysis %in% c('regional','nhs_ages','regional_nhs_ages','old_imd','new_ages')){
   sens_analysis
 }else{
   'base'
@@ -55,18 +55,45 @@ cont_imd_distr <- readRDS(file.path("output", "data", "cont_matrs",sens_analysis
   mutate(c_location = tolower(c_location))
 poly_weights <- readRDS(file.path("data", "ons","polymod_weights.rds")) %>% 
   mutate(c_location = tolower(c_location))
-reconnect_weights <- if(!grepl('nhs_ages',sens_analysis)){
+reconnect_weights <- if(!grepl('nhs_ages|new_ages',sens_analysis)){
   readRDS(file.path("output", "data","cont_matrs","reconnect_weights.rds")) %>% 
   mutate(c_location = tolower(c_location))
 }else{
-  readRDS(file.path("output", "data","cont_matrs","reconnect_weights_nhs_ages.rds")) %>% 
-    mutate(c_location = tolower(c_location))
+  if(sens_analysis == 'new_ages'){
+    readRDS(file.path("output", "data","cont_matrs","reconnect_weights_new_ages.rds")) %>% 
+      mutate(c_location = tolower(c_location))
+  }else{
+    readRDS(file.path("output", "data","cont_matrs","reconnect_weights_nhs_ages.rds")) %>% 
+      mutate(c_location = tolower(c_location))  
+  }
 }
 
 ## change age groups if needed ##
 if(grepl('nhs_ages',sens_analysis)){
   
   age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+  
+  participants <- participants %>% 
+    mutate(p_age_group = cut(p_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F))
+  
+  indiv_contacts <- indiv_contacts %>% 
+    mutate(p_age_group = cut(p_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F),
+           c_age_group = cut(c_age,
+                             breaks = c(0,age_limits,Inf),
+                             labels = age_labels,
+                             right = F))
+  
+}
+if(grepl('new_ages',sens_analysis)){
+  
+  age_limits <- c(5,12,18,30,50,65,75,85)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
   
   participants <- participants %>% 

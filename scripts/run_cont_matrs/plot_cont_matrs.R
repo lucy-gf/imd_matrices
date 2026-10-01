@@ -15,9 +15,9 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
-  "base",
-  file.path("output", "figures", "cont_matrs","base","fitted_matrs.png")
+  file.path("output", "data", "cont_matrs","new_ages","fitted_matrs_balanced.csv"),
+  "new_ages",
+  file.path("output", "figures", "cont_matrs","new_ages","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -35,10 +35,16 @@ sens_analysis <- .args[2]
 
 ## age distribution 
 
-age_structure_num <- ifelse(!grepl('nhs_ages',sens_analysis), 1, 2)
+age_structure_num <- if(grepl('nhs_ages',sens_analysis)){2}else{
+  if(sens_analysis == 'new_ages'){3}else{1}
+}
 
 if(grepl('nhs_ages',sens_analysis)){
   age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+if(grepl('new_ages',sens_analysis)){
+  age_limits <- c(5,12,18,30,50,65,75,85)
   age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
 }
 
