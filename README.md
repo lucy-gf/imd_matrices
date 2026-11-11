@@ -1,6 +1,6 @@
 # Social contact patterns across levels of deprivation in England, and implications for infectious disease transmission
 
-Creating social contact matrices stratified by age group and Index of Multiple Deprivation (IMD) quintiles in England, using data from the [Reconnect Social Contact Survey]([https://www.lshtm.ac.uk/research/centres/centre-mathematical-modelling-infectious-diseases/connect](https://zenodo.org/records/17339866)). These matrices can be used in epidemic models estimate differential disease burden across socioeconomic groups, and investigate the impact of interventions on these inequalities. Matrix outputs are available from `matrices/`.
+Creating social contact matrices stratified by age group and Index of Multiple Deprivation (IMD) quintiles in England, using data from the [Reconnect Social Contact Survey]([https://www.lshtm.ac.uk/research/centres/centre-mathematical-modelling-infectious-diseases/connect](https://zenodo.org/records/17339866)). These matrices can be used in epidemic models estimate differential disease burden across socioeconomic groups, and investigate the impact of interventions on these inequalities. Summary matrix outputs are available from `matrices/`, and the 1,000 bootstrapped matrices are available on Zenodo at 10.5281/zenodo.24142171; these can be used to incorporate the uncertainty captured by these matrices.
 
 ---
 
