@@ -240,6 +240,7 @@ fcn_assortativity <- function(
     matrix,
     population_input,
     order,
+    summary = T,
     ci = 0.95
 ){
   
@@ -304,16 +305,20 @@ fcn_assortativity <- function(
     summarise(sum_Bii = sum(B_var)) %>% mutate(Q_var = (sum_Bii - 1)/(n_distinct(beta_thin$p_var) - 1)) %>% 
     select(!!!syms(bs_vars), Q_var) %>% filter(!is.na(Q_var))
   
-  return(data.table(
-    variable = c('Q'),
-    mean = c(mean(Q$Q_var)),
-    lower_ci = c(quantile(Q$Q_var, (1 - ci)/2)),
-    upper_ci = c(quantile(Q$Q_var, 1 - (1 - ci)/2))
-  ))
+  out <- if(summary){
+    data.table(
+      variable = c('Q'),
+      mean = c(mean(Q$Q_var)),
+      lower_ci = c(quantile(Q$Q_var, (1 - ci)/2)),
+      upper_ci = c(quantile(Q$Q_var, 1 - (1 - ci)/2))
+    )
+  }else{
+    data.table(Q)
+  }
+  
+  return(out)
   
 }
-
-
 
 #### SUMMARISE ####
 
@@ -362,6 +367,29 @@ if(!grepl('regional',sens_analysis)){
   )
   
   imd_assort_df <- cbind(imd_dataframe, rbindlist(imd_assortativity))
+  
+  # in how many simulations is Q_{1,1} lower than Q_{5,5}
+  raw_imd_assortativity <- map(
+    .x = c(1,nrow(imd_dataframe)),
+    .f = ~{fcn_assortativity(
+      var = 'age_group',
+      matrix = balanced_matr %>% 
+        filter(p_imd_q == imd_dataframe$p_imd_q[.x], 
+               c_imd_q == imd_dataframe$c_imd_q[.x]),
+      population_input = imd_age %>% filter(imd_q == imd_dataframe$p_imd_q[.x]),
+      order = age_labels, 
+      summary = F
+    ) %>% mutate(p_imd_q = imd_dataframe$p_imd_q[.x],
+                 c_imd_q = imd_dataframe$c_imd_q[.x])}
+  )
+  raw_imd_assortativity <- rbindlist(raw_imd_assortativity)
+  
+  simulations_true <- raw_imd_assortativity %>% 
+    select(!c_imd_q) %>% pivot_wider(names_from = p_imd_q, values_from = Q_var) %>% 
+    mutate(imd5_bigger = `5` > `1`)
+  
+  cat('Age-assortativity higher in IMD 5 x IMD 5 than IMD 1 x IMD 1 in ', sum(simulations_true$imd5_bigger), '/1000 simulations.',
+      sep = '')
   
   ## assortativity by IMD quintile
   
@@ -455,4 +483,45 @@ write_csv(m_i_d, gsub('imd_assortativity.csv','m_i_d.csv',.args[3]))
 write_csv(m_i_d_no_abs, gsub('imd_assortativity.csv','m_i_d_no_abs.csv',.args[3]))
 write_csv(age_assort_df, gsub('imd_assortativity.csv','age_assortativity.csv',.args[3]))
 write_csv(imd_assort_df, .args[3])
+
+#### BY SETTING ####
+
+fitted <- suppressWarnings(data.table(read_csv(gsub('_balanced.csv','.csv',.args[1]), show_col_types = F)))
+fitted <- fitted[bootstrap_index != 'bootstrap_index']
+
+imd_mix <- balanced_matr %>% 
+  left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+            by = join_vars_balanced) %>% 
+  group_by(!!!syms(group_vars_balanced)) %>% 
+  summarise(n = sum(n*prop_imd)) 
+
+data <- fitted %>% filter(c_location!='total') %>% 
+  left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+            by = c('p_imd_q', 'p_age_group')) %>% 
+  group_by(!!!syms(group_vars_locn)) %>% 
+  summarise(n = sum(n*prop_imd)) %>% 
+  ungroup() %>% rbind(imd_mix %>% mutate(c_location='total')) 
+
+setting_dataframe <- data.frame(c_location = unique(data$c_location))
+
+setting_assortativity <- map(
+  .x = 1:nrow(setting_dataframe),
+  .f = ~fcn_assortativity(
+    var = 'imd_quintile',
+    matrix = data %>% 
+      filter(c_location == setting_dataframe$c_location[.x]),
+    population_input = imd_age %>% group_by(imd_q) %>% summarise(population = sum(population)) %>% 
+      mutate(prop = population/sum(population)),
+    order = as.character(1:5)
+  )
+)
+
+setting_assort_df <- cbind(setting_dataframe, rbindlist(setting_assortativity)) %>% 
+  mutate(neat = paste0(round(mean, 3), ' (',
+                       round(lower_ci, 3), ' - ', 
+                       round(upper_ci, 3), ')'))
+
+write_csv(setting_assort_df, gsub('imd_assortativity.csv','imd_setting_assortativity.csv',.args[3]))
+
+
 

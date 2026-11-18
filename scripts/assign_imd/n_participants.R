@@ -8,6 +8,7 @@ max_n <- n_distinct(eng_reconnect_part$p_id)
 
 names <- list.files(path = file.path('output','data','assignment'))
 names <- names[grepl('connect_', names)]
+names <- names[!grepl('n_reconnect_', names)]
 
 read_func <- function(path){ readRDS(file.path('output','data','assignment',path)) }
 

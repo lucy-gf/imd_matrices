@@ -3,7 +3,7 @@
 
 default: localdef
 
-localdef: allmatrsplots_agg
+localdef: allbalanced
 
 ###### SUPPORT DEFINITIONS #####################################################
 

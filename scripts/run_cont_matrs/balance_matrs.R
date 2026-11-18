@@ -11,9 +11,9 @@ library(purrr, warn.conflicts = FALSE)
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","regional","fitted_matrs.csv"),
-  "regional",
-  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs.csv"),
+  "base",
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -143,7 +143,28 @@ if(grepl('regional', sens_analysis)){
 
 write_csv(matrix_save, gsub('fitted_matrs_balanced','matrix_github',.args[3]))
 
+# save all bootstraps to put on Zenodo
 
+matrix_save_zenodo <- balanced_matr %>% 
+  rename(Participant_IMD = p_imd_q,
+         Contact_IMD = c_imd_q,
+         Participant_age_group = p_age_group,
+         Contact_age_group = c_age_group,
+         Bootstrap = bootstrap_index)
+
+matrix_save_zenodo$Participant_age_group <- factor(matrix_save_zenodo$Participant_age_group,
+                                            levels = age_labels)
+matrix_save_zenodo$Contact_age_group <- factor(matrix_save_zenodo$Contact_age_group,
+                                        levels = age_labels)
+
+matrix_save_zenodo <- matrix_save_zenodo %>% 
+  arrange(Bootstrap, Participant_IMD, Contact_IMD, Participant_age_group, Contact_age_group)
+
+if(grepl('regional', sens_analysis)){
+  matrix_save_zenodo <- matrix_save_zenodo %>% rename(Region = p_engreg)
+}
+
+write_csv(matrix_save_zenodo, gsub('fitted_matrs_balanced',paste0('matrix_zenodo_',sens_analysis),.args[3]))
 
 
 

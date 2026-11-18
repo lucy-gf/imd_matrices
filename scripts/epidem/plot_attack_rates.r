@@ -123,6 +123,8 @@ if(sens_analysis != 'regional'){
     ungroup() %>% mutate(neat = paste0(round(100*med_rate, 1),
                                        ' (', round(100*l_rate, 1), ' - ',
                                        round(100*u_rate, 1), ')'))
+  sav4 <- sav2 %>% left_join(sav2 %>% filter(imd=='5') %>% select(sim, ar) %>% rename(base_ar = ar), by = 'sim') %>% 
+    filter(imd == 1) %>% mutate(rel_ar = ar/base_ar, ar_higher_in_imd_1 = rel_ar > 1)
   write_csv(sav3, gsub('attack_rate_bars.png','med_final_arrs.csv',.args[3]))
   
   ## plot
@@ -194,6 +196,8 @@ if(sens_analysis != 'regional'){
   ## by imd 
   arr_plot_imd <- rel_imd_violin_plot(infections, base_imd_arr); arr_plot_imd
   
+  arr_imd <- rel_imd_data(infections, base_imd_arr)
+  
   #### age-standardised ####
   
   arr_plot_imd_as <- age_standardised_rel_imd_violin_plot(
@@ -201,6 +205,24 @@ if(sens_analysis != 'regional'){
     infections,
     base_imd_arr
   ); arr_plot_imd_as
+  
+  arr_imd_as <- age_standardised_rel_imd_data(
+    demog,
+    infections,
+    base_imd_arr
+  ) %>% rename(as_rel_ar = rel_ar)
+  
+  cat_df <- arr_imd %>% left_join(arr_imd_as, 
+                        by = c('sim','imd')) %>% 
+    mutate(as_lowers = rel_ar - as_rel_ar) %>% group_by(imd) %>% 
+    summarise(mean = mean(as_lowers),
+              l95 = quantile(as_lowers, 0.025),
+              u95 = quantile(as_lowers, 0.975)) %>% 
+    arrange(imd) %>% 
+    mutate(neat = paste0(100*round(mean, 3), ' (', 100*round(l95,3), ', ', 100*round(u95,3), ')'))
+  
+  cat('Relative AR lowered after age-standardising: \n')
+  cat(paste0('IMD ', 1:5, ': ', cat_df$neat, '\n'))
   
   final_size_vio + (arr_plot_imd + arr_plot_imd_as + plot_layout(nrow = 2)) + 
     plot_layout(nrow = 1) + plot_annotation(tag_levels = 'a',

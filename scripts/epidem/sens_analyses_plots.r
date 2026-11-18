@@ -43,7 +43,7 @@ base_outputs[, c('infections','pop','imd_pop') := NULL]
 
 ## merge data - paired for large_n_age, no_cap_100, balance_sett_spec
 epid_outputs_paired <- epid_outputs_l[base_outputs, on = c('sim','age','imd')][
-  analysis != 'old_imd'
+  # analysis != 'old_imd'
 ]
 
 epid_outputs_paired[, relative_attack_rate := ((attack_rate/base_attack_rate) - 1)]
@@ -58,25 +58,25 @@ epid_outputs_agg <- epid_outputs_paired %>%
             # l95_abs = eti95L(absolute_change),
             # u95_abs = eti95U(absolute_change))
 
-# unpaired for old_imd
-nage <- n_distinct(epid_outputs_l$age); nimd <- n_distinct(epid_outputs_l$imd)
-epid_outputs_unpaired <- epid_outputs_l %>%
-  filter(analysis == 'old_imd') %>% 
-  arrange(age, imd, attack_rate) %>% 
-  mutate(order = rep(1:max(sim), nage*nimd)) %>% select(!sim) %>% 
-  left_join(base_outputs %>% 
-              arrange(age, imd, base_attack_rate) %>% 
-              mutate(order = rep(1:max(sim), nage*nimd)) %>% 
-              select(!sim),
-          by = c('order','age','imd')) %>% 
-  mutate(relative_attack_rate := ((attack_rate/base_attack_rate) - 1)) %>% 
-  group_by(analysis, age, imd) %>% 
-  summarise(mean_rel_ar = mean(relative_attack_rate),
-            l95 = eti95L(relative_attack_rate),
-            u95 = eti95U(relative_attack_rate))
-
-epid_outputs_agg <- epid_outputs_agg %>% 
-  rbind(epid_outputs_unpaired)
+# # unpaired for old_imd
+# nage <- n_distinct(epid_outputs_l$age); nimd <- n_distinct(epid_outputs_l$imd)
+# epid_outputs_unpaired <- epid_outputs_l %>%
+#   filter(analysis == 'old_imd') %>% 
+#   arrange(age, imd, attack_rate) %>% 
+#   mutate(order = rep(1:max(sim), nage*nimd)) %>% select(!sim) %>% 
+#   left_join(base_outputs %>% 
+#               arrange(age, imd, base_attack_rate) %>% 
+#               mutate(order = rep(1:max(sim), nage*nimd)) %>% 
+#               select(!sim),
+#           by = c('order','age','imd')) %>% 
+#   mutate(relative_attack_rate := ((attack_rate/base_attack_rate) - 1)) %>% 
+#   group_by(analysis, age, imd) %>% 
+#   summarise(mean_rel_ar = mean(relative_attack_rate),
+#             l95 = eti95L(relative_attack_rate),
+#             u95 = eti95U(relative_attack_rate))
+# 
+# epid_outputs_agg <- epid_outputs_agg %>% 
+#   rbind(epid_outputs_unpaired)
 
 ## plot
 

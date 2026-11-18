@@ -15,9 +15,9 @@ suppressPackageStartupMessages(library(viridis, warn.conflicts = FALSE))
 
 # set arguments
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","new_ages","fitted_matrs_balanced.csv"),
-  "new_ages",
-  file.path("output", "figures", "cont_matrs","new_ages","fitted_matrs.png")
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
+  "base",
+  file.path("output", "figures", "cont_matrs","base","fitted_matrs.png")
 ) else commandArgs(trailingOnly = TRUE)
 
 source(here::here('scripts','run_cont_matrs','cont_matr_fcns.R'))
@@ -119,6 +119,68 @@ agg <- agg %>%
 #### PLOT ####
 
 #### IMD x IMD ####
+
+#### FOR EACH BOOTSTRAP ####
+
+bootstrapped_plot_cm <- function(i){
+  
+  max_fill <- 4 #max(balanced_matr$n)
+  
+  filt_matr <- balanced_matr %>% filter(bootstrap_index == i) 
+  
+  filt_matr$p_age_group <- factor(filt_matr$p_age_group,
+                            levels = age_labels)
+  filt_matr$c_age_group <- factor(filt_matr$c_age_group,
+                            levels = age_labels)
+  filt_matr$c_imd_q <- factor(filt_matr$c_imd_q,
+                        levels = rev(as.character(1:5)))
+  
+  p <- ggplot(filt_matr) + 
+    geom_tile(aes(x = p_age_group, y = c_age_group, fill = n)) +
+    theme_bw() + 
+    facet_grid(c_imd_q ~ p_imd_q, switch="both") +
+    scale_fill_viridis(limits = c(0, max_fill)) +
+    labs(
+      x = 'Participant IMD, age group',
+      y = 'Contact IMD, age group',
+      fill = 'Mean daily\ncontacts'
+    ) + 
+    scale_x_discrete(expand = expansion(c(0.00075, 0.00075))) + 
+    scale_y_discrete(expand = expansion(c(0.00075, 0.00075))) + 
+    theme(strip.background = element_blank(),
+          strip.placement = "outside",
+          text = element_text(size = 14),
+          axis.ticks = element_line(linewidth = 0),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12),
+          axis.text.y = element_text(size = 12)) +
+    ggtitle(paste0('Bootstrap ', i)) + coord_fixed()
+  
+  p
+  
+}
+
+pdf(file = gsub('.png','.pdf',.args[3]), width = 14, height = 10)
+bootstrapped_plot_cm(1)
+bootstrapped_plot_cm(2)
+bootstrapped_plot_cm(3)
+bootstrapped_plot_cm(4)
+bootstrapped_plot_cm(5)
+bootstrapped_plot_cm(6)
+bootstrapped_plot_cm(7)
+bootstrapped_plot_cm(8)
+bootstrapped_plot_cm(9)
+bootstrapped_plot_cm(10)
+bootstrapped_plot_cm(11)
+bootstrapped_plot_cm(12)
+bootstrapped_plot_cm(13)
+bootstrapped_plot_cm(14)
+bootstrapped_plot_cm(15)
+bootstrapped_plot_cm(16)
+bootstrapped_plot_cm(17)
+bootstrapped_plot_cm(18)
+bootstrapped_plot_cm(19)
+bootstrapped_plot_cm(20)
+dev.off()
 
 ## balanced
 
@@ -420,9 +482,27 @@ if(sens_analysis %notin% c('balance_sett_spec', 'regional','regional_nhs_ages'))
     group_by(bootstrap_index, p_imd_q, c_imd_q) %>% 
     summarise(weighted_sum = sum(n*prop_imd)) %>% 
     group_by(p_imd_q, c_imd_q) %>% 
-    summarise(weighted_mean = mean(weighted_sum))
+    summarise(weighted_mean = mean(weighted_sum),
+              weighted_l = l95_func(weighted_sum),
+              weighted_u = u95_func(weighted_sum))
   
-  imdm_nh <- imd_mix_nh %>% 
+  no_home_proportions <- balanced_matr_no_home %>% 
+    left_join(imd_age %>% rename(p_imd_q = imd_q, p_age_group = age),
+              by = c('p_imd_q','p_age_group')) %>% 
+    group_by(bootstrap_index, p_imd_q, c_imd_q) %>% 
+    summarise(weighted_sum = sum(n*prop_imd)) %>% 
+    group_by(bootstrap_index, p_imd_q) %>% mutate(tot_sum = sum(weighted_sum),
+                                                  prop = weighted_sum/tot_sum) %>% 
+    group_by(p_imd_q, c_imd_q) %>% 
+    summarise(neat = paste0(round(100*mean(prop), 2),
+                            '% (',round(100*l95_func(prop), 2),'% - ',
+                            round(100*u95_func(prop), 2), '%)')) %>% 
+    pivot_wider(names_from = c_imd_q, values_from = neat)
+  
+  write_csv(no_home_proportions, 
+            gsub('fitted_matrs.png','no_home_mixing_props.csv', .args[3]))
+  
+  imdm_nh <- imd_mix_nh %>%
     ggplot() + 
     geom_tile(aes(x = p_imd_q, y = c_imd_q, fill = weighted_mean)) +
     geom_text(aes(x = p_imd_q, y = c_imd_q, label = format_number(weighted_mean), 

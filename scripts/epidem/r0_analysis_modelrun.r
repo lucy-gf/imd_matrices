@@ -1,0 +1,530 @@
+# run epidemics
+# testing varying R0
+
+suppressPackageStartupMessages(require(bench))
+suppressPackageStartupMessages(require(magrittr))
+suppressPackageStartupMessages(require(gridExtra))
+suppressPackageStartupMessages(require(Rcpp))
+suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(data.table))
+options(dplyr.summarise.inform = FALSE)
+library(purrr)
+
+#### SET UP ####
+
+.args <- if (interactive()) c(
+  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
+  'base',
+  file.path("output", "figures", "epidem","base","attack_rates_r0.png")
+) else commandArgs(trailingOnly = TRUE)
+
+sens_analysis <- .args[2]
+
+HOM_MIXING <- ifelse(sens_analysis == 'hom_mixing',
+                     T, F)
+
+# source colors etc.
+source(here::here('scripts','assign_imd','assign_imd_fcns.R'))
+source(here::here('scripts','setup','colors.R'))
+
+source(here::here('scripts','epidem','plot_epidem_functions.R'))
+
+### Basic setting
+source_dir <- "scripts/epidem"
+source(here::here(source_dir,'setup.r')) #repo
+if(exists('cm1000')){rm(cm1000)}
+
+### Diseases cycle
+pset$Disease <- "Influenza"
+
+# set seed
+set.seed(120)
+
+## functions for homogeneous mixing
+
+agg_cm_over_imd <- function(
+    contact_matrix, demography){
+  
+  contact_matrix %>% 
+    left_join(
+      demography %>% rename(p_imd_q = IMD, p_age_group = Age) %>% 
+        group_by(p_age_group) %>% 
+        mutate(age_pop = sum(Population),
+               imd_prop_of_age = Population/age_pop) %>% 
+        select(!c(tot_pop, Population, Proportion)), 
+      by = c('p_imd_q','p_age_group')
+    ) %>% 
+    group_by(p_imd_q, p_age_group, c_age_group, imd_prop_of_age) %>% 
+    summarise(n = sum(n)) %>% # sum over c_imd_q
+    group_by(p_age_group, c_age_group) %>% 
+    summarise(n = weighted.mean(x = n, w = imd_prop_of_age)) # weighted mean over p_imd_q
+  
+}
+
+disagg_cm_over_imd <- function(
+    contact_matrix, demography){
+  
+  cm_contact_imd <- rbind(
+    contact_matrix %>% mutate(c_imd_q = 1),
+    contact_matrix %>% mutate(c_imd_q = 2),
+    contact_matrix %>% mutate(c_imd_q = 3),
+    contact_matrix %>% mutate(c_imd_q = 4),
+    contact_matrix %>% mutate(c_imd_q = 5)
+  ) %>% 
+    left_join(demography %>% 
+                rename(c_imd_q = IMD, c_age_group = Age) %>% 
+                group_by(c_age_group) %>% 
+                mutate(age_pop = sum(Population),
+                       imd_prop_of_age = Population/age_pop) %>% 
+                select(!c(tot_pop, Population, Proportion)), 
+              by = c('c_imd_q','c_age_group')) %>% 
+    mutate(n = n*imd_prop_of_age)
+  
+  cm_full_imd <- rbind(
+    cm_contact_imd %>% mutate(p_imd_q = 1),
+    cm_contact_imd %>% mutate(p_imd_q = 2),
+    cm_contact_imd %>% mutate(p_imd_q = 3),
+    cm_contact_imd %>% mutate(p_imd_q = 4),
+    cm_contact_imd %>% mutate(p_imd_q = 5)
+  ) 
+  
+}
+
+#### FUNCTION ####
+
+run_epidemic <- function(
+    sens_analysis_input,
+    cm_1000,
+    init_infected = 1e3,
+    regional_SA = NULL,
+    region = NULL,
+    save = T,
+    output_file,
+    r0
+){
+  
+  ## Parameters
+  source(paste0(source_dir,"/parsF_.r"))
+  pars$R0 <- r0
+  
+  ## Demography
+  age_structure_num <- ifelse(sens_analysis_input != 'nhs_ages', 1, 2)
+  
+  if(sens_analysis_input == 'regional'){
+    
+    demog_allreg <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
+      mutate(p_engreg = case_when(
+        grepl('London',p_engreg) ~ 'Greater London',
+        grepl('Yorkshire',p_engreg) ~ 'Yorkshire and the Humber',
+        T ~ p_engreg
+      ),
+      IMD = imd_quintile,
+      population = pop,
+      Age = age_grp) %>% 
+      select(p_engreg, IMD, Age, population) %>% 
+      group_by(p_engreg, IMD, Age) %>% 
+      summarise(Population = sum(population)) %>% ungroup() %>% 
+      group_by(p_engreg, IMD) %>% 
+      mutate(tot_pop = sum(Population)) %>% ungroup() %>% 
+      mutate(Proportion = Population/tot_pop)
+    
+    demog_allreg$Age <- factor(demog_allreg$Age,
+                               levels = names(colors_p_age_group))
+    demog_allreg <- demog_allreg %>% arrange(p_engreg, IMD, Age)
+    
+    tot_pop <- sum(demog_allreg$Population)
+    
+    # filter demography for specific region
+    demog <- demog_allreg %>% filter(p_engreg == region)
+    
+    # filter contact matrix for specific region
+    cm_1000 <- cm_1000[p_engreg == region]
+    cm_1000[, p_engreg := NULL]
+    
+  }else{
+   
+    demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
+      group_by(imd_quintile, age_grp) %>% summarise(population = sum(pop)) %>% 
+      group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
+      group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
+      mutate(Proportion = Population/tot_pop) %>% rename(Age = age_grp, IMD = imd_quintile) 
+    demog$Age <- factor(demog$Age,
+                        levels = age_labels)
+    demog <- demog %>% arrange(IMD, Age)
+    
+    tot_pop <- sum(demog$Population)
+
+  }
+  
+  # input for parsF_.R
+  demog_population <<- demog$Population
+  
+  if(sens_analysis_input == 'regional'){
+    if(regional_SA == 1){} # do nothing
+    if(regional_SA == 2){pars$R0 <- 1.1} # lower R0
+    if(regional_SA == 3){pars$R0 <- 3} # higher R0
+    if(regional_SA == 4){ # fix beta, not R0 
+      # set beta to be the median *national* beta such that R0 = 1.5
+      pset$R0fixed <- FALSE
+      pars$beta <- median(nat_beta$beta)
+    }
+  }
+  
+  cat("\nDisease: ", pars$Disease,' --- ', sep = '')
+  cat("Vaccination: ", pars$Vaccination,' --- ', sep = '')
+  cat("Incidence: ", pars$Incidence,' --- ', sep = '')
+  if(!pset$R0fixed){cat("R0 not fixed, beta: ", pars$beta,'\n', sep = '')}else{
+    cat("R0: ", pars$R0,'\n', sep = '')
+  }
+  
+  ## If R0 low, make runtime longer
+  if(pset$R0fixed & (pars$R0 <= 1.2)){ 
+    
+    pars$times  <- 0:250     #days sequence
+    pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+    pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+    pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+    
+  }else{
+    if(#pset$R0fixed & 
+       (pars$R0 < 1.65)){ 
+      
+      pars$times  <- 0:130     #days sequence
+      pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations
+      pars$nw     <- ceiling((max(pars$times)-min(pars$times))/7)   #weeks length of model run
+      pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
+      
+    }
+  }
+  
+  # reorder/level contact matrix data table
+  cm_1000$p_age_group <- factor(cm_1000$p_age_group, levels = pars$ages)
+  cm_1000$c_age_group <- factor(cm_1000$c_age_group, levels = pars$ages)
+  
+  cm_1000 <- cm_1000[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
+  
+  # number of age groups
+  na   = pars$na
+  # number of SES
+  nimd = pars$nimd
+  # number of groups
+  ng   = na*nimd
+  
+  # proportion by age
+  pa<-vector(); for (i in 1:na){pa[i]=sum(demog$Population[which(demog$Age==pars$ages[i])])/sum(demog$Population)}
+  
+  if(sens_analysis_input != 'nhs_ages' & !grepl('9', demog$Age[2])){warning('Demog names wrong')}
+  if(sens_analysis_input == 'nhs_ages' & !grepl('11', demog$Age[2])){warning('Demog names wrong')}
+  
+  ## Initial state: S, E1:2, I1:2, U1:2, R, D
+  oNg  <- 1/demog$Population;   # 1/Population
+  Sg0  <- demog$Population;   # Susceptible - Initial population, unless there's acquired immunity
+  E1g0 <- rep(0,ng);  # Exposed     - seed of epidemic
+  E2g0 <- rep(0,ng);  # Exposed
+  U1g0 <- rep(0,ng);  # Pre-clinical cases
+  U2g0 <- rep(0,ng);  # Pre-clinical cases
+  I1g0 <- rep(0,ng);  # Sub-clinical cases
+  I2g0 <- rep(0,ng);  # clinical cases
+  Rg0  <- rep(0,ng);  # Recovered 
+  Dg0  <- rep(0,ng);  # Dead 
+  
+  # seed the initial 1,000 latent infections proportionately across groups
+  prop <- init_infected/tot_pop
+  pars$pE1g0 <- rep(prop, length(E1g0))
+  E1g0 = (1/oNg)*pars$pE1g0
+  Sg0  = Sg0 - E1g0
+  
+  ## Population by age group (over SES), by SES (over age), overall
+  Na<-rep(0,na)
+  Ns<-rep(0,nimd)
+  for (ia in 1:na) { for (is in 1:nimd) {
+    Na[ia] = Na[ia] + 1/oNg[(is-1)*na + ia] 
+    Ns[is] = Ns[is] + 1/oNg[(is-1)*na + ia] }}
+  Npop = sum(1/oNg);
+  
+  # set dataframes etc. to 0
+  n_bs <- max(cm_1000$bootstrap_index)
+  byw <- data.table(); byaw <- data.table(); byall <- data.table()
+  BETATRACK <- rep(0, n_bs)
+  
+  ## run model x1000
+  for(sim_num in 1:n_bs){
+    
+    if(!HOM_MIXING){
+      cm <- cm_1000[bootstrap_index == sim_num,] 
+      cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages)
+      cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
+      cm <- cm[order(bootstrap_index, p_imd_q, p_age_group, c_imd_q, c_age_group)]
+      cm <- cm %>% 
+        mutate(p = paste0(p_imd_q, '_', p_age_group),
+               c = paste0(c_imd_q, '_', c_age_group)) %>% 
+        select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
+      pvec <- cm$p 
+      cm <- cm %>% select(!p) %>% as.matrix()
+      if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
+      if(grepl('14', pvec[2])){warning('CM names wrong')}
+      cmdim1 = dim(cm)[1]
+    }
+    
+    if(HOM_MIXING){
+      
+      ## random mixing (age-specific, proportionate to IMD age size): 
+      
+      cm <- cm_1000[bootstrap_index == sim_num,] 
+      cm$p_age_group <- factor(cm$p_age_group, levels = pars$ages)
+      cm$c_age_group <- factor(cm$c_age_group, levels = pars$ages)
+      
+      # aggregate over IMD
+      agg_cm <- agg_cm_over_imd(cm, demog)
+      # disaggregate randomly over IMD
+      hom_cm <- disagg_cm_over_imd(agg_cm, demog)
+      
+      cm <- hom_cm %>% 
+        ungroup() %>% 
+        mutate(p = paste0(p_imd_q, '_', p_age_group),
+               c = paste0(c_imd_q, '_', c_age_group)) %>% 
+        select(p,c,n) %>% pivot_wider(names_from = c, values_from = n) 
+      
+      pvec <- cm$p 
+      cm <- cm %>% select(!p) %>% as.matrix()
+      
+      ## make reciprocal
+      pop_vec <- demog$Population
+      mu_ij_p_i <- cm*pop_vec
+      mu_ji_p_j <- t(mu_ij_p_i)
+      cm <- (mu_ij_p_i + mu_ji_p_j) / (2*pop_vec)
+      # check:
+      if(sum(abs(cm*pop_vec - t(cm*pop_vec))) > 0.001){warning('Hom mixing not reciprocal')}
+      per_cap_cm <- t(t(cm)/pop_vec)
+      indiv_per_cap_cms <- c()
+      for(k1 in 1:5){
+        for(k2 in 1:5){
+           
+          values <- c(per_cap_cm[(16*(k1) - 15):(16*(k1)), (16*(k2) - 15):(16*(k2))])
+          
+          if(k1 == 1 & k2 == 1){
+            test_values <- values
+            indiv_per_cap_cms <- values
+            }
+          
+          indiv_per_cap_cms <- (indiv_per_cap_cms + values)/2
+        }
+      }
+      if(all.equal(test_values,indiv_per_cap_cms) != T){warning('Hom mixing per capita matrices wrong')}
+      
+      ## plot contact matrix
+      # heatmap(cm, Colv = NA, Rowv = NA, scale = 'none')
+      ## plot per capita contact matrix (independent of IMD quintile)
+      # heatmap(per_cap_cm, Colv = NA, Rowv = NA, scale = 'none')
+      
+      if(sum(colnames(cm) == pvec) != length(pvec)){warning('CM names wrong')}
+      if(grepl('14', pvec[2])){warning('CM names wrong')}
+      cmdim1 = dim(cm)[1]
+      
+    }
+    
+    ## R0, set new beta
+    if(!pset$R0fixed){betanew <- pars$beta}else{
+      source(paste0(source_dir,"/R0_.r"))      #outputs cav
+      betanew = R0(pars, cm_in = cm, R0assumed = as.numeric(pars$R0), printout = 0) #default 2.5
+      BETATRACK[sim_num] <- betanew
+      # cat(paste0("Assuming R0 = ", pars$R0 ,", beta = ", round(betanew,4), "/day",'\n'))
+    }
+    
+    parscpp = within(parscpp <- pars, {
+      cm=as.vector(cm); cmdim1=cmdim1; mI=pars$m; beta=betanew;
+      Sg0=Sg0; E1g0=E1g0; I1g0=I1g0; I2g0=I2g0; U1g0=U1g0; U2g0=U2g0; 
+      Rg0=Rg0; Dg0=Dg0; oNg=oNg })
+    #  for output
+    parsum = parscpp;
+    #  remove what's not needed for Rcpp
+    parscpp <- parscpp %>% magrittr::inset(c('age', 'ages', 'ageons', 'm'), NULL)  #parscpp45[['age']] <- NULL; etc
+    
+    ## Model output (for the proposed parameters)
+    if (pset$COMPILE==1 & pset$Vaccination==0 & pset$DailyIncidence==1) {
+      sourceCpp(file = paste0(source_dir,"/cpp/","SEIRDasday_",ng,".cpp")) 
+    }
+    
+    mas <- model(parscpp)
+    
+    byw <- rbind(byw, 
+                 cbind(mas$byw, sim = sim_num, beta = betanew))
+    
+    byaw <- rbind(byaw, 
+                  cbind(mas$byaw, sim = sim_num, beta = betanew))
+    
+    byall <- rbind(byall, 
+                   cbind(mas$byall, sim = sim_num, beta = betanew))
+    
+    if(sim_num == 1){cat('Simulations: ')}
+    if(sim_num %% 50 == 0){cat(paste0(sim_num, ', '))}
+    
+  }
+  
+  Iwpeakvalvec = byw[, c('sim','Iw')][, lapply(.SD, max), by = 'sim']
+  cat('\n',paste0("Peak:  ", signif(mean(Iwpeakvalvec$Iw),digits=3)*10^(-6)," million (95% CI: ", 
+                  signif(quantile(Iwpeakvalvec$Iw, 0.025),3)*10^(-6),
+                  ' - ', signif(quantile(Iwpeakvalvec$Iw, 0.975),3)*10^(-6), ' million)'), sep = '')
+  if(pset$R0fixed){
+    cat('\n',paste0("Beta:  ", signif(mean(BETATRACK),digits=3)," (95% CI: ", 
+                    signif(quantile(BETATRACK, 0.025),3),
+                    ' - ', signif(quantile(BETATRACK, 0.975),3), ')\n'), sep = '')
+  }
+  
+  ## check sums
+  imd_vec <- paste0('Iw_s', 1:nimd)
+  age_vec <- paste0('Iw_a', 1:na)
+  group_vec <- paste0('Iw_g', 1:ng)
+  
+  ## imd check
+  imd1 <- colSums(byw[, ..imd_vec])
+  imd2raw <- colSums(byall[, ..group_vec]); imd2 <- rep(0, nimd)
+  for(imd_i in 1:nimd){imd2[imd_i] <- sum(imd2raw[na*(imd_i - 1) + (1:na)])}
+  if(sum(abs(imd1 - imd2) < 1) != nimd){stop('IMD sums not aligning')}
+  
+  ## age check
+  age1 <- colSums(byaw[, ..age_vec])
+  age2raw <- colSums(byall[, ..group_vec]); age2 <- rep(0, na)
+  for(age_i in 1:na){age2[age_i] <- sum(age2raw[(age_i - na) + na*1:5])}
+  if(sum(abs(age1 - age2) < 1) != na){stop('Age sums not aligning')}
+  
+  ## attach region if in regional sensitivity analysis
+  if(sens_analysis == 'regional'){
+    
+    byw <- byw %>% mutate(p_engreg = reg)
+    byaw <- byaw %>% mutate(p_engreg = reg)
+    byall <- byall %>% mutate(p_engreg = reg)
+    
+    output_file <- gsub('.rds', paste0('_', regional_SA, '_', gsub(' ', '_', reg), '.rds'), output_file)
+    
+  }
+  
+  ## save files
+  if(save){
+    
+    write_rds(byw, gsub('all','w',output_file))
+    write_rds(byaw, gsub('all','aw',output_file))
+    write_rds(byall, output_file)
+    
+    return()
+  
+    }else{
+      
+    return(list(byw,
+                byaw,
+                byall))
+      
+  }
+  
+}
+
+#### INPUTS ####
+# set ages
+if(sens_analysis == 'nhs_ages'){
+  age_limits <- c(5,12,18,26,35,50,70,80)
+  age_labels <- paste0(c(0,age_limits), c(rep('-', length(age_limits)),''), c(age_limits - 1, '+'))
+}
+
+## contact matrices
+cm_col_vec <- c('bootstrap_index','p_imd_q','p_age_group','c_imd_q','c_age_group','n')
+if(sens_analysis == 'regional'){ cm_col_vec <- c(cm_col_vec, 'p_engreg') }
+sum_over <- cm_col_vec[!cm_col_vec=='n']
+
+if(!exists('cm1000')){
+  cm1000 <- data.table(suppressWarnings(read_csv(.args[1], show_col_types = F)))[bootstrap_index != 'bootstrap_index',]
+  if(length(setdiff(colnames(cm1000), cm_col_vec)) != 0){print(colnames(cm1000))}
+  cm1000 <- cm1000[, ..cm_col_vec][, lapply(.SD, sum), by = sum_over]
+}
+
+#### RUN ####
+
+r0_vec <- c(1.2, 1.5, 2, 3)
+  
+infections <- map(.x = r0_vec,
+                  .f = ~{
+                    epidemic_outputs <- run_epidemic(
+                      sens_analysis_input = sens_analysis,
+                      cm_1000 = cm1000,
+                      save = F,
+                      r0 = .x
+                    )
+                  })
+
+#### PROCESS ####
+
+variable_labels <- CJ(
+  imd = as.character(1:nimd),
+  age = age_labels
+)
+variable_labels$age <- factor(variable_labels$age,
+                              levels = age_labels)
+variable_labels <- variable_labels %>% 
+  arrange(imd, age)
+variable_labels$variable <- paste0('Iw_g', 1:(na*nimd))
+
+process_function <- function(k){
+  
+  byall <- infections[[k]][[3]] 
+  
+  if(any(byall[nrow(byall),3:(ncol(byall)-2)] > 1)){
+    warning(paste0('Final day of epidemic not small enough (k = ', k, ')'))
+  }
+  if(any(byall[nrow(byall),3:(ncol(byall)-2)] > byall[nrow(byall) - 1,3:(ncol(byall)-2)])){
+    warning('Final day of epidemic not decreasing')
+  }
+  
+  data1000 <- copy(byall)
+  if('beta' %in% colnames(data1000)){data1000[, beta := NULL]}
+  data1000[, iW := NULL]
+  data <- melt.data.table(data1000, id.vars = c('sim','time'))
+  setnames(data,'value','infections')
+  data <- data[variable_labels, on = c('variable')]
+  data[, variable := NULL]
+  data <- data[demog %>% rename(age=Age,imd=IMD,imd_pop=tot_pop,pop=Population) %>% 
+                 select(!Proportion) %>% mutate(imd = as.character(imd)), on = c('imd','age')]
+  data[, attack_rate := infections/pop]
+  
+  ## total infections
+  data <- data[, lapply(.SD, sum), by = c('sim','age','imd','imd_pop','pop')]
+  data[, time := NULL]
+  
+  data[,r0 := r0_vec[k]]
+  
+  data
+  
+}
+
+processed_infections <- map(
+  .x = 1:length(r0_vec),
+  .f = process_function
+)
+  
+processed_infections_dt <- rbindlist(processed_infections) %>% mutate(r0 = paste0('R0: ', r0))
+
+#### PLOT ####
+
+demog <- read_csv(file.path("data","imd_25",paste0("imd_ages_", age_structure_num,".csv")), show_col_types = F) %>% 
+  group_by(imd_quintile, age_grp) %>% summarise(population = sum(pop)) %>% 
+  group_by(imd_quintile) %>% mutate(tot_pop = sum(population)) %>% 
+  group_by(imd_quintile, age_grp, tot_pop) %>% summarise(Population = sum(population)) %>% 
+  mutate(Proportion = Population/tot_pop) %>% rename(Age = age_grp, IMD = imd_quintile) 
+demog$Age <- factor(demog$Age,
+                    levels = age_labels)
+demog <- demog %>% arrange(IMD, Age)
+
+p1 <- imd_violin_plot(processed_infections_dt,
+                    r0_analysis = T) + labs(x = '')
+
+p2 <- rel_imd_violin_plot(processed_infections_dt,
+                    5,
+                    r0_analysis = T)  + labs(x = '')
+
+p3 <- age_standardised_rel_imd_violin_plot(
+  demog_in = demog,
+  data_in = processed_infections_dt,
+  base_imd = 5,
+  r0_analysis = T)
+
+p1 + p2 + p3 + plot_layout(nrow = 3)
+
+ggsave(.args[3], width = 12, height = 10)

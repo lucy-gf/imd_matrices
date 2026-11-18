@@ -175,6 +175,8 @@ sum(imd_age_1$pop)
 sum(imd_age_2$pop)
 sum(imd_age_3$pop)
 
+imd_age_1 %>% group_by(imd_quintile) %>% summarise(pop=sum(pop)) %>% mutate(100*pop/sum(pop))
+
 ## save 
 
 write_csv(imd_age_1, here::here('data','imd_25','imd_ages_1.csv'))

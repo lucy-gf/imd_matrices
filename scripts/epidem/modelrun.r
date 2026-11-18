@@ -12,9 +12,9 @@ library(purrr)
 #### SET UP ####
 
 .args <- if (interactive()) c(
-  file.path("output", "data", "cont_matrs","base","fitted_matrs_balanced.csv"),
-  'base',
-  file.path("output", "data", "epidem","base","byall.rds")
+  file.path("output", "data", "cont_matrs","regional","fitted_matrs_balanced.csv"),
+  'regional',
+  file.path("output", "data", "epidem","regional","byall.rds")
 ) else commandArgs(trailingOnly = TRUE)
 
 sens_analysis <- .args[2]
@@ -183,7 +183,8 @@ run_epidemic <- function(
     pars$nd     <- ceiling((max(pars$times)-min(pars$times)))+1   #days length of model run
     
   }else{
-    if(pset$R0fixed & (pars$R0 < 1.65)){ 
+    if(#pset$R0fixed & 
+       (pars$R0 < 1.65)){ 
       
       pars$times  <- 0:130     #days sequence
       pars$nt     <- (max(pars$times)-min(pars$times))/pars$dt + 1       #no. time points, iterations

@@ -263,6 +263,35 @@ panel_specs <- list(
     pre_process  = function(dt) {
       dt 
     }
+  ),
+  
+  imd_income_emp = list(
+    group_vars   = c("imd_quintile", "p_income", "p_emp_1"),
+    group_vars_plot   = c("imd_quintile", "p_income", "p_emp_1"),
+    csv_suffix   = "imd_income_employment",
+    x_var        = "p_income",
+    x_label      = "Household income",
+    facet_var    = "p_emp_1",
+    y_limits     = c(0, NA),
+    legend       = T,
+    pre_process  = function(dt) {
+      income_levels <- c("Less than £20,000", "£20,000 - £39,999",
+                         "£40,000 - £59,999", "£60,000 - £100,000", "Over £100,000")
+      gsub_income_levels <- gsub("- ", "-\n", gsub("than", "than\n", income_levels))
+      
+      dt %>% filter(p_emp_1 %notin% c('Child (Not Applic.)','Other','Student')) %>% 
+        mutate(p_emp_1 = case_when(
+        p_emp_1 %like% 'full time|full-time' ~ 'Full-time employed',
+        p_emp_1 %like% 'part time|part-time' ~ 'Part-time employed',
+        p_emp_1 %like% 'Unemployed|Looking|sick' ~ 'Unemployed',
+        T ~ p_emp_1
+      )) %>% 
+        mutate(
+          p_income = factor(p_income, levels = income_levels),
+          p_income = gsub("- ", "-\n", gsub("than", "than\n", as.character(p_income))),
+          p_income = factor(p_income, levels = gsub_income_levels)
+        )
+    }
   )
   
   # ── add further panels here, e.g.: ──────────────────────────────────────────
@@ -294,7 +323,7 @@ part_reconnect <- readRDS(file.path("data", "reconnect", "reconnect_part.rds"))
 
 part <- part %>%
     left_join(
-      part_reconnect %>% select(p_id, p_gender, day_week, p_income, p_engreg, p_broad_age, p_hiqual),
+      part_reconnect %>% select(p_id, p_gender, day_week, p_income, p_engreg, p_broad_age, p_hiqual, p_emp_1),
       by = "p_id"
     ) %>% 
   mutate(total_contacts = n_contacts + large_n)
@@ -374,7 +403,7 @@ plots <- map2(panel_specs, panel_data, build_panel_plot)
     group_by(p_age_group, bootstrap_index, imd_quintile) %>% 
     count() %>% group_by(p_age_group, bootstrap_index) %>% 
     mutate(p = prop.table(n)) %>% 
-    left_join(demog_age, by = 'p_age_group') %>% 
+    left_join(demog_age, by = c('p_age_group')) %>% 
     group_by(imd_quintile, bootstrap_index) %>% 
     summarise(p = weighted.mean(x=p, w=prop)) %>% 
     group_by(imd_quintile) %>% 
@@ -425,6 +454,14 @@ ggsave(
 ggsave(
   filename = gsub("data", "figures", gsub(".csv", "_age_region.png", .args[3])),
   plot = plots[[4]],
+  width = 18, height = 11
+)
+
+## income- and employment-specific contacts
+
+ggsave(
+  filename = gsub("data", "figures", gsub(".csv", "_income_emp.png", .args[3])),
+  plot = plots[[6]],
   width = 18, height = 11
 )
 

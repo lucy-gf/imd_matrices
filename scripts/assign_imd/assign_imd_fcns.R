@@ -389,7 +389,7 @@ fcn_errorbarplot_imd <- function(
   
 }
 
-## THIS FUNCTION SHOWS REVERSED RISK RATIOS (MAYBE PREFERRED?) ##
+
 fcn_rev_errorbarplot_imd <- function(
     data_output,
     vars_list,
@@ -727,7 +727,156 @@ fcn_rev_errorbarplot_imd <- function(
   
 }
 
- ## FUNCTION TO EVALUATE IMD ASSIGNMENT ##
+fcn_plot_review <- function(
+    data_output,
+    vars_list,
+    true_vals = NULL,
+    ci_width = 0.5,
+    facet = F,
+    true_distr = F
+){
+  
+  n_bootstraps <- n_distinct(data_output$bootstrap)
+  
+  n_col <- ceiling(sqrt(length(vars_list)))
+  n_row <- ceiling(length(vars_list)/n_col)
+  
+  fcn_errorbarplot <- function(var){
+    
+    if(var == 'p_income'){
+      data_output$p_income <- factor(data_output$p_income,
+                                     levels = c("Less than £20,000","£20,000 - £39,999",
+                                                "£40,000 - £59,999","£60,000 - £100,000", 
+                                                "Over £100,000", "Child (Not Applic.)"))
+    }
+    if(var == 'p_ethnicity'){
+      data_output <- data_output %>% 
+        filter(!p_ethnicity %like% 'Prefer')
+    }
+    if(var == 'p_sec_input'){
+      data_output <- data_output %>%
+        filter(p_sec_input %in% as.character(1:7))
+      
+      true_vals <- true_vals %>%
+        mutate(p_sec_input = as.character(p_sec_input)) %>% 
+        filter(p_sec_input %in% as.character(1:7))
+    }
+    if(var == 'p_hiqual'){
+      data_output <- data_output %>% 
+        filter(p_hiqual != 'Other',
+               !p_hiqual %like% 'Child|appl')
+    }
+    
+   
+        var_props_in_data <- data_output %>% 
+          select(!!sym(var)) %>% drop_na() %>% 
+          group_by(!!sym(var)) %>% 
+          summarise(n = n(), n_tot = nrow(data_output), general_data_prop = n/n_tot)
+        var_props_census <- true_vals %>% ungroup() %>% 
+          mutate(tot_pop = sum(n)) %>% 
+          group_by(!!sym(var), tot_pop) %>% 
+          summarise(n_tot = sum(n)) %>% 
+          mutate(general_imd_prop = n_tot/tot_pop)
+        var_imd_props_census <- true_vals %>% 
+          group_by(imd_quintile) %>% 
+          mutate(n_tot = sum(n)) %>% 
+          group_by(imd_quintile, !!sym(var), n_tot) %>% 
+          summarise(n = sum(n)) %>% 
+          mutate(true_var_imd_prop = n/n_tot)
+        
+        plot_input <- data_output %>% 
+          group_by(bootstrap, imd_quintile) %>% 
+          mutate(n_tot = n()) %>% 
+          group_by(bootstrap, imd_quintile, !!sym(var), n_tot) %>% 
+          summarise(n_var = n()) %>% drop_na() %>% 
+          mutate(prop_bs = n_var/n_tot) %>% 
+          group_by(imd_quintile, !!sym(var)) %>% 
+          summarise(med_prop = median(prop_bs),
+                    lower_prop = quantile(prop_bs, (1 - ci_width)/2),
+                    upper_prop = quantile(prop_bs, (1 - (1 - ci_width)/2))) %>% 
+          left_join(var_props_in_data %>% select(!!sym(var), general_data_prop), by = var) %>% 
+          left_join(var_props_census %>% select(!!sym(var), general_imd_prop), by = var) %>% 
+          left_join(var_imd_props_census %>% select(!!sym(var), imd_quintile, true_var_imd_prop), by = c(var, 'imd_quintile')) 
+        
+        if(var == 'p_age_group'){
+          plot_input$p_age_group <- factor(plot_input$p_age_group,
+                                           levels = c('0-4','5-9',
+                                                      '10-14','15-19',
+                                                      '20-24','25-29',
+                                                      '30-34','35-39',
+                                                      '40-44','45-49',
+                                                      '50-54','55-59',
+                                                      '60-64','65-69',
+                                                      '70-74','75+'))
+        }
+        if(var == 'age_grp'){
+          plot_input$age_grp <- factor(plot_input$age_grp,
+                                       levels = c('Aged 4 years and under', 'Aged 5 to 9 years',
+                                                  'Aged 10 to 14 years', 'Aged 15 to 19 years',
+                                                  'Aged 20 to 24 years', 'Aged 25 to 29 years',
+                                                  'Aged 30 to 34 years', 'Aged 35 to 39 years',
+                                                  'Aged 40 to 44 years', 'Aged 45 to 49 years',
+                                                  'Aged 50 to 54 years', 'Aged 55 to 59 years',
+                                                  'Aged 60 to 64 years', 'Aged 65 to 69 years',
+                                                  'Aged 70 to 74 years', 'Aged 75+'))
+        }
+        
+        if(var == 'hh_tenure_nm'){
+          plot_input <- plot_input %>% 
+            mutate(hh_tenure_nm = case_when(
+              hh_tenure_nm == 'Owned: Owns with a mortgage or loan or shared ownership' ~ 
+                'Owned: Owns with a mortgage or\nloan or shared ownership',
+              hh_tenure_nm == 'Private rented: Other private rented or lives rent free' ~ 
+                'Private rented: Other private\nrented or lives rent free',
+              hh_tenure_nm == 'Private rented: Private landlord or letting agency' ~ 
+                'Private rented: Private landlord\nor letting agency',
+              hh_tenure_nm == 'Social rented: Rents from council or Local Authority' ~ 
+                'Social rented: Rents from council\nor Local Authority',
+              T ~ hh_tenure_nm
+            )) 
+        }
+        
+        alpha_val <- 0.7
+        
+        p <- plot_input %>% 
+          mutate(imd_quintile = paste0('IMD ', imd_quintile)) %>% 
+          ggplot() + 
+          geom_errorbar(aes(y = !!sym(var), xmin = lower_prop/general_data_prop, xmax = upper_prop/general_data_prop),
+                        width = 0, linewidth = 2, col = 'white',
+                        position = position_dodge(width = 0.9), alpha = 1) + 
+          geom_errorbar(aes(y = !!sym(var), xmin = lower_prop/general_data_prop, xmax = upper_prop/general_data_prop, 
+                            col = !!sym(var)), width = 0, linewidth = 2,
+                        position = position_dodge(width = 0.9), alpha = alpha_val) + 
+          geom_point(aes(y = !!sym(var), x = med_prop/general_data_prop,
+                         color = !!sym(var)),
+                     size = 2.5, position = position_dodge(width = 0.9)) +
+          geom_point(aes(y = !!sym(var), x = med_prop/general_data_prop),
+                     size = 1, col = 'white', position = position_dodge(width = 0.9)) +
+          geom_point(aes(y = !!sym(var), x = true_var_imd_prop/general_imd_prop, color = !!sym(var)),
+                     size = 2, position = position_dodge(width = 0.9), shape = 5, stroke = 1) + 
+          theme_bw() + labs(col = format_legend(var), y = '', x = 'Ratio') +
+          geom_vline(xintercept = 1, lty = 2, alpha = 0.4) + 
+          facet_grid(imd_quintile~.) + 
+          theme(axis.text.y=element_blank(),
+                axis.ticks.y=element_blank(),
+                strip.background = element_rect(fill = 'white')) + 
+          scale_color_manual(values = get(paste0('colors_', var))) +
+          ggtitle(paste0(format_legend(var))); p
+          
+  }
+  
+  plots <- map(
+    .x = vars_list,
+    .f = fcn_errorbarplot
+  )
+  
+  patched <- patchwork::wrap_plots(plots, ncol = n_col) 
+
+  patched
+  
+}
+
+## FUNCTION TO EVALUATE IMD ASSIGNMENT ##
 
 fcn_evaluate_imd <- function(
     data_input,
@@ -831,9 +980,35 @@ fcn_evaluate_imd <- function(
     
   }
   
+  # plot 
+  plot_summary_review <- function(
+    i){
+    
+    census <- census_data_list[[i]]
+    var_name <- colnames(census)[colnames(census) %notin% c('imd_quintile','n','n_tot','prop')]
+    
+    summ_filt <- scores %>%
+      filter(variable == var_name) %>% 
+      mutate(stat = mean(stat))
+    
+    # make sure only using variable categories which align 
+    data_filt <- data.table(data)
+    census <- data.table(census)
+    data_filt <- data_filt[get(var_name) %in% unname(unlist(unique(census[,get(var_name)]))), ]
+    census <- census[get(var_name) %in% unname(unlist(unique(data_filt[,get(var_name)]))), ]
+    
+    p <- fcn_plot_review(data_output = data_filt, 
+                                  vars_list = var_name,
+                                  true_vals = census,
+                                  ci_width = 0.95,
+                                  facet = T
+    )
+    
+  }
+  
   plots <- map(
     .x = 1:length(census_data_list),
-    .f = plot_summary
+    .f = plot_summary_review
   )
   
   n_col <- ceiling(sqrt(length(census_data_list)))

@@ -198,13 +198,17 @@ age_spec_infections <- function(data_in){
   
 }
 
-imd_violin_plot <- function(data_in, regional = F, combined = F){
+imd_violin_plot <- function(data_in, 
+                            regional = F, 
+                            combined = F,
+                            r0_analysis = F){
   
   if(regional + combined == 2){stop("Can't be in regional and combined analyses")}
   
   vec <- c('sim','imd')
   if(regional){vec <- c(vec, 'p_engreg')}
   if(combined){vec <- c(vec, 'model')}
+  if(r0_analysis){vec <- c(vec, 'r0')}
   vec_no_sim <- vec[!vec=='sim']
   
   if(combined){
@@ -247,6 +251,11 @@ imd_violin_plot <- function(data_in, regional = F, combined = F){
   if(regional){
     p <- p + 
       facet_wrap(.~p_engreg, scales = 'fixed')
+  }
+  
+  if(r0_analysis){
+    p <- p +
+      facet_grid(. ~ r0) + theme(strip.text.x=element_text(face='bold'))
   }
   
   p
@@ -303,15 +312,19 @@ rel_age_violin_plot <- function(data_in,
 rel_imd_violin_plot <- function(data_in,
                                 base_imd,
                                 regional = F,
-                                combined = F){
+                                combined = F,
+                                r0_analysis = F
+                                ){
   
   if(regional + combined == 2){stop("Can't be in regional and combined analyses")}
   
   vec <- c('sim','imd')
   if(regional){ vec <- c(vec, 'p_engreg') }
   if(combined){vec <- c(vec, 'model')}
+  if(r0_analysis){vec <- c(vec, 'r0')}
   vec_no_imd <- vec[!vec=='imd']
   vec_no_sim <- vec[!vec=='sim']
+  vec_no_imd_no_sim <- vec_no_imd[!vec_no_imd=='sim']
   
   imd_ars <- data_in %>% 
     group_by(!!!syms(vec)) %>% 
@@ -340,17 +353,35 @@ rel_imd_violin_plot <- function(data_in,
               u = u95_func(rel_ar),
               neat = paste0(round(100*(median-1), 3), ' (', 
                             round(100*(l-1),3), ' - ', round(100*(u-1),3), ')')) 
-  
   print_df <- if(combined){
     print_df %>% arrange(model, imd) %>% 
-      mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat,'\n'))
+      mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat))
   }else{
     print_df %>% arrange(imd) %>% 
-      mutate(neat_long = paste0('IMD ', imd, ': ', neat,'\n'))
+      mutate(neat_long = paste0('IMD ', imd, ': ', neat))
   }
   
+  over_1_df <- rel_imd_ars %>% 
+    mutate(over_1 = rel_ar > 1) %>% 
+    group_by(!!!syms(vec_no_sim), over_1) %>% 
+    summarise(n_over_1 = n()) %>% 
+    filter(over_1) %>% select(!over_1) %>% 
+    group_by(!!!syms(vec_no_imd_no_sim)) %>% 
+    complete(imd = as.character(1:5),
+             fill = list(n_over_1 = 0)) %>% 
+    mutate(neat_o = #paste0('IMD ', imd,': ', round(100*(n_over_1/1000), 2), '%\n'))
+             paste0(round(100*(n_over_1/1000), 2), '%\n'))
+  over_1_df <- if(combined){
+    over_1_df %>% arrange(model, imd)
+  }else{
+    over_1_df %>% arrange(imd) 
+  }
+  
+  print_df <- print_df %>% left_join(over_1_df, by = vec_no_sim) %>% 
+    mutate(neat_long = paste0(neat_long, ', ', neat_o))
+  
   cat('\n')
-  cat(print_df$neat_long, sep = '')
+  cat(print_df$neat_long,sep = '')
   cat('\n')
   
   p <- rel_imd_ars %>% 
@@ -389,7 +420,60 @@ rel_imd_violin_plot <- function(data_in,
       facet_wrap(. ~ p_engreg)
   }
   
+  if(r0_analysis){
+    p <- p +
+      facet_grid(. ~ r0) + theme(strip.text.x=element_text(face='bold'))
+  }
+  
   p
+  
+}
+
+rel_imd_data <- function(data_in,
+                         base_imd,
+                         regional = F,
+                         combined = F,
+                         r0_analysis = F
+){
+  
+  if(regional + combined == 2){stop("Can't be in regional and combined analyses")}
+  
+  vec <- c('sim','imd')
+  if(regional){ vec <- c(vec, 'p_engreg') }
+  if(combined){vec <- c(vec, 'model')}
+  if(r0_analysis){vec <- c(vec, 'r0')}
+  vec_no_imd <- vec[!vec=='imd']
+  vec_no_sim <- vec[!vec=='sim']
+  
+  imd_ars <- data_in %>% 
+    group_by(!!!syms(vec)) %>% 
+    summarise(infections = sum(infections),
+              pop = sum(pop)) %>%
+    mutate(attack_rate = infections/pop) %>% ungroup() %>% 
+    select(!!!syms(vec), attack_rate)
+  
+  base_imd_ars <- imd_ars %>% 
+    filter(imd == base_imd) %>% 
+    rename(base_attack_rate = attack_rate) %>% 
+    select(!imd)
+  
+  rel_imd_ars <- imd_ars %>% 
+    left_join(base_imd_ars, by = vec_no_imd) %>% 
+    mutate(rel_ar = attack_rate/base_attack_rate)
+  
+  if(combined){
+    rel_imd_ars$model <- factor(rel_imd_ars$model, levels = unique(data_in$model))
+  }
+  
+  print_df <- rel_imd_ars %>% 
+    group_by(!!!syms(vec_no_sim)) %>% 
+    summarise(median = median(rel_ar),
+              l = l95_func(rel_ar),
+              u = u95_func(rel_ar),
+              neat = paste0(round(100*(median-1), 3), ' (', 
+                            round(100*(l-1),3), ' - ', round(100*(u-1),3), ')')) 
+
+  rel_imd_ars
   
 }
 
@@ -398,7 +482,8 @@ age_standardised_rel_imd_violin_plot <- function(
     data_in,
     base_imd,
     regional = F,
-    combined = F
+    combined = F,
+    r0_analysis = F
     ){
   
   if(regional + combined == 2){stop("Can't be in regional and combined analyses")}
@@ -419,8 +504,10 @@ age_standardised_rel_imd_violin_plot <- function(
   vec <- c('sim','imd')
   if(regional){vec <- c(vec, 'p_engreg')}
   if(combined){vec <- c(vec, 'model')}
+  if(r0_analysis){vec <- c(vec, 'r0')}
   vec_no_imd <- vec[vec!='imd']
   vec_no_sim <- vec[vec!='sim']
+  vec_no_imd_no_sim <- vec_no_imd[vec_no_imd!='sim']
   
   age_standardised_ars <- data_in %>% 
     left_join(standard_pop, by = pop_vec) %>% 
@@ -453,11 +540,33 @@ age_standardised_rel_imd_violin_plot <- function(
   
   print_df <- if(combined){
     print_df %>% arrange(model, imd) %>% 
-      mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat,'\n'))
+      mutate(neat_long = paste0(model, ' (IMD ', imd, '): ', neat))
   }else{
     print_df %>% arrange(imd) %>% 
-      mutate(neat_long = paste0('IMD ', imd, ': ', neat,'\n'))
+      mutate(neat_long = paste0('IMD ', imd, ': ', neat))
   }
+  
+  over_1_df <- rel_imd_ars_as %>% 
+    mutate(over_1 = rel_ar > 1) %>% 
+    group_by(!!!syms(vec_no_sim), over_1) %>% 
+    summarise(n_over_1 = n()) %>% 
+    filter(over_1) %>% select(!over_1) 
+  if(combined){over_1_df <- over_1_df %>% rbind(over_1_df[1,] %>% 
+                                                  mutate(model='Homogeneous mixing',imd='1',n_over_1=0))}
+  over_1_df <- over_1_df %>% 
+    group_by(!!!syms(vec_no_imd_no_sim)) %>% 
+    complete(imd = as.character(1:5),
+             fill = list(n_over_1 = 0)) %>% 
+    mutate(neat_o = #paste0('IMD ', imd,': ', round(100*(n_over_1/1000), 2), '%\n'))
+             paste0(round(100*(n_over_1/1000), 2), '%\n'))
+  over_1_df <- if(combined){
+    over_1_df %>% arrange(model, imd)
+  }else{
+    over_1_df %>% arrange(imd) 
+  }
+  
+  print_df <- print_df %>% left_join(over_1_df, by = vec_no_sim) %>% 
+    mutate(neat_long = paste0(neat_long, ', ', neat_o))
     
   cat('\n')
   cat(print_df$neat_long,sep = '')
@@ -499,7 +608,67 @@ age_standardised_rel_imd_violin_plot <- function(
       facet_wrap(.~ p_engreg)
   }
   
+  if(r0_analysis){
+    p <- p +
+      facet_grid(. ~ r0) + theme(strip.text.x=element_text(face='bold'))
+  }
+  
   p
   
 }
 
+age_standardised_rel_imd_data <- function(
+  demog_in,
+  data_in,
+  base_imd,
+  regional = F,
+  combined = F,
+  r0_analysis = F
+){
+  
+  if(regional + combined == 2){stop("Can't be in regional and combined analyses")}
+  
+  pop_vec <- c('age')
+  if(regional){pop_vec <- c(pop_vec, 'p_engreg')}
+  reg_vec <- if(!regional){c()}else{c('p_engreg')}
+  
+  ## standard population
+  standard_pop <- demog_in %>% 
+    rename(age = Age) %>% 
+    group_by(!!!syms(pop_vec)) %>% 
+    summarise(st_pop = sum(Population)) %>% 
+    group_by(!!!syms(reg_vec)) %>% 
+    mutate(st_total_pop = sum(st_pop),
+           standard_prop = st_pop/st_total_pop) 
+  
+  vec <- c('sim','imd')
+  if(regional){vec <- c(vec, 'p_engreg')}
+  if(combined){vec <- c(vec, 'model')}
+  if(r0_analysis){vec <- c(vec, 'r0')}
+  vec_no_imd <- vec[vec!='imd']
+  vec_no_sim <- vec[vec!='sim']
+  
+  age_standardised_ars <- data_in %>% 
+    left_join(standard_pop, by = pop_vec) %>% 
+    mutate(imd_ar = infections/pop,
+           infected = imd_ar*standard_prop) %>% 
+    group_by(!!!syms(vec)) %>% 
+    summarise(as_attack_rate = sum(infected)) %>% 
+    ungroup()
+  
+  base_imd_ars <- age_standardised_ars %>% 
+    filter(imd == base_imd) %>% 
+    rename(base_as_attack_rate = as_attack_rate) %>% 
+    select(!imd)
+  
+  rel_imd_ars_as <- age_standardised_ars %>% 
+    left_join(base_imd_ars, by = vec_no_imd) %>% 
+    mutate(rel_ar = as_attack_rate/base_as_attack_rate)
+  
+  if(combined){
+    rel_imd_ars_as$model <- factor(rel_imd_ars_as$model, levels = unique(data_in$model))
+  }
+  
+  rel_imd_ars_as
+  
+}

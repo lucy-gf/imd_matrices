@@ -326,5 +326,20 @@ regional_r0_plot + arr_plot_imd + arr_plot_imd_as +
 ## save
 ggsave(.args[4], dpi=600, device = "png", width = 14, height = 10)  
 
-
-
+if(reg_sens_analysis == 1){
+  
+  layout <- "
+AABB
+CCCC
+CCCC
+"
+  
+  arr_plot_imd + arr_plot_imd_as + 
+    arr_plot_imd_as_reg + 
+    plot_layout(design = layout) + 
+    plot_annotation(tag_levels = 'a', tag_prefix = '(', tag_suffix = ')')
+  ggsave(gsub('.png','_R0_1.5.png',.args[4]), 
+         dpi=600, device = "png", width = 8, height = 10)  
+  
+}
+ 
